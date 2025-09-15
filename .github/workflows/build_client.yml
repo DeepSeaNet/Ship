@@ -35,7 +35,7 @@ jobs:
           token: ${{ secrets.DEAP_SEA_NET_PAT }}
 
       - name: Set OpenSSL env vars
-        if: startsWith(matrix.os, 'windows')
+        if: matrix.platform == 'window-latest'
         shell: pwsh
         run: |
           $opensslDir = "C:/Program Files/OpenSSL"
