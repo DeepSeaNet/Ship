@@ -34,6 +34,18 @@ jobs:
           path: Sea
           token: ${{ secrets.DEAP_SEA_NET_PAT }}
 
+      - name: Install OpenSSL (windows only)
+        if: matrix.platform == 'windows-latest'
+        run: choco install openssl -y
+
+      - name: Set OPENSSL_DIR (windows only)
+        if: matrix.platform == 'windows-latest'
+        run: echo "OPENSSL_DIR=C:/Program Files/OpenSSL-Win64" >> $GITHUB_ENV
+
+      - name: Verify OpenSSL installation (windows only)
+        if: matrix.platform == 'windows-latest'
+        run: openssl version
+        
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -66,55 +78,6 @@ jobs:
 
       - name: Verify protoc
         run: protoc --version
-      
-      - name: Install vcpkg
-        run: |
-          git clone https://github.com/microsoft/vcpkg.git
-          ./vcpkg/bootstrap-vcpkg.bat
-      
-      - name: Install OpenSSL via vcpkg
-        run: ./vcpkg/vcpkg install openssl:x64-windows
-      
-      - name: Set environment variables for OpenSSL
-        run: |
-          echo "OPENSSL_DIR=$(pwd)/vcpkg/installed/x64-windows" >> $GITHUB_ENV
-          echo "OPENSSL_INCLUDE_DIR=$(pwd)/vcpkg/installed/x64-windows/include" >> $GITHUB_ENV
-          echo "OPENSSL_LIB_DIR=$(pwd)/vcpkg/installed/x64-windows/lib" >> $GITHUB_ENV
-
-      - name: Verify OpenSSL installation and env
-        shell: pwsh
-        run: |
-          Write-Host "=== Checking OpenSSL version ==="
-          try {
-              $version = & openssl version
-              Write-Host "OpenSSL version: $version"
-          } catch {
-              Write-Error "OpenSSL is not installed or not found in PATH"
-              exit 1
-          }
-      
-          Write-Host "=== Checking OpenSSL environment variables ==="
-          if (-not $env:OPENSSL_DIR) {
-              Write-Error "OPENSSL_DIR is not set!"
-              exit 1
-          } else {
-              Write-Host "OPENSSL_DIR = $env:OPENSSL_DIR"
-          }
-      
-          if (-not $env:OPENSSL_INCLUDE_DIR) {
-              Write-Error "OPENSSL_INCLUDE_DIR is not set!"
-              exit 1
-          } else {
-              Write-Host "OPENSSL_INCLUDE_DIR = $env:OPENSSL_INCLUDE_DIR"
-          }
-      
-          if (-not $env:OPENSSL_LIB_DIR) {
-              Write-Error "OPENSSL_LIB_DIR is not set!"
-              exit 1
-          } else {
-              Write-Host "OPENSSL_LIB_DIR = $env:OPENSSL_LIB_DIR"
-          }
-
           
       - name: Install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
