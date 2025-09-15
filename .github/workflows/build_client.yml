@@ -66,13 +66,16 @@ jobs:
 
       - name: Verify protoc
         run: protoc --version
-
+      
       - name: Install OpenSSL (Windows)
         if: matrix.platform == 'windows-latest'
+        shell: pwsh
         run: |
           choco install openssl -y
-          echo "OPENSSL_DIR=C:\Program Files\OpenSSL-Win64" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        shell: pwsh
+          $openssl_dir = (Get-ChildItem -Path 'C:\ProgramData\chocolatey\lib\openssl\tools\' | Select-Object -First 1).FullName
+          echo "OPENSSL_DIR=$openssl_dir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "OPENSSL_INCLUDE_DIR=$openssl_dir/include" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "OPENSSL_LIBS=$openssl_dir/lib/VC/static" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
