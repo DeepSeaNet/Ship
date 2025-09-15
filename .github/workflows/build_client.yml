@@ -72,10 +72,13 @@ jobs:
         shell: pwsh
         run: |
           choco install openssl -y
-          $openssl_dir = (Get-ChildItem -Path 'C:\ProgramData\chocolatey\lib\openssl\tools\' | Select-Object -First 1).FullName
+          $openssl_dir = (Get-ChildItem -Path 'C:\ProgramData\chocolatey\lib\openssl' -Directory -Recurse | Where-Object { $_.Name -eq 'bin' }).Parent.FullName
+          if (-not $openssl_dir) {
+              throw "Could not find OpenSSL installation directory."
+          }
           echo "OPENSSL_DIR=$openssl_dir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "OPENSSL_INCLUDE_DIR=$openssl_dir/include" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "OPENSSL_LIBS=$openssl_dir/lib/VC/static" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "OPENSSL_LIBS=$openssl_dir/lib" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
