@@ -72,9 +72,9 @@ jobs:
         shell: pwsh
         run: |
           choco install openssl -y
-          $openssl_dir = (Get-ChildItem -Path 'C:\ProgramData\chocolatey\lib\openssl' -Directory -Recurse | Where-Object { $_.Name -eq 'bin' }).Parent.FullName
-          if (-not $openssl_dir) {
-              throw "Could not find OpenSSL installation directory."
+          $openssl_dir = 'C:\Program Files\OpenSSL\'
+          if (-not (Test-Path $openssl_dir)) {
+              throw "OpenSSL installation directory not found at the expected path: $openssl_dir"
           }
           echo "OPENSSL_DIR=$openssl_dir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "OPENSSL_INCLUDE_DIR=$openssl_dir/include" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
