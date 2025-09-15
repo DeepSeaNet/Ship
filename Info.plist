@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Камера и микрофон -->
+  <key>NSCameraUsageDescription</key>
+  <string>Request camera access for WebRTC</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Request microphone access for WebRTC</string>
+
+  <!-- Фото / Фотогалерея -->
+  <key>NSPhotoLibraryUsageDescription</key>
+  <string>Request access to photo library to select images/videos</string>
+
+  <!-- Локальная сеть -->
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>Request access to devices on your local network</string>
+
+  <!-- Уведомления -->
+  <key>NSUserNotificationUsageDescription</key>
+  <string>Request permission to send you notifications</string>
+</dict>
+</plist>

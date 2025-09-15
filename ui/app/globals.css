@@ -1,0 +1,415 @@
+@import 'tailwindcss';
+
+@config "../tailwind.config.js";
+
+@plugin './hero.ts';
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@utility container-gradient {
+  @apply bg-linear-to-r;
+  background-image: linear-gradient(
+    to right,
+    var(--theme-primary),
+    var(--theme-accent)
+  );
+}
+
+@utility ship-card {
+  background-color: var(--theme-backgroundAlt);
+  border-color: color-mix(
+    in srgb,
+    var(--theme-background) 80%,
+    var(--theme-foreground) 20%
+  );
+  @apply backdrop-blur-xs rounded-lg shadow-lg border;
+}
+
+@utility wave-button {
+  background-color: var(--theme-primary);
+  color: var(--theme-light);
+  @apply relative overflow-hidden rounded-lg 
+          transition-all duration-300;
+
+  &::after {
+    content: '';
+    @apply absolute inset-0 bg-white/20 transform -translate-x-full;
+    animation: wave 2s infinite;
+  }
+
+  /* Добавляем эффект волны для кнопок */
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 300%;
+    height: 300%;
+    background: radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.2) 0%,
+      transparent 60%
+    );
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+    transition:
+      transform 0.6s ease-out,
+      opacity 0.6s ease-out;
+  }
+
+  &:active::after {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    transition:
+      transform 0s,
+      opacity 0.3s ease-out;
+  }
+}
+
+@utility message-bubble {
+  /* Остальные стили */
+  @apply p-3 rounded-lg break-words inline-block;
+}
+
+@utility message-bubble-sent {
+  background-color: var(--theme-primary);
+  color: var(--theme-light);
+  @apply rounded-tr-none ml-auto;
+}
+
+@utility message-bubble-received {
+  background-color: var(--theme-backgroundAlt);
+  color: var(--theme-foreground);
+  @apply rounded-tl-none mr-auto;
+}
+
+@utility message-width-narrow {
+  @apply max-w-[60%];
+}
+
+@utility message-width-normal {
+  @apply max-w-[75%];
+}
+
+@utility message-width-wide {
+  @apply max-w-[90%];
+}
+
+@utility sidebar-item {
+  @apply flex items-center p-3 rounded-md transition-colors duration-200 cursor-pointer;
+  background-color: transparent;
+  &:hover {
+    background-color: var(--theme-secondaryLight);
+  }
+  @media (max-width: 768px) {
+    @apply min-h-[44px];
+  }
+}
+
+@utility sidebar-item-active {
+  background-color: var(--theme-primary);
+  color: var(--theme-light);
+  &:hover {
+    background-color: var(--theme-primaryDark);
+  }
+}
+
+@utility avatar {
+  @apply rounded-full overflow-hidden flex-shrink-0 object-cover;
+}
+
+@utility transition-all-medium {
+  @apply transition-all duration-300 ease-in-out;
+}
+
+@utility sidebar-collapse {
+  width: 0;
+  overflow: hidden;
+  opacity: 0;
+  margin: 0;
+  padding: 0;
+  transition: all 0.3s ease-in-out;
+}
+
+@utility sidebar-expand {
+  width: 20rem; /* w-80 */
+  opacity: 1;
+  transition: all 0.3s ease-in-out;
+}
+
+@utility mobile-fullscreen {
+  @media (max-width: 768px) {
+    width: 100vw;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 50;
+  }
+}
+
+@utility mobile-fullscreen-content {
+  @media (max-width: 768px) {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+@utility mobile-hidden {
+  @media (max-width: 768px) {
+    display: none;
+  }
+}
+
+@utility mobile-overlay {
+  @media (max-width: 768px) {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 40;
+  }
+}
+
+@utility mobile-slide-in-left {
+  /* Мобильная оптимизация */
+
+  /* Добавляем анимацию для переходов на мобильных */
+  animation: mobile-slide-in-left 0.3s forwards;
+}
+
+@utility mobile-slide-out-left {
+  animation: mobile-slide-out-left 0.3s forwards;
+}
+
+@utility animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+@utility animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Определение CSS-переменных для темизации */
+:root {
+  /* Тема по умолчанию */
+  --theme-foreground: rgb(0, 0, 0);
+  --theme-background: rgb(245, 247, 250);
+  --theme-backgroundAlt: rgb(255, 255, 255);
+  --theme-primary: rgb(4, 127, 220);
+  --theme-primaryLight: #5c7cfa;
+  --theme-primaryDark: #0056b3;
+  --theme-secondary: rgb(230, 240, 255);
+  --theme-secondaryLight: #f1f3f5;
+  --theme-secondaryDark: #d1dbe8;
+  --theme-accent: rgb(255, 140, 0);
+  --theme-dark: #212529;
+  --theme-light: #f8f9fa;
+  --theme-success: #28a745;
+  --theme-warning: #ffc107;
+  --theme-danger: #dc3545;
+  --theme-info: #17a2b8;
+  --theme-surface: rgb(255, 255, 255);
+}
+
+/* Стили для предотвращения нежелательного скролла и масштабирования на мобильных устройствах */
+html,
+body {
+  position: fixed;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-overflow-scrolling: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  color: var(--theme-foreground);
+  background-color: var(--theme-background);
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230063af' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+.dark body {
+  color: var(--theme-foreground);
+  background-color: var(--theme-background);
+}
+
+/* Включаем скролл только в контейнерах, где это необходимо */
+.scrollable {
+  overflow-y: auto;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+@layer components {
+  input[type='range']::-moz-range-thumb {
+    background-color: var(--theme-primaryLight);
+    @apply w-4 h-4 rounded-full cursor-pointer border-none;
+  }
+  @media (max-width: 768px) {
+    /* Улучшение для тач-интерфейсов */
+
+    /* Увеличиваем размер шрифта для лучшей читаемости на мобильных */
+    body {
+      font-size: 16px;
+    }
+  }
+
+  @keyframes mobile-slide-in-left {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes mobile-slide-out-left {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-100%);
+    }
+  }
+}
+
+@keyframes slideInFromTop {
+  0% {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Тематические CSS-классы для специфичных тем */
+[data-theme='nord'] .container-gradient {
+  background-image: linear-gradient(to right, #88c0d0, #ebcb8b);
+}
+
+[data-theme='monokai'] .container-gradient {
+  background-image: linear-gradient(to right, #f92672, #fd971f);
+}
+
+/* Кофейные темы */
+[data-theme='coffee'] .container-gradient {
+  background-image: linear-gradient(to right, #c8864e, #d4b483);
+}
+
+[data-theme='coffeeLatte'] .container-gradient {
+  background-image: linear-gradient(to right, #a67c52, #cb8c4d);
+}
+
+/* Добавляем тонкую текстуру "кофейных зерен" на фон для кофейных тем */
+[data-theme='coffee'] body,
+[data-theme='coffeeLatte'] body {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23A67C52' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3Csvg%3E");
+}
+
+/* Уникальные стили для элементов в кофейных темах */
+[data-theme='coffee'] .ship-card,
+[data-theme='coffeeLatte'] .ship-card {
+  border-width: 2px;
+  box-shadow: 0 4px 16px rgba(166, 124, 82, 0.15);
+}
+
+/* Иконка кофейной чашки для кнопок в кофейных темах */
+[data-theme='coffee'] .wave-button::before,
+[data-theme='coffeeLatte'] .wave-button::before {
+  content: '☕ ';
+  opacity: 0.8;
+}
+
+/* Закругленные углы для элементов в кофейных темах */
+[data-theme='coffee'] button,
+[data-theme='coffeeLatte'] button,
+[data-theme='coffee'] .rounded-lg,
+[data-theme='coffeeLatte'] .rounded-lg {
+  border-radius: 1rem;
+}
+
+/* Анимация для кнопок в кофейных темах - эффект "пара" */
+@keyframes coffee-steam {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(1);
+  }
+  20% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(1.5);
+  }
+}
+
+[data-theme='coffee'] .wave-button:hover::after,
+[data-theme='coffeeLatte'] .wave-button:hover::after {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: calc(50% - 2px);
+  width: 4px;
+  height: 5px;
+  background: var(--theme-accent);
+  border-radius: 50%;
+  opacity: 0;
+  animation: coffee-steam 2s ease-out infinite;
+}
+
+/* Utility классы для быстрого применения цветов темы */
+.theme-bg {
+  background-color: var(--theme-background);
+}
+
+.theme-text {
+  color: var(--theme-foreground);
+}
+
+.theme-primary {
+  color: var(--theme-primary);
+}
+
+.theme-primary-bg {
+  background-color: var(--theme-primary);
+}
+
+.theme-accent {
+  color: var(--theme-accent);
+}
+
+.theme-accent-bg {
+  background-color: var(--theme-accent);
+}
+
+.theme-surface {
+  background-color: var(--theme-surface);
+}

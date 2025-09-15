@@ -1,0 +1,11 @@
+tsconfig.tsbuildinfo
+/gen
+/node_modules
+Cargo.lock
+package-lock.json
+/icons
+/ui/dist
+/ui/out
+/ui/.next
+/ui/out
+/target
