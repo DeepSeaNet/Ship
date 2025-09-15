@@ -71,14 +71,12 @@ jobs:
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         run: |
-          choco install openssl -y
-          $openssl_dir = 'C:\Program Files\OpenSSL\'
-          if (-not (Test-Path $openssl_dir)) {
-              throw "OpenSSL installation directory not found at the expected path: $openssl_dir"
-          }
+          choco install openssl --version=3.5.2 -y
+          $openssl_dir = 'C:\Program Files\OpenSSL'
           echo "OPENSSL_DIR=$openssl_dir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "OPENSSL_INCLUDE_DIR=$openssl_dir/include" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "OPENSSL_LIBS=$openssl_dir/lib" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "OPENSSL_LIB_DIR=$openssl_dir\lib" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "OPENSSL_INCLUDE_DIR=$openssl_dir\include" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "$openssl_dir\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
