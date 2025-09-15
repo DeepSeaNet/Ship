@@ -47,7 +47,7 @@ jobs:
           cache-dependency-path: ./pnpm-lock.yaml
 
       - name: Install frontend dependencies
-        run: cd anongram-client && pnpm install
+        run: pnpm install
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
