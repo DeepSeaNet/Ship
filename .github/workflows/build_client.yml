@@ -67,46 +67,55 @@ jobs:
       - name: Verify protoc
         run: protoc --version
       
-      - name: Configure OpenSSL for MSVC (Windows) — pick VC lib (clean)
-        if: matrix.platform == 'windows-latest'
+      - name: Install vcpkg
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git
+          ./vcpkg/bootstrap-vcpkg.bat
+      
+      - name: Install OpenSSL via vcpkg
+        run: ./vcpkg/vcpkg install openssl:x64-windows
+      
+      - name: Set environment variables for OpenSSL
+        run: |
+          echo "OPENSSL_DIR=$(pwd)/vcpkg/installed/x64-windows" >> $GITHUB_ENV
+          echo "OPENSSL_INCLUDE_DIR=$(pwd)/vcpkg/installed/x64-windows/include" >> $GITHUB_ENV
+          echo "OPENSSL_LIB_DIR=$(pwd)/vcpkg/installed/x64-windows/lib" >> $GITHUB_ENV
+
+      - name: Verify OpenSSL installation and env
         shell: pwsh
         run: |
-          $openssl_root = 'C:\Program Files\OpenSSL'
-          $lib_root = Join-Path $openssl_root 'lib'
-          $vc_root = Join-Path $lib_root 'VC'
-
-          $filenames = @(
-            'libcrypto64MD.lib',
-            'libcrypto64MDd.lib',
-            'libcrypto64MT.lib',
-            'libcrypto64MTd.lib',
-            '..\lib\libcrypto.lib',          # fallback relative to VC folder
-            '..\lib\libcrypto_static.lib'
-          )
-
-          $candidates = $filenames | ForEach-Object { Join-Path $vc_root $_ }
-          # also try absolute lib_root candidates (for the ones with .. above this still works)
-          $chosenLib = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-
-          if (-not $chosenLib) {
-            Write-Host "No candidate lib found. Listing lib folder contents:"
-            Get-ChildItem -Path $lib_root -Recurse | ForEach-Object { Write-Host $_.FullName }
-            throw "Cannot find any libcrypto candidate."
+          Write-Host "=== Checking OpenSSL version ==="
+          try {
+              $version = & openssl version
+              Write-Host "OpenSSL version: $version"
+          } catch {
+              Write-Error "OpenSSL is not installed or not found in PATH"
+              exit 1
+          }
+      
+          Write-Host "=== Checking OpenSSL environment variables ==="
+          if (-not $env:OPENSSL_DIR) {
+              Write-Error "OPENSSL_DIR is not set!"
+              exit 1
+          } else {
+              Write-Host "OPENSSL_DIR = $env:OPENSSL_DIR"
+          }
+      
+          if (-not $env:OPENSSL_INCLUDE_DIR) {
+              Write-Error "OPENSSL_INCLUDE_DIR is not set!"
+              exit 1
+          } else {
+              Write-Host "OPENSSL_INCLUDE_DIR = $env:OPENSSL_INCLUDE_DIR"
+          }
+      
+          if (-not $env:OPENSSL_LIB_DIR) {
+              Write-Error "OPENSSL_LIB_DIR is not set!"
+              exit 1
+          } else {
+              Write-Host "OPENSSL_LIB_DIR = $env:OPENSSL_LIB_DIR"
           }
 
-          $chosenDir = Split-Path $chosenLib -Parent
-          Write-Host "Chosen lib file: $chosenLib"
-          Write-Host "Chosen lib dir:  $chosenDir"
-
-          "OPENSSL_DIR=$openssl_root" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "OPENSSL_LIB_DIR=$chosenDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "OPENSSL_INCLUDE_DIR=$(Join-Path $openssl_root 'include')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "$(Join-Path $openssl_root 'bin')" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          $newLib = "$chosenDir;$env:LIB"
-          "LIB=$newLib" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-          Write-Host "OPENSSL_LIB_DIR set to: $chosenDir"
-
+          
       - name: Install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
