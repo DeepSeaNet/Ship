@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Rust (Cargo)
+  - package-ecosystem: "cargo"
+    directory: "/" # где лежит Cargo.toml
+    schedule:
+      interval: "weekly"
+
+  # Node.js (npm/pnpm/yarn)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
