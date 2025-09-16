@@ -12,10 +12,4 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    groups:
-      nextjs:
-        patterns:
-          - "next"
-    # Override the default command to remove the recursive flag
-    update-command: "pnpm update --lockfile-only"
     target-branch: "dev"
