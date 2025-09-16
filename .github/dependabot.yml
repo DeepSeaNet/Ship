@@ -5,9 +5,11 @@ updates:
     directory: "/" # где лежит Cargo.toml
     schedule:
       interval: "weekly"
+    target-branch: "dev"
 
   # Node.js (npm/pnpm/yarn)
   - package-ecosystem: "npm"
-    directory: "/ui"
+    directory: "/ui" # где лежит package.json для ui
     schedule:
       interval: "weekly"
+    target-branch: "dev"
