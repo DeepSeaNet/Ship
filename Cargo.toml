@@ -28,7 +28,7 @@ aes-gcm = "0.10.3"
 rand = "0.9.2"
 
 # MLS (Message Layer Security)
-mls-rs = { version = "0.50.1", features = ["sqlite", "self_remove_proposal", "last_resort_key_package_ext"] }
+mls-rs = { version = "0.51.0", features = ["sqlite", "self_remove_proposal", "last_resort_key_package_ext"] }
 mls-rs-codec = "0.7.0"
 mls-rs-core = "0.24.0"
 mls-rs-crypto-rustcrypto = "0.19.0"
