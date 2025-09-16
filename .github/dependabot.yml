@@ -5,6 +5,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    target-branch: "dev"
 
   # Node.js (npm/pnpm/yarn)
   - package-ecosystem: "npm"
@@ -17,3 +18,4 @@ updates:
           - "next"
     # Override the default command to remove the recursive flag
     update-command: "pnpm update --lockfile-only"
+    target-branch: "dev"
