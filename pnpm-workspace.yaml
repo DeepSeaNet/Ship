@@ -1,6 +1,10 @@
+packages:
+  - ui
+
 onlyBuiltDependencies:
   - '@heroui/shared-utils'
   - '@tailwindcss/oxide'
   - esbuild
+  - protobufjs
   - sharp
   - unrs-resolver

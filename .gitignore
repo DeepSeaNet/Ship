@@ -1,6 +1,6 @@
 tsconfig.tsbuildinfo
 /gen
-/node_modules
+/ui/node_modules
 Cargo.lock
 package-lock.json
 /ui/dist
@@ -8,3 +8,4 @@ package-lock.json
 /ui/.next
 /ui/out
 /target
+/node_modules

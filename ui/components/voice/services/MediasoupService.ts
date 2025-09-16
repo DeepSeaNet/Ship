@@ -170,7 +170,7 @@ export class MediasoupService {
     const transport_options = { ...producerTransportOptions }
     if (this.transformApi === 'encodedStreams') {
       transport_options.additionalSettings = {
-        encodedInsertableStreams: true,
+        //encodedInsertableStreams: true,
       }
     }
 
@@ -246,7 +246,7 @@ export class MediasoupService {
       recvTransport = this.device.createRecvTransport({
         ...consumerTransportOptions,
         additionalSettings: {
-          encodedInsertableStreams: true,
+          //encodedInsertableStreams: true,
         },
       })
     } else {
