@@ -8,6 +8,6 @@ updates:
 
   # Node.js (npm/pnpm/yarn)
   - package-ecosystem: "npm"
-    directory: "/"
+    directory: "/ui"
     schedule:
       interval: "weekly"
