@@ -2,14 +2,18 @@ version: 2
 updates:
   # Rust (Cargo)
   - package-ecosystem: "cargo"
-    directory: "/" # где лежит Cargo.toml
+    directory: "/"
     schedule:
       interval: "weekly"
-    target-branch: "dev"
 
   # Node.js (npm/pnpm/yarn)
   - package-ecosystem: "npm"
-    directory: "/ui" # где лежит package.json для ui
+    directory: "/"
     schedule:
       interval: "weekly"
-    target-branch: "dev"
+    groups:
+      nextjs:
+        patterns:
+          - "next"
+    # Override the default command to remove the recursive flag
+    update-command: "pnpm update --lockfile-only"
