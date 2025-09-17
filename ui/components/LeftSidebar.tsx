@@ -118,7 +118,7 @@ const getContainerColor = (name: string) => {
 // Функция для ограничения длины описания
 const truncateDescription = (
   description: string | undefined,
-  maxLength: number = 25,
+  maxLength = 25,
 ) => {
   if (!description) return ''
   return description.length > maxLength
@@ -127,7 +127,7 @@ const truncateDescription = (
 }
 
 // Функция для сокращения никнейма
-const truncateUsername = (username: string, maxLength: number = 15) => {
+const truncateUsername = (username: string, maxLength = 15) => {
   if (!username) return ''
   return username.length > maxLength
     ? `${username.substring(0, maxLength)}...`
