@@ -113,7 +113,7 @@ export function generateThemeFromPrimaryColor(
   id: string,
   name: string,
   primaryColor: string,
-  isDark: boolean = false,
+  isDark = false,
   accentColor?: string, // Добавляем опциональный параметр для акцентного цвета
 ): Theme {
   // Используем CSS переменные для вычисления цветов

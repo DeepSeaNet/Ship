@@ -28,9 +28,9 @@ export class AdvancedMicrophoneController {
   private options: Required<AdvancedMicrophoneOptions>
 
   // Состояние
-  private isVoiceActive: boolean = false
-  private lastVoiceActivity: number = 0
-  private lastSilenceStart: number = 0
+  private isVoiceActive = false
+  private lastVoiceActivity = 0
+  private lastSilenceStart = 0
 
   // VAD
   private vad: MicVAD | null = null
