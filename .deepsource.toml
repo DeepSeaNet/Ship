@@ -14,9 +14,6 @@ name = "javascript"
 name = "test-coverage"
 
 [[analyzers]]
-name = "docker"
-
-[[analyzers]]
 name = "rust"
 
   [analyzers.meta]
@@ -24,3 +21,9 @@ name = "rust"
 
 [[analyzers]]
 name = "sql"
+
+[[transformers]]
+name = "prettier"
+
+[[transformers]]
+name = "rustfmt"
