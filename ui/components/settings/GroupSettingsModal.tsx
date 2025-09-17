@@ -324,7 +324,7 @@ const GroupSettingsModal: React.FC<GroupSettingsModalProps> = ({
 
     const imageCount = mediaItems.filter(
       (item) =>
-        item.filename && item.filename.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i),
+        item.filename?.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i),
     ).length
 
     // Получаем файлы (не-изображения)
@@ -340,8 +340,7 @@ const GroupSettingsModal: React.FC<GroupSettingsModalProps> = ({
     const images = mediaItems
       .filter(
         (item) =>
-          item.filename &&
-          item.filename.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i),
+          item.filename?.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i),
       )
       .slice(0, 6)
 

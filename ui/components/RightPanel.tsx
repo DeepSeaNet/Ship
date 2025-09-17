@@ -254,8 +254,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
               console.log('Chats:', chats)
               const existingChat = chats.find(
                 (chat: Chat) =>
-                  chat.participants &&
-                  chat.participants.some(
+                  chat.participants?.some(
                     (p: number) => Number(p) === Number(action.userId),
                   ),
               )
@@ -297,8 +296,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                 const newChat = Array.isArray(chats)
                   ? chats.find(
                       (chat: Chat) =>
-                        chat.participants &&
-                        chat.participants.some(
+                        chat.participants?.some(
                           (p: number) => Number(p) === Number(action.userId),
                         ),
                     )
@@ -1269,7 +1267,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
 
     const imageCount = mediaItems.filter(
       (item) =>
-        item.filename && item.filename.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i),
+        item.filename?.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i),
     ).length
 
     const linkCount = 0 // Пока не реализовано
@@ -1287,8 +1285,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
     const images = mediaItems
       .filter(
         (item) =>
-          item.filename &&
-          item.filename.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i),
+          item.filename?.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i),
       )
       .slice(0, 6)
 
