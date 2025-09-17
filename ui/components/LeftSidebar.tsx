@@ -515,7 +515,7 @@ export default function LeftSidebar({
                 variant="flat"
                 color="primary"
                 startContent={<FiMic className="h-4 w-4 text-blue-500" />}
-                onPress={() => onOpenVoiceChannel && onOpenVoiceChannel()}
+                onPress={() => onOpenVoiceChannel?.()}
               >
                 Создать голосовой чат
               </DropdownItem>
