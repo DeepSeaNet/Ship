@@ -252,11 +252,10 @@ const RightPanel: React.FC<RightPanelProps> = ({
 
               // Look for a direct chat with this user
               console.log('Chats:', chats)
-              const existingChat = chats.find(
-                (chat: Chat) =>
-                  chat.participants?.some(
-                    (p: number) => Number(p) === Number(action.userId),
-                  ),
+              const existingChat = chats.find((chat: Chat) =>
+                chat.participants?.some(
+                  (p: number) => Number(p) === Number(action.userId),
+                ),
               )
 
               if (existingChat) {
@@ -294,11 +293,10 @@ const RightPanel: React.FC<RightPanelProps> = ({
 
                 // Now find the newly created chat and select it
                 const newChat = Array.isArray(chats)
-                  ? chats.find(
-                      (chat: Chat) =>
-                        chat.participants?.some(
-                          (p: number) => Number(p) === Number(action.userId),
-                        ),
+                  ? chats.find((chat: Chat) =>
+                      chat.participants?.some(
+                        (p: number) => Number(p) === Number(action.userId),
+                      ),
                     )
                   : null
 
@@ -1265,9 +1263,8 @@ const RightPanel: React.FC<RightPanelProps> = ({
         !item.filename.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i),
     ).length
 
-    const imageCount = mediaItems.filter(
-      (item) =>
-        item.filename?.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i),
+    const imageCount = mediaItems.filter((item) =>
+      item.filename?.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i),
     ).length
 
     const linkCount = 0 // Пока не реализовано
@@ -1283,10 +1280,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
 
     // Получаем изображения
     const images = mediaItems
-      .filter(
-        (item) =>
-          item.filename?.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i),
-      )
+      .filter((item) => item.filename?.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i))
       .slice(0, 6)
 
     return (
