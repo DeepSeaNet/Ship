@@ -236,7 +236,7 @@ export default function InputBar({
 
   // Функции для вставки Markdown-разметки
   const insertMarkdown = useCallback(
-    (prefix: string, suffix: string = '') => {
+    (prefix: string, suffix = '') => {
       if (!inputRef.current) return
 
       const { selectionStart, selectionEnd } = inputRef.current
