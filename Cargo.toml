@@ -11,6 +11,8 @@ tonic = "0.14.2"
 tonic-prost = "0.14.2"
 prost = "0.14.1"
 prost-types = "0.14.1"
+tonic-h3 = { git = "https://github.com/youyuanwu/tonic-h3.git", features= ["quinn"] }
+quinn = {version = "0.11.9", features = ["runtime-tokio"] }
 
 # Serialization / Deserialization
 serde = { version = "1.0.219", features = ["derive"] }

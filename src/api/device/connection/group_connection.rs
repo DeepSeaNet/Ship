@@ -10,11 +10,15 @@ use group_microservice::{
     InitGroupStreamRequest, RegisterGroupDeviceRequest, StreamMessage, StreamMessageGroupMessage,
     StreamResponse, UploadKeyPackagesRequest,
 };
+use quinn::Endpoint;
+use tauri::http::Uri;
+use tonic_h3::quinn::H3QuinnConnector;
+use tonic_h3::H3Channel;
 use std::collections::HashMap;
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::{Mutex, mpsc};
 use tokio_stream::StreamExt;
-use tonic::transport::Channel;
 use tonic::{Request, Status, Streaming};
 
 use crate::api::device::connection::group_microservice::{
@@ -26,7 +30,7 @@ use super::group_connection::group_microservice::StreamSendWelcomeMessageRequest
 
 #[derive(Clone)]
 pub struct Backend {
-    client: GroupDeliveryServiceClient<Channel>,
+    client: Arc<Mutex<GroupDeliveryServiceClient<H3Channel<H3QuinnConnector>>>>,
     // Отправитель сообщений в стрим
     stream_tx: Arc<Mutex<Option<mpsc::Sender<StreamMessage>>>>,
     // Сам стрим для приема сообщений
@@ -35,10 +39,23 @@ pub struct Backend {
 
 impl Backend {
     pub async fn new(address: String) -> Result<Self> {
-        let channel = Channel::from_shared(address)?.connect().await?;
+        let uri = Uri::from_str(&address.clone())?;
+        log::debug!("uri: {:?}", uri);
+        let endpoint = Endpoint::client(address.parse().unwrap()).map_err(|e| {
+            log::error!("Failed to create endpoint: {:?}", e);
+            e
+        })?;
+        log::debug!("endpoint: {:?}", endpoint);
+        let connector = H3QuinnConnector::new(
+            uri.clone(), "sea_group".to_string(), 
+            endpoint);
+        log::debug!("connector created");
+        let channel = H3Channel::new(connector, uri);
+        log::debug!("channel created");
         let client = GroupDeliveryServiceClient::new(channel);
+        log::debug!("client created");
         Ok(Self {
-            client,
+            client: Arc::new(Mutex::new(client)),
             stream_tx: Arc::new(Mutex::new(None)),
             stream: Arc::new(Mutex::new(None)),
         })
@@ -47,7 +64,7 @@ impl Backend {
 
 impl Backend {
     pub async fn register_device(
-        &mut self,
+        &self,
         user_id: u64,
         device_id: String,
         key_package: Option<Vec<u8>>,
@@ -59,12 +76,12 @@ impl Backend {
             key_package,
             signature,
         };
-        let _response = self.client.register_group_device(request).await.unwrap();
+        let _response = self.client.lock().await.register_group_device(request).await.unwrap();
         Ok(())
     }
 
     pub async fn upload_key_packages(
-        &mut self,
+        &self,
         user_id: u64,
         device_id: String,
         key_packages: Vec<Vec<u8>>,
@@ -76,38 +93,38 @@ impl Backend {
             key_packages,
             signature,
         };
-        let _response = self.client.upload_key_packages(request).await.unwrap();
+        let _response = self.client.lock().await.upload_key_packages(request).await.unwrap();
         Ok(())
     }
 
-    pub async fn get_user_credential(&mut self, user_id: u64) -> Result<Vec<u8>, Status> {
+    pub async fn get_user_credential(&self, user_id: u64) -> Result<Vec<u8>, Status> {
         let request = GetUserCredentialRequest { user_id };
-        let response = self.client.get_user_credential(request).await.unwrap();
+        let response = self.client.lock().await.get_user_credential(request).await.unwrap();
         Ok(response.into_inner().user_credential)
     }
 
     pub async fn get_user_key_packages(
-        &mut self,
+        &self,
         user_id: u64,
     ) -> Result<HashMap<String, Vec<u8>>, Status> {
         let request = GetUserKeyPackagesRequest { user_id };
-        let response = self.client.get_user_key_packages(request).await.unwrap();
+        let response = self.client.lock().await.get_user_key_packages(request).await.unwrap();
         Ok(response.into_inner().key_packages)
     }
 
-    pub async fn get_users_devices(&mut self, user_id: u64) -> Result<Vec<String>, Status> {
+    pub async fn get_users_devices(&self, user_id: u64) -> Result<Vec<String>, Status> {
         let request = GetUsersDevicesRequest { user_id };
-        let response = self.client.get_users_devices(request).await.unwrap();
+        let response = self.client.lock().await.get_users_devices(request).await.unwrap();
         Ok(response.into_inner().devices)
     }
 
     pub async fn get_device_key_package(
-        &mut self,
+        &self,
         user_id: u64,
         device_id: String,
     ) -> Result<Vec<u8>, Status> {
         let request = GetDeviceKeyPackageRequest { user_id, device_id };
-        let response = self.client.get_device_key_package(request).await.unwrap();
+        let response = self.client.lock().await.get_device_key_package(request).await.unwrap();
         Ok(response.into_inner().key_package)
     }
 
@@ -115,7 +132,7 @@ impl Backend {
 
     /// Инициализирует стрим сообщений с сервером
     pub async fn init_stream(
-        &mut self,
+        &self,
         user_id: u64,
         device_id: String,
         signature: Vec<u8>,
@@ -163,7 +180,7 @@ impl Backend {
         let stream_req = Request::new(tokio_stream::wrappers::ReceiverStream::new(stream_rx));
 
         // Открываем двусторонний стрим с сервером
-        let stream = self.client.stream_messages(stream_req).await?.into_inner();
+        let stream = self.client.lock().await.stream_messages(stream_req).await?.into_inner();
 
         // Сохраняем стрим для получения ответов
         {
