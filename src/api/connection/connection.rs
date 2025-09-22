@@ -9,7 +9,7 @@ pub fn get_avaliable_servers() -> String {
 }
 
 pub fn get_group_servers() -> String {
-    String::from("192.168.101.21:50053")
+    String::from("h3://192.168.101.21:50053")
 }
 
 pub fn get_avaliable_voice_servers() -> String {

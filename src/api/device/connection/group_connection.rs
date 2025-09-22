@@ -10,7 +10,7 @@ use group_microservice::{
     InitGroupStreamRequest, RegisterGroupDeviceRequest, StreamMessage, StreamMessageGroupMessage,
     StreamResponse, UploadKeyPackagesRequest,
 };
-use quinn::Endpoint;
+use quinn::{rustls, ClientConfig, Endpoint};
 use tauri::http::Uri;
 use tonic_h3::quinn::H3QuinnConnector;
 use tonic_h3::H3Channel;
@@ -21,6 +21,7 @@ use tokio::sync::{Mutex, mpsc};
 use tokio_stream::StreamExt;
 use tonic::{Request, Status, Streaming};
 
+use crate::api::device::connection::endpoint::create_client_endpoint;
 use crate::api::device::connection::group_microservice::{
     GetDeviceKeyPackageRequest, StreamAckDeliveryRequest, UpdateGroupSubscriptionsRequest,
 };
@@ -40,20 +41,19 @@ pub struct Backend {
 impl Backend {
     pub async fn new(address: String) -> Result<Self> {
         let uri = Uri::from_str(&address.clone())?;
-        log::debug!("uri: {:?}", uri);
-        let endpoint = Endpoint::client(address.parse().unwrap()).map_err(|e| {
-            log::error!("Failed to create endpoint: {:?}", e);
-            e
+        
+        let endpoint = create_client_endpoint().map_err(|e | {
+            log::error!("Failed to create endpoint: {}", e);
+            anyhow::anyhow!("Failed to create endpoint")
         })?;
-        log::debug!("endpoint: {:?}", endpoint);
         let connector = H3QuinnConnector::new(
             uri.clone(), "sea_group".to_string(), 
             endpoint);
-        log::debug!("connector created");
+
         let channel = H3Channel::new(connector, uri);
-        log::debug!("channel created");
+
         let client = GroupDeliveryServiceClient::new(channel);
-        log::debug!("client created");
+
         Ok(Self {
             client: Arc::new(Mutex::new(client)),
             stream_tx: Arc::new(Mutex::new(None)),

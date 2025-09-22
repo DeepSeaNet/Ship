@@ -4,7 +4,7 @@ use mls_rs::Client;
 use mls_rs::client_builder::{
     BaseSqlConfig, WithCryptoProvider, WithIdentityProvider, WithMlsRules,
 };
-use mls_rs_crypto_rustcrypto::RustCryptoProvider;
+use mls_rs_crypto_awslc::AwsLcCryptoProvider;
 
 use crate::api::device::types::custom_mls::{
     identity::CustomIdentityProvider, rules::CustomMlsRules,
@@ -13,6 +13,6 @@ use crate::api::device::types::custom_mls::{
 pub type MlsClient = Client<
     WithIdentityProvider<
         CustomIdentityProvider,
-        WithCryptoProvider<RustCryptoProvider, WithMlsRules<CustomMlsRules, BaseSqlConfig>>,
+        WithCryptoProvider<AwsLcCryptoProvider, WithMlsRules<CustomMlsRules, BaseSqlConfig>>,
     >,
 >;

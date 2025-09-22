@@ -26,16 +26,16 @@ use crate::api::voice::types::ratchet_key::GroupRatchetManager;
 use crate::api::voice::types::ratchet_key::RatchetConfig;
 use crate::api::voice::voice_handler::VoiceHandler;
 use crate::api::voice::{connection::voice_connection::Backend, types::basic_types::VoiceUserData};
-use mls_rs_crypto_rustcrypto::RustCryptoProvider;
+use mls_rs_crypto_awslc::AwsLcCryptoProvider;
 use std::path::PathBuf;
 
 const CIPHERSUITE: CipherSuite = CipherSuite::CURVE25519_AES128;
 
 pub type MlsClient = Client<
-    WithIdentityProvider<BasicIdentityProvider, WithCryptoProvider<RustCryptoProvider, BaseConfig>>,
+    WithIdentityProvider<BasicIdentityProvider, WithCryptoProvider<AwsLcCryptoProvider, BaseConfig>>,
 >;
 pub type MlsGroup = Group<
-    WithIdentityProvider<BasicIdentityProvider, WithCryptoProvider<RustCryptoProvider, BaseConfig>>,
+    WithIdentityProvider<BasicIdentityProvider, WithCryptoProvider<AwsLcCryptoProvider, BaseConfig>>,
 >;
 
 pub struct VoiceUser {
@@ -50,7 +50,7 @@ pub struct VoiceUser {
 
 impl VoiceUser {
     pub async fn new(user_id: i64) -> Self {
-        let crypto_provider = RustCryptoProvider::default();
+        let crypto_provider = AwsLcCryptoProvider::default();
         let cipher_suite = crypto_provider.cipher_suite_provider(CIPHERSUITE).unwrap();
         let (secret, public) = cipher_suite.signature_key_generate().await.unwrap();
         let basic_identity = BasicCredential::new(user_id.to_le_bytes().to_vec());
@@ -114,7 +114,7 @@ impl VoiceUser {
         let data = VoiceUserData::mls_decode(&mut &*file_bytes)
             .map_err(|e| anyhow::anyhow!("Failed to decode voice user data: {}", e))?;
 
-        let crypto_provider = RustCryptoProvider::default();
+        let crypto_provider = AwsLcCryptoProvider::default();
 
         let client = ClientBuilder::new()
             .identity_provider(BasicIdentityProvider)

@@ -98,7 +98,7 @@ pub async fn create_group(
 
         let group_config = builder.build().map_err(|e| e.to_string())?;
 
-        let _ = user
+        let group_id = user
             .create_group(group_config.clone())
             .await
             .map_err(|e| e.to_string())?;

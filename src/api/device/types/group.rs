@@ -9,14 +9,14 @@ use mls_rs::Group;
 use mls_rs::client_builder::{
     BaseSqlConfig, WithCryptoProvider, WithIdentityProvider, WithMlsRules,
 };
-use mls_rs_crypto_rustcrypto::RustCryptoProvider;
+use mls_rs_crypto_awslc::AwsLcCryptoProvider;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::{collections::HashMap, fmt::Display};
 use tokio::sync::RwLock;
 pub type MlsGroup = Group<
     WithCryptoProvider<
-        RustCryptoProvider,
+        AwsLcCryptoProvider,
         WithIdentityProvider<CustomIdentityProvider, WithMlsRules<CustomMlsRules, BaseSqlConfig>>,
     >,
 >;
