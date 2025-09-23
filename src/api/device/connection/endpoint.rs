@@ -1,13 +1,13 @@
-use std::sync::Arc;
-use quinn::{Endpoint, ClientConfig as QuinnClientConfig};
 use quinn::crypto::rustls::QuicClientConfig;
+use quinn::{ClientConfig as QuinnClientConfig, Endpoint};
 use rustls::ClientConfig as RustlsClientConfig;
+use std::sync::Arc;
 
 // --- Создание Quinn клиентского endpoint ---
 pub fn create_client_endpoint() -> Result<Endpoint, Box<dyn std::error::Error>> {
     // Rustls клиент конфиг с отключенной проверкой сертификата
     let mut rustls_config = RustlsClientConfig::builder_with_provider(
-        rustls::crypto::aws_lc_rs::default_provider().into()
+        rustls::crypto::aws_lc_rs::default_provider().into(),
     )
     .with_safe_default_protocol_versions()?
     .dangerous()
@@ -21,7 +21,8 @@ pub fn create_client_endpoint() -> Result<Endpoint, Box<dyn std::error::Error>> 
 
     // Создаем Quinn endpoint
     let mut endpoint = Endpoint::client("[::]:0".parse()?)?;
-    let client_config = QuinnClientConfig::new(Arc::new(QuicClientConfig::try_from(rustls_config)?));
+    let client_config =
+        QuinnClientConfig::new(Arc::new(QuicClientConfig::try_from(rustls_config)?));
     endpoint.set_default_client_config(client_config);
 
     Ok(endpoint)
@@ -29,10 +30,10 @@ pub fn create_client_endpoint() -> Result<Endpoint, Box<dyn std::error::Error>> 
 
 // --- Модуль отключения проверки сертификата ---
 mod danger {
-    use rustls::client::danger::HandshakeSignatureValid;
-    use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
     use rustls::DigitallySignedStruct;
+    use rustls::client::danger::HandshakeSignatureValid;
     use rustls::crypto::CryptoProvider;
+    use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 
     #[derive(Debug)]
     pub struct NoCertificateVerification(CryptoProvider);
@@ -61,7 +62,12 @@ mod danger {
             cert: &CertificateDer<'_>,
             dss: &DigitallySignedStruct,
         ) -> Result<HandshakeSignatureValid, rustls::Error> {
-            rustls::crypto::verify_tls12_signature(message, cert, dss, &self.0.signature_verification_algorithms)
+            rustls::crypto::verify_tls12_signature(
+                message,
+                cert,
+                dss,
+                &self.0.signature_verification_algorithms,
+            )
         }
 
         fn verify_tls13_signature(
@@ -70,7 +76,12 @@ mod danger {
             cert: &CertificateDer<'_>,
             dss: &DigitallySignedStruct,
         ) -> Result<HandshakeSignatureValid, rustls::Error> {
-            rustls::crypto::verify_tls13_signature(message, cert, dss, &self.0.signature_verification_algorithms)
+            rustls::crypto::verify_tls13_signature(
+                message,
+                cert,
+                dss,
+                &self.0.signature_verification_algorithms,
+            )
         }
 
         fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
