@@ -1,10 +1,7 @@
-use std::{sync::Arc, str::FromStr};
+use std::sync::Arc;
 use quinn::{Endpoint, ClientConfig as QuinnClientConfig};
 use quinn::crypto::rustls::QuicClientConfig;
-use rustls::pki_types::ServerName;
 use rustls::ClientConfig as RustlsClientConfig;
-use tonic_h3::{H3Channel, quinn::H3QuinnConnector};
-use tokio::sync::Mutex;
 
 // --- Создание Quinn клиентского endpoint ---
 pub fn create_client_endpoint() -> Result<Endpoint, Box<dyn std::error::Error>> {

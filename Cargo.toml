@@ -7,6 +7,8 @@ edition = "2024"
 # Asynchronous runtime & utilities
 tokio = { version = "1.47.1", features = ["full"] }
 tokio-stream = "0.1.17"
+
+# Connection 
 tonic = "0.14.2"
 tonic-prost = "0.14.2"
 prost = "0.14.1"

@@ -10,7 +10,6 @@ use group_microservice::{
     InitGroupStreamRequest, RegisterGroupDeviceRequest, StreamMessage, StreamMessageGroupMessage,
     StreamResponse, UploadKeyPackagesRequest,
 };
-use quinn::{rustls, ClientConfig, Endpoint};
 use tauri::http::Uri;
 use tonic_h3::quinn::H3QuinnConnector;
 use tonic_h3::H3Channel;
