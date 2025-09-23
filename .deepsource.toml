@@ -27,3 +27,16 @@ name = "prettier"
 
 [[transformers]]
 name = "rustfmt"
+
+exclude_patterns = [
+  "tsconfig.tsbuildinfo",
+  "gen/**",
+  "ui/node_modules/**",
+  "Cargo.lock",
+  "package-lock.json",
+  "ui/dist/**",
+  "ui/out/**",
+  "ui/.next/**",
+  "target/**",
+  "node_modules/**"
+]
