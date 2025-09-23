@@ -10,15 +10,15 @@ use group_microservice::{
     InitGroupStreamRequest, RegisterGroupDeviceRequest, StreamMessage, StreamMessageGroupMessage,
     StreamResponse, UploadKeyPackagesRequest,
 };
-use tauri::http::Uri;
-use tonic_h3::quinn::H3QuinnConnector;
-use tonic_h3::H3Channel;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
+use tauri::http::Uri;
 use tokio::sync::{Mutex, mpsc};
 use tokio_stream::StreamExt;
 use tonic::{Request, Status, Streaming};
+use tonic_h3::H3Channel;
+use tonic_h3::quinn::H3QuinnConnector;
 
 use crate::api::device::connection::endpoint::create_client_endpoint;
 use crate::api::device::connection::group_microservice::{
@@ -40,14 +40,12 @@ pub struct Backend {
 impl Backend {
     pub async fn new(address: String) -> Result<Self> {
         let uri = Uri::from_str(&address.clone())?;
-        
-        let endpoint = create_client_endpoint().map_err(|e | {
+
+        let endpoint = create_client_endpoint().map_err(|e| {
             log::error!("Failed to create endpoint: {}", e);
             anyhow::anyhow!("Failed to create endpoint")
         })?;
-        let connector = H3QuinnConnector::new(
-            uri.clone(), "sea_group".to_string(), 
-            endpoint);
+        let connector = H3QuinnConnector::new(uri.clone(), "sea_group".to_string(), endpoint);
 
         let channel = H3Channel::new(connector, uri);
 
@@ -75,7 +73,13 @@ impl Backend {
             key_package,
             signature,
         };
-        let _response = self.client.lock().await.register_group_device(request).await.unwrap();
+        let _response = self
+            .client
+            .lock()
+            .await
+            .register_group_device(request)
+            .await
+            .unwrap();
         Ok(())
     }
 
@@ -92,13 +96,25 @@ impl Backend {
             key_packages,
             signature,
         };
-        let _response = self.client.lock().await.upload_key_packages(request).await.unwrap();
+        let _response = self
+            .client
+            .lock()
+            .await
+            .upload_key_packages(request)
+            .await
+            .unwrap();
         Ok(())
     }
 
     pub async fn get_user_credential(&self, user_id: u64) -> Result<Vec<u8>, Status> {
         let request = GetUserCredentialRequest { user_id };
-        let response = self.client.lock().await.get_user_credential(request).await.unwrap();
+        let response = self
+            .client
+            .lock()
+            .await
+            .get_user_credential(request)
+            .await
+            .unwrap();
         Ok(response.into_inner().user_credential)
     }
 
@@ -107,13 +123,25 @@ impl Backend {
         user_id: u64,
     ) -> Result<HashMap<String, Vec<u8>>, Status> {
         let request = GetUserKeyPackagesRequest { user_id };
-        let response = self.client.lock().await.get_user_key_packages(request).await.unwrap();
+        let response = self
+            .client
+            .lock()
+            .await
+            .get_user_key_packages(request)
+            .await
+            .unwrap();
         Ok(response.into_inner().key_packages)
     }
 
     pub async fn get_users_devices(&self, user_id: u64) -> Result<Vec<String>, Status> {
         let request = GetUsersDevicesRequest { user_id };
-        let response = self.client.lock().await.get_users_devices(request).await.unwrap();
+        let response = self
+            .client
+            .lock()
+            .await
+            .get_users_devices(request)
+            .await
+            .unwrap();
         Ok(response.into_inner().devices)
     }
 
@@ -123,7 +151,13 @@ impl Backend {
         device_id: String,
     ) -> Result<Vec<u8>, Status> {
         let request = GetDeviceKeyPackageRequest { user_id, device_id };
-        let response = self.client.lock().await.get_device_key_package(request).await.unwrap();
+        let response = self
+            .client
+            .lock()
+            .await
+            .get_device_key_package(request)
+            .await
+            .unwrap();
         Ok(response.into_inner().key_package)
     }
 
@@ -179,7 +213,13 @@ impl Backend {
         let stream_req = Request::new(tokio_stream::wrappers::ReceiverStream::new(stream_rx));
 
         // Открываем двусторонний стрим с сервером
-        let stream = self.client.lock().await.stream_messages(stream_req).await?.into_inner();
+        let stream = self
+            .client
+            .lock()
+            .await
+            .stream_messages(stream_req)
+            .await?
+            .into_inner();
 
         // Сохраняем стрим для получения ответов
         {
