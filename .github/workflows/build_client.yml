@@ -164,7 +164,6 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: "Apple Development"
-          ARCHS: arm64
         with:
           tagName: app-v__VERSION__
           releaseName: "App v__VERSION__"
@@ -172,4 +171,4 @@ jobs:
           mobile: true
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} --verbose
