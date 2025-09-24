@@ -92,12 +92,16 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
-
+      
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './ -> target'
-          
+
+      - name: Install bindgen
+        if: matrix.platform == 'macos-latest' || matrix.platform == 'ubuntu-22.04'
+        run: cargo install --force --locked bindgen-cli
+        
       - name: Install Protoc
         uses: arduino/setup-protoc@v3
         with:
