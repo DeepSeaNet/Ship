@@ -65,6 +65,15 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
           security find-identity -v -p codesigning build.keychain
 
+      - name: Import provisioning profile (macos only)
+        if: matrix.platform == 'macos-latest'
+        env:
+          APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+        run: |
+          echo $APPLE_PROVISIONING_PROFILE | base64 --decode > profile.mobileprovision
+          mkdir -p ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles
+          cp profile.mobileprovision ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/
+
       - name: verify certificate (macos only)
         if: matrix.platform == 'macos-latest'
         run: |
