@@ -229,6 +229,10 @@ jobs:
       - name: Setup Xcode (macos only)
         if: matrix.platform == 'macos-latest'
         run: sudo xcode-select -switch /Applications/Xcode.app/Contents/Developer
+
+      - name: Download iOS platfrom Xcode (macos only)
+        if: matrix.platform == 'macos-latest'
+        run: xcodebuild -downloadPlatform iOS
       
       - uses:  ap-apely/tauri-action@dev
         env:
