@@ -151,8 +151,12 @@ jobs:
         run: |
           echo "NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
-          
-      - uses:  ap-apely/tauri-action@mobile2
+
+      - name: Setup Xcode (macos only)
+        if: matrix.platform == 'macos-latest'
+        run: sudo xcode-select -switch /Applications/Xcode.app/Contents/Developer
+      
+      - uses:  ap-apely/tauri-action@dev
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SEA_PATH: Sea
