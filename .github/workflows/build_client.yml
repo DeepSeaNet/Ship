@@ -48,7 +48,29 @@ jobs:
           Write-Host "=== OpenSSL directory structure ==="
           Get-ChildItem -Path $opensslDir -Recurse | Select-Object FullName
 
-        
+      - name: import Apple Developer Certificate
+        # Prevents keychain from locking automatically for 3600 seconds.
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          security find-identity -v -p codesigning build.keychain
+
+      - name: verify certificate
+        run: |
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
+          echo "Certificate imported."
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -90,14 +112,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
           
+      - name: Setup Java 17 (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 17
+
       - name: Setup Android SDK (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
         uses: android-actions/setup-android@v3
         with:
-          api-level: 33
-          build-tools: 33.0.0
-          ndk-version: 25.2.9519653
-
+          packages: |
+            platforms;android-33
+            build-tools;33.0.0
+            ndk;25.2.9519653
+            
       - name: Set Android environment variables (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
@@ -108,8 +138,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SEA_PATH: Sea
-          CODE_SIGN_IDENTITY: ${{ matrix.platform == 'macos-latest' && '""' || '' }}
-          CODE_SIGNING_REQUIRED: ${{ matrix.platform == 'macos-latest' && 'NO' || '' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
+          
         with:
           tagName: app-v__VERSION__
           releaseName: "App v__VERSION__"
