@@ -15,7 +15,7 @@ export class MediaDeviceDetector {
   private devices: DeviceInfo[] = []
   private addLog: LoggerFunction
   private onDeviceListChanged?: (devices: DeviceInfo[]) => void
-  private isTransformSupported: boolean = false
+  private isTransformSupported = false
   private transformApi: 'script' | 'encodedStreams' | 'none' = 'none'
 
   constructor(options: MediaDeviceDetectorOptions) {

@@ -247,7 +247,7 @@ export const loadChatMessages = async (
       throw error
     })
 
-    if (response && response.messages) {
+    if (response?.messages) {
       const formattedMessages: Message[] = response.messages.map((msg: any) => {
         const mediaUrl = createMediaUrl(msg.media_data)
         const isFile = !!msg.is_file

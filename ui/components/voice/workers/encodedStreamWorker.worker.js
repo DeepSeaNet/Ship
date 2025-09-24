@@ -17,7 +17,7 @@ function getCodecTypeFromFrame(encodedFrame) {
 
     // Try to get payload type from metadata
     const metadata = encodedFrame.getMetadata?.()
-    if (metadata && metadata.payloadType) {
+    if (metadata?.payloadType) {
       const payloadType = metadata.payloadType
 
       // Use the codec mapping if available
