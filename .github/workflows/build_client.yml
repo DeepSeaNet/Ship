@@ -257,7 +257,7 @@ jobs:
 
       - name: Upload all artifacts
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: all-artifacts
           path: |
