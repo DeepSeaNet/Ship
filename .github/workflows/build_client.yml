@@ -152,7 +152,7 @@ jobs:
           echo "NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
           
-      - uses: ap-apely/tauri-action@dev
+      - uses:  will3942/tauri-action@mobile
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SEA_PATH: Sea
