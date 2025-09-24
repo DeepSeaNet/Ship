@@ -64,6 +64,7 @@ jobs:
         uses: arduino/setup-protoc@v3
         with:
           version: '21.x'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify protoc
         run: protoc --version
@@ -242,6 +243,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SEA_PATH: Sea
+          RUSTFLAGS: "--cfg=mls_build_async"
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
@@ -250,6 +252,7 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: "Apple Development"
+          
         with:
           tagName: app-v__VERSION__
           releaseName: "App v__VERSION__"
