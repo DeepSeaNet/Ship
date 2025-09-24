@@ -48,7 +48,8 @@ jobs:
           Write-Host "=== OpenSSL directory structure ==="
           Get-ChildItem -Path $opensslDir -Recurse | Select-Object FullName
 
-      - name: import Apple Developer Certificate
+      - name: import Apple Developer Certificate (macos only)
+        if: matrix.platform == 'macos-latest'
         # Prevents keychain from locking automatically for 3600 seconds.
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -64,9 +65,10 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
           security find-identity -v -p codesigning build.keychain
 
-      - name: verify certificate
+      - name: verify certificate (macos only)
+        if: matrix.platform == 'macos-latest'
         run: |
-          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Apple Development")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
           echo "Certificate imported."
