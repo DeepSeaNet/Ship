@@ -74,10 +74,12 @@ jobs:
         with:
           workspaces: './ -> target'
           
-      - name: Setup protoc
+      - name: Install Protoc
         uses: arduino/setup-protoc@v3
         with:
-          version: '21.x'
+          version: 21.x
+          include-pre-releases: false
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify protoc
         run: protoc --version
