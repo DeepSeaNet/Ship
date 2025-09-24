@@ -125,10 +125,7 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         uses: android-actions/setup-android@v3
         with:
-          packages: |
-            platforms;android-33
-            build-tools;33.0.0
-            ndk;25.2.9519653
+          packages: 'platforms;android-33 build-tools;33.0.0 ndk;25.2.9519653'
             
       - name: Set Android environment variables (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
