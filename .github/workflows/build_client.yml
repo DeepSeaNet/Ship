@@ -254,3 +254,13 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }} --verbose
+
+      - name: Upload all artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: all-artifacts
+          path: |
+            /Users/runner/Library/Developer/Xcode/DerivedData
+            /Users/runner/work/Ship/Ship
+
