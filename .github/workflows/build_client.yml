@@ -233,8 +233,12 @@ jobs:
       - name: Download iOS platfrom Xcode (macos only)
         if: matrix.platform == 'macos-latest'
         run: xcodebuild -downloadPlatform iOS
+
+      - name: Setup iOS gen folder (macos only)
+        if: matrix.platform == 'macos-latest'
+        run: pnpm tauri ios init
       
-      - uses:  ap-apely/tauri-action@dev
+      - uses: ap-apely/tauri-action@dev
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SEA_PATH: Sea
