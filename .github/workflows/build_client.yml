@@ -221,11 +221,23 @@ jobs:
         with:
           packages: 'platforms;android-33 build-tools;33.0.0 ndk;25.2.9519653'
             
-      - name: Set Android environment variables (ubuntu only)
+      - name: Set Android env vars and bindgen flags (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           echo "NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
+          
+          # Получение правильного пути к sysroot для целевой архитектуры
+          SYSROOT_INCLUDE="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
+          
+          # Установка CFLAGS и BINDGEN_EXTRA_CLANG_ARGS для указания bindgen местоположения заголовочных файлов
+          echo "C_INCLUDE_PATH=$SYSROOT_INCLUDE" >> $GITHUB_ENV
+          echo "CPLUS_INCLUDE_PATH=$SYSROOT_INCLUDE" >> $GITHUB_ENV
+          echo "BINDGEN_EXTRA_CLANG_ARGS=-I$SYSROOT_INCLUDE" >> $GITHUB_ENV
+          
+      - name: Check sysroot include path
+        run: |
+          ls $SYSROOT_INCLUDE
 
       - name: Setup Xcode (macos only)
         if: matrix.platform == 'macos-latest'
@@ -261,13 +273,4 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }} --verbose
-
-      - name: Upload all artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: all-artifacts
-          path: |
-            /Users/runner/Library/Developer/Xcode/DerivedData
-            /Users/runner/work/Ship/Ship
 
