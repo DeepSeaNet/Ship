@@ -89,11 +89,27 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          
+      - name: Setup Android SDK (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 33
+          build-tools: 33.0.0
+          ndk-version: 25.2.9519653
 
+      - name: Set Android environment variables (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          echo "NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
+          
       - uses: ap-apely/tauri-action@dev
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SEA_PATH: Sea
+          CODE_SIGN_IDENTITY: ${{ matrix.platform == 'macos-latest' && '""' || '' }}
+          CODE_SIGNING_REQUIRED: ${{ matrix.platform == 'macos-latest' && 'NO' || '' }}
         with:
           tagName: app-v__VERSION__
           releaseName: "App v__VERSION__"
