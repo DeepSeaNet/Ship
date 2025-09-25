@@ -221,50 +221,41 @@ jobs:
         with:
           packages: 'platforms;android-33 build-tools;33.0.0 ndk;25.2.9519653'
             
-      - name: Set Android env vars and bindgen flags (ubuntu only)
+      - name: Set Android env vars for bindgen (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
-          # 1. Export NDK Home
-          echo "NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
-          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
-
-          # 2. Determine the C-compiler path for the cross-compilation target
-          # Find the directory containing the target's sysroot includes (like aarch64-linux-android/sysroot/usr/include)
-          # We'll use the 'aarch64' target path for modern Android builds
-          
-          # The sysroot is typically located under the NDK/toolchains/llvm/prebuilt/.../sysroot
+          # Find the NDK's sysroot directory
           SYSROOT=$(find "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt" -maxdepth 2 -name "sysroot" -type d | head -n 1)
-          
+          echo $SYSROOT
           if [ -z "$SYSROOT" ]; then
             echo "Error: Could not find NDK sysroot."
             exit 1
           fi
 
-          # 3. Construct the necessary CLANG_ARGS for bindgen
-          # Required paths:
-          # a) The generic C headers (e.g., stdio.h, stdlib.h)
-          # b) The compiler's built-in includes (needed by clang/bindgen)
+          # Use the --sysroot flag. This is the correct, architecture-agnostic way.
+          # Clang will automatically find the right headers for armv7, aarch64, etc.
+          CLANG_ARGS="--sysroot=$SYSROOT"
           
-          CLANG_ARGS="-I$SYSROOT/usr/include"
-          
-          # Find the C library headers for the *most common target* (aarch64)
-          # This is needed to find libc-header-start.h
-          CLANG_ARGS="$CLANG_ARGS -I$SYSROOT/usr/include/aarch64-linux-android"
-          
-          # Add the LLVM/Clang built-in include path (essential for many headers)
-          TOOLCHAIN_INCLUDE=$(find "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang" -maxdepth 3 -name "include" -type d | head -n 1)
-          
-          if [ -n "$TOOLCHAIN_INCLUDE" ]; then
-            CLANG_ARGS="$CLANG_ARGS -I$TOOLCHAIN_INCLUDE"
-          fi
-
-          # 4. Set the final environment variable
           echo "BINDGEN_EXTRA_CLANG_ARGS=$CLANG_ARGS" >> $GITHUB_ENV
           echo "Using BINDGEN_EXTRA_CLANG_ARGS=$CLANG_ARGS"
           
-      - name: Check sysroot include path
+      - name: Check NDK sysroot include path
+        if: matrix.platform == 'ubuntu-22.04'
         run: |
-          ls $SYSROOT_INCLUDE
+          # First, find the NDK's sysroot directory path
+          SYSROOT_PATH=$(find "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt" -maxdepth 2 -name "sysroot" -type d | head -n 1)
+          
+          # Check if the path was found
+          if [ -z "$SYSROOT_PATH" ]; then
+            echo "Error: Could not find NDK sysroot."
+            exit 1
+          fi
+
+          echo "✅ Found sysroot at: $SYSROOT_PATH"
+          echo "📂 Listing contents of: $SYSROOT_PATH/usr/include"
+          
+          # Now, list the contents of the include directory within the sysroot
+          ls -la "$SYSROOT_PATH/usr/include"
 
       - name: Setup Xcode (macos only)
         if: matrix.platform == 'macos-latest'
