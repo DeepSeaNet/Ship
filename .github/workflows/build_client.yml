@@ -224,16 +224,43 @@ jobs:
       - name: Set Android env vars and bindgen flags (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
+          # 1. Export NDK Home
           echo "NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
+
+          # 2. Determine the C-compiler path for the cross-compilation target
+          # Find the directory containing the target's sysroot includes (like aarch64-linux-android/sysroot/usr/include)
+          # We'll use the 'aarch64' target path for modern Android builds
           
-          # Получение правильного пути к sysroot для целевой архитектуры
-          SYSROOT_INCLUDE="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
+          # The sysroot is typically located under the NDK/toolchains/llvm/prebuilt/.../sysroot
+          SYSROOT=$(find "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt" -maxdepth 2 -name "sysroot" -type d | head -n 1)
           
-          # Установка CFLAGS и BINDGEN_EXTRA_CLANG_ARGS для указания bindgen местоположения заголовочных файлов
-          echo "C_INCLUDE_PATH=$SYSROOT_INCLUDE" >> $GITHUB_ENV
-          echo "CPLUS_INCLUDE_PATH=$SYSROOT_INCLUDE" >> $GITHUB_ENV
-          echo "BINDGEN_EXTRA_CLANG_ARGS=-I$SYSROOT_INCLUDE" >> $GITHUB_ENV
+          if [ -z "$SYSROOT" ]; then
+            echo "Error: Could not find NDK sysroot."
+            exit 1
+          fi
+
+          # 3. Construct the necessary CLANG_ARGS for bindgen
+          # Required paths:
+          # a) The generic C headers (e.g., stdio.h, stdlib.h)
+          # b) The compiler's built-in includes (needed by clang/bindgen)
+          
+          CLANG_ARGS="-I$SYSROOT/usr/include"
+          
+          # Find the C library headers for the *most common target* (aarch64)
+          # This is needed to find libc-header-start.h
+          CLANG_ARGS="$CLANG_ARGS -I$SYSROOT/usr/include/aarch64-linux-android"
+          
+          # Add the LLVM/Clang built-in include path (essential for many headers)
+          TOOLCHAIN_INCLUDE=$(find "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/lib/clang" -maxdepth 3 -name "include" -type d | head -n 1)
+          
+          if [ -n "$TOOLCHAIN_INCLUDE" ]; then
+            CLANG_ARGS="$CLANG_ARGS -I$TOOLCHAIN_INCLUDE"
+          fi
+
+          # 4. Set the final environment variable
+          echo "BINDGEN_EXTRA_CLANG_ARGS=$CLANG_ARGS" >> $GITHUB_ENV
+          echo "Using BINDGEN_EXTRA_CLANG_ARGS=$CLANG_ARGS"
           
       - name: Check sysroot include path
         run: |
