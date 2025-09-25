@@ -224,6 +224,10 @@ jobs:
       - name: Set Android env vars for bindgen (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
+          # Export NDK Home
+          echo "NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
+          
           # Find the NDK's sysroot directory
           SYSROOT=$(find "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt" -maxdepth 2 -name "sysroot" -type d | head -n 1)
           echo $SYSROOT
