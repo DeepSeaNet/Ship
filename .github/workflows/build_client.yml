@@ -65,9 +65,6 @@ jobs:
         with:
           version: '21.x'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Verify protoc
-        run: protoc --version
           
       - name: Install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
@@ -115,20 +112,7 @@ jobs:
           repository: DeepSeaNet/Sea
           path: Sea
           token: ${{ secrets.DEAP_SEA_NET_PAT }}
-
-      - name: Set OpenSSL env vars
-        if: matrix.platform == 'windows-latest'
-        shell: pwsh
-        run: |
-          $opensslDir = "C:/Program Files/OpenSSL"
-          echo "OPENSSL_ROOT_DIR=$opensslDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "OPENSSL_DIR=$opensslDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "OPENSSL_LIB_DIR=$opensslDir/lib" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "OPENSSL_INCLUDE_DIR=$opensslDir/include" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-      
-          Write-Host "=== OpenSSL directory structure ==="
-          Get-ChildItem -Path $opensslDir -Recurse | Select-Object FullName
-
+          
       - name: import Apple Developer Certificate (macos only)
         if: matrix.platform == 'macos-latest'
         # Prevents keychain from locking automatically for 3600 seconds.
@@ -198,9 +182,6 @@ jobs:
           version: 21.x
           include-pre-releases: false
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Verify protoc
-        run: protoc --version
           
       - name: Install dependencies (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
@@ -243,36 +224,10 @@ jobs:
           echo "BINDGEN_EXTRA_CLANG_ARGS=$CLANG_ARGS" >> $GITHUB_ENV
           echo "Using BINDGEN_EXTRA_CLANG_ARGS=$CLANG_ARGS"
           
-      - name: Check NDK sysroot include path
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          # First, find the NDK's sysroot directory path
-          SYSROOT_PATH=$(find "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt" -maxdepth 2 -name "sysroot" -type d | head -n 1)
-          
-          # Check if the path was found
-          if [ -z "$SYSROOT_PATH" ]; then
-            echo "Error: Could not find NDK sysroot."
-            exit 1
-          fi
-
-          echo "✅ Found sysroot at: $SYSROOT_PATH"
-          echo "📂 Listing contents of: $SYSROOT_PATH/usr/include"
-          
-          # Now, list the contents of the include directory within the sysroot
-          ls -la "$SYSROOT_PATH/usr/include"
-
       - name: Setup Xcode (macos only)
         if: matrix.platform == 'macos-latest'
         run: sudo xcode-select -switch /Applications/Xcode.app/Contents/Developer
 
-      - name: Download iOS platfrom Xcode (macos only)
-        if: matrix.platform == 'macos-latest'
-        run: xcodebuild -downloadPlatform iOS
-
-      - name: Setup iOS gen folder (macos only)
-        if: matrix.platform == 'macos-latest'
-        run: pnpm tauri ios init
-      
       - uses: ap-apely/tauri-action@dev
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
