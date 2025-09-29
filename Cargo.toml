@@ -38,7 +38,7 @@ rand = "0.9.2"
 mls-rs = { version = "0.51.0", features = ["sqlite", "self_remove_proposal", "last_resort_key_package_ext"] }
 mls-rs-codec = "0.7.0"
 mls-rs-core = "0.24.0"
-mls-rs-crypto-awslc = "0.19.0"
+mls-rs-crypto-awslc = "0.20.1"
 mls-rs-provider-sqlite = { version = "0.19.0", default-features = false, features = ["sqlite-bundled"] }
 
 # Database
