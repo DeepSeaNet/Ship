@@ -14,7 +14,7 @@
     "dependencies": {
       "@headlessui/react": "^2.2.4",
       "@heroui/react": "2.8.4",
-      "@ricky0123/vad-web": "^0.0.27",
+      "@ricky0123/vad-web": "^0.0.28",
       "@tailwindcss/postcss": "^4.1.11",
       "@tauri-apps/api": "^2.6.0",
       "@tauri-apps/plugin-dialog": "^2.3.0",
