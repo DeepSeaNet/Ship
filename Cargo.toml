@@ -16,7 +16,7 @@ prost-types = "0.14.1"
 tonic-h3 = { git = "https://github.com/youyuanwu/tonic-h3.git", default-features = false, features = ["quinn"] }
 aws-lc-rs = { version = "1.13.1", default-features = false, features = ["prebuilt-nasm", "aws-lc-sys"] } 
 quinn = {version = "0.11.9",  default-features = false, features = ["runtime-tokio", "aws-lc-rs", "rustls-aws-lc-rs"] }
-rustls = { version =  "=0.23.31", features = ["aws_lc_rs"] }
+rustls = { version =  "=0.23.32", features = ["aws_lc_rs"] }
 
 # Serialization / Deserialization
 serde = { version = "1.0.219", features = ["derive"] }
