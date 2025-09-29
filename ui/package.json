@@ -12,7 +12,7 @@
       "check": "next lint && tsc --noEmit"
     },
     "dependencies": {
-      "@headlessui/react": "^2.2.4",
+      "@headlessui/react": "^2.2.9",
       "@heroui/react": "2.8.4",
       "@ricky0123/vad-web": "^0.0.27",
       "@tailwindcss/postcss": "^4.1.11",
