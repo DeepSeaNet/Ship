@@ -254,7 +254,7 @@ html {
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
   /* Ensure background extends to all edges including safe areas */
-  background-color: var(--theme-background);
+  background-color: #ffffff; /* светлая тема */
   /* Ensure background covers safe areas by extending beyond viewport */
   background-attachment: fixed;
   background-size: cover;
@@ -276,7 +276,7 @@ body {
   -webkit-tap-highlight-color: transparent;
   /* Theme colors and background - ensure it covers safe areas */
   color: var(--theme-foreground);
-  background-color: var(--theme-background);
+  background-color: #ffffff; /* светлая тема */
   background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230063af' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   /* Ensure background pattern covers safe areas */
   background-attachment: fixed;
@@ -286,15 +286,15 @@ body {
 
 /* Dark theme styles - ensure background extends to safe areas */
 .dark html {
-  background-color: var(--theme-background);
   /* Ensure dark theme background covers safe areas */
+  background-color: #1e293b; /* slate-800 */
   background-attachment: fixed;
   background-size: cover;
 }
 
 .dark body {
   color: var(--theme-foreground);
-  background-color: var(--theme-background);
+  background-color: #1e293b; /* slate-800 */
   /* Ensure dark theme background pattern covers safe areas */
   background-attachment: fixed;
   background-size: 60px 60px;
@@ -355,14 +355,12 @@ body {
 /* Ensure all theme backgrounds extend to safe areas */
 [data-theme='nord'] html,
 [data-theme='monokai'] html {
-  background-color: var(--theme-background);
   background-attachment: fixed;
   background-size: cover;
 }
 
 [data-theme='nord'] body,
 [data-theme='monokai'] body {
-  background-color: var(--theme-background);
   background-attachment: fixed;
   background-size: 60px 60px;
 }
@@ -388,14 +386,12 @@ body {
 /* Ensure coffee theme backgrounds extend to safe areas */
 [data-theme='coffee'] html,
 [data-theme='coffeeLatte'] html {
-  background-color: var(--theme-background);
   background-attachment: fixed;
   background-size: cover;
 }
 
 [data-theme='coffee'] body,
 [data-theme='coffeeLatte'] body {
-  background-color: var(--theme-background);
   background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23A67C52' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3Csvg%3E");
   background-attachment: fixed;
   background-size: 60px 60px;
