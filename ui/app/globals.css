@@ -233,30 +233,71 @@
   --theme-danger: #dc3545;
   --theme-info: #17a2b8;
   --theme-surface: rgb(255, 255, 255);
+
+  /* Safe area environment variables with fallbacks */
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
 }
 
 /* Стили для предотвращения нежелательного скролла и масштабирования на мобильных устройствах */
-html,
+html {
+  position: fixed;
+  overflow: hidden;
+  /* Ensure full screen coverage including safe areas */
+  width: 100vw;
+  height: 100vh;
+  /* Extend to all screen edges on iOS devices with safe areas */
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  /* Ensure background extends to all edges including safe areas */
+  background-color: var(--theme-background);
+  /* Ensure background covers safe areas by extending beyond viewport */
+  background-attachment: fixed;
+  background-size: cover;
+  background-repeat: repeat;
+}
+
 body {
   position: fixed;
   overflow: hidden;
-  width: 100%;
-  height: 100%;
+  /* Ensure full screen coverage including safe areas */
+  width: 100vw;
+  height: 100vh;
+  /* Extend to all screen edges on iOS devices with safe areas */
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
   overscroll-behavior: none;
   touch-action: none;
   -webkit-overflow-scrolling: auto;
   -webkit-tap-highlight-color: transparent;
-}
-
-body {
+  /* Theme colors and background - ensure it covers safe areas */
   color: var(--theme-foreground);
   background-color: var(--theme-background);
   background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230063af' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  /* Ensure background pattern covers safe areas */
+  background-attachment: fixed;
+  background-size: 60px 60px;
+  background-repeat: repeat;
+}
+
+/* Dark theme styles - ensure background extends to safe areas */
+.dark html {
+  background-color: var(--theme-background);
+  /* Ensure dark theme background covers safe areas */
+  background-attachment: fixed;
+  background-size: cover;
 }
 
 .dark body {
   color: var(--theme-foreground);
   background-color: var(--theme-background);
+  /* Ensure dark theme background pattern covers safe areas */
+  background-attachment: fixed;
+  background-size: 60px 60px;
 }
 
 /* Включаем скролл только в контейнерах, где это необходимо */
@@ -311,6 +352,21 @@ body {
 }
 
 /* Тематические CSS-классы для специфичных тем */
+/* Ensure all theme backgrounds extend to safe areas */
+[data-theme='nord'] html,
+[data-theme='monokai'] html {
+  background-color: var(--theme-background);
+  background-attachment: fixed;
+  background-size: cover;
+}
+
+[data-theme='nord'] body,
+[data-theme='monokai'] body {
+  background-color: var(--theme-background);
+  background-attachment: fixed;
+  background-size: 60px 60px;
+}
+
 [data-theme='nord'] .container-gradient {
   background-image: linear-gradient(to right, #88c0d0, #ebcb8b);
 }
@@ -329,9 +385,20 @@ body {
 }
 
 /* Добавляем тонкую текстуру "кофейных зерен" на фон для кофейных тем */
+/* Ensure coffee theme backgrounds extend to safe areas */
+[data-theme='coffee'] html,
+[data-theme='coffeeLatte'] html {
+  background-color: var(--theme-background);
+  background-attachment: fixed;
+  background-size: cover;
+}
+
 [data-theme='coffee'] body,
 [data-theme='coffeeLatte'] body {
+  background-color: var(--theme-background);
   background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23A67C52' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3Csvg%3E");
+  background-attachment: fixed;
+  background-size: 60px 60px;
 }
 
 /* Уникальные стили для элементов в кофейных темах */
@@ -383,6 +450,40 @@ body {
   border-radius: 50%;
   opacity: 0;
   animation: coffee-steam 2s ease-out infinite;
+}
+
+/* Safe area utility classes */
+@utility safe-area-top {
+  padding-top: var(--safe-area-inset-top);
+}
+
+@utility safe-area-bottom {
+  padding-bottom: var(--safe-area-inset-bottom);
+}
+
+@utility safe-area-left {
+  padding-left: var(--safe-area-inset-left);
+}
+
+@utility safe-area-right {
+  padding-right: var(--safe-area-inset-right);
+}
+
+@utility safe-area-x {
+  padding-left: var(--safe-area-inset-left);
+  padding-right: var(--safe-area-inset-right);
+}
+
+@utility safe-area-y {
+  padding-top: var(--safe-area-inset-top);
+  padding-bottom: var(--safe-area-inset-bottom);
+}
+
+@utility safe-area-all {
+  padding-top: var(--safe-area-inset-top);
+  padding-bottom: var(--safe-area-inset-bottom);
+  padding-left: var(--safe-area-inset-left);
+  padding-right: var(--safe-area-inset-right);
 }
 
 /* Utility классы для быстрого применения цветов темы */

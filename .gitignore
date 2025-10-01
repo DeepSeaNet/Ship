@@ -9,3 +9,5 @@ package-lock.json
 /ui/out
 /target
 /node_modules
+.kiro
+.vscode
