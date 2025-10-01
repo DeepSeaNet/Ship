@@ -1,5 +1,5 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let sea_path = std::env::var("SEA_PATH").unwrap_or_else(|_| "../Sea".into());
+    let sea_path = std::env::var("SEA_PATH").unwrap_or_else(|_| "./Sea".into());
 
     tonic_prost_build::compile_protos(format!("{}/service/auth/api/auth/proto/account.proto", sea_path))?;
     tonic_prost_build::compile_protos(format!(
