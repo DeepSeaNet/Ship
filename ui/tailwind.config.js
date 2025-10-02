@@ -22,6 +22,9 @@ export default {
           DEFAULT: 'var(--theme-primary)',
           dark: 'var(--theme-primaryDark)',
         },
+        chat: {
+          background: 'var(--theme-chat_background)',
+        },
         secondary: {
           light: 'var(--theme-secondaryLight)',
           DEFAULT: 'var(--theme-secondary)',

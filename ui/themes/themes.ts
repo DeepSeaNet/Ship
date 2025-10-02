@@ -10,6 +10,7 @@ export const THEMES: Record<string, Theme> = {
       foreground: 'rgb(0, 0, 0)',
       background: 'rgb(245, 247, 250)',
       backgroundAlt: 'rgb(255, 255, 255)',
+      chat_background: 'rgb(245, 247, 250)',
       primary: 'rgb(4, 127, 220)',
       primaryLight: '#5c7cfa',
       primaryDark: '#0056b3',
@@ -33,6 +34,7 @@ export const THEMES: Record<string, Theme> = {
     colors: {
       foreground: 'rgb(255, 255, 255)',
       background: 'rgb(15, 23, 42)',
+      chat_background: 'rgb(15, 23, 42)',
       backgroundAlt: 'rgb(30, 41, 59)',
       primary: 'rgb(56, 149, 211)',
       primaryLight: '#6d8fff',
@@ -57,6 +59,7 @@ export const THEMES: Record<string, Theme> = {
     colors: {
       foreground: '#ECEFF4',
       background: '#2E3440',
+      chat_background: '#2E3440',
       backgroundAlt: '#3B4252',
       primary: '#88C0D0',
       primaryLight: '#8FBCBB',
@@ -81,6 +84,7 @@ export const THEMES: Record<string, Theme> = {
     colors: {
       foreground: '#F8F8F2',
       background: '#272822',
+      chat_background: '#272822',
       backgroundAlt: '#3E3D32',
       primary: '#FD971F',
       primaryLight: '#FFD866',
@@ -105,6 +109,7 @@ export const THEMES: Record<string, Theme> = {
     colors: {
       foreground: '#F5F0E1',
       background: '#362417',
+      chat_background: '#362417',
       backgroundAlt: '#49332A',
       primary: '#C8864E',
       primaryLight: '#D9A66B',
@@ -129,6 +134,7 @@ export const THEMES: Record<string, Theme> = {
     colors: {
       foreground: '#3D2A22',
       background: '#F5F0E1',
+      chat_background: '#F5F0E1',
       backgroundAlt: '#FFFDF7',
       primary: '#A67C52',
       primaryLight: '#C8864E',

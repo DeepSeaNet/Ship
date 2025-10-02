@@ -468,7 +468,7 @@ export default function ChatWindow({
   }
 
   return (
-    <div className="relative flex-1 flex flex-col bg-slate-50 dark:bg-slate-800/50 backdrop-blur-sm h-full overflow-hidden min-h-0">
+    <div className="relative flex-1 flex flex-col bg-chat-background dark:bg-chat_background backdrop-blur-sm h-full overflow-hidden min-h-0">
       {/* Компонент поиска */}
       <SearchBar
         isSearchOpen={isSearchOpen}
