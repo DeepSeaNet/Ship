@@ -194,17 +194,11 @@ export default function LeftSidebar({
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false)
   const [isChatDialogOpen, setIsChatDialogOpen] = useState(false)
   const [contextMenuGroup, setContextMenuGroup] = useState<Chat | null>(null)
-  const isInitializedRef = useRef(false)
 
   const { checkPermission } = Group({
-    groups: groups,
-    setGroups: setGroups,
-    isLoading: isLoading,
-    setIsLoading: setIsLoading,
     messages: messages,
     setMessages: setMessages,
     selectedChat: selectedChat,
-    setSelectedChat: setSelectedChat,
     currentChatMessages: currentChatMessages,
     setCurrentChatMessages: setCurrentChatMessages,
   })

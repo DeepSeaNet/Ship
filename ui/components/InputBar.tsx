@@ -462,11 +462,12 @@ export default function InputBar({
       {/* Основной input с улучшенным отступом и safe-area на iOS */}
       <div
         className="px-1 pb-1 md:pb-0"
-        style={{
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px))',
-        }}
+        style={
+          {
+            //paddingBottom: 'calc(env(safe-area-inset-bottom, 0px))',
+          }
+        }
       >
-        {' '}
         {/* Добавлено: pb-2 для мобильных */}
         <Textarea
           ref={inputRef}
@@ -487,7 +488,7 @@ export default function InputBar({
           style={{
             fontSize: `${appearanceSettings.fontSize}px`,
             //lineHeight: appearanceSettings.lineSpacing
-            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+            //paddingBottom: 'env(safe-area-inset-bottom, 0px)',
           }}
           disabled={!canSendMessages}
           endContent={<SendButton />}

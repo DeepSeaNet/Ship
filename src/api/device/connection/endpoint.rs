@@ -1,5 +1,5 @@
 use quinn::crypto::rustls::QuicClientConfig;
-use quinn::{ClientConfig as QuinnClientConfig, Endpoint};
+use quinn::{ClientConfig as QuinnClientConfig, Endpoint, TransportConfig};
 use rustls::ClientConfig as RustlsClientConfig;
 use std::sync::Arc;
 
@@ -21,8 +21,11 @@ pub fn create_client_endpoint() -> Result<Endpoint, Box<dyn std::error::Error>> 
 
     // Создаем Quinn endpoint
     let mut endpoint = Endpoint::client("[::]:0".parse()?)?;
-    let client_config =
+    let mut client_config =
         QuinnClientConfig::new(Arc::new(QuicClientConfig::try_from(rustls_config)?));
+    let mut transport_config = TransportConfig::default();
+    transport_config.max_idle_timeout(None);
+    client_config.transport_config(Arc::new(transport_config));
     endpoint.set_default_client_config(client_config);
 
     Ok(endpoint)

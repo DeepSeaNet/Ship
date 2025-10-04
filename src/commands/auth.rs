@@ -13,6 +13,9 @@ use tauri::Manager;
 
 type SafeAccount = Arc<Account>;
 type SafeGroupUser = Arc<RwLock<Option<Device>>>;
+
+use std::panic::{AssertUnwindSafe, catch_unwind};
+
 #[tauri::command]
 pub async fn grpc_login(
     app_handle: AppHandle,
@@ -22,7 +25,9 @@ pub async fn grpc_login(
         .await
         .map_err(|e| e.to_string())?;
     let account = Arc::new(account);
-    app_handle.manage(account.clone());
+    if !app_handle.manage(account.clone()) {
+        log::error!("Failed to manage account")
+    }
 
     let app_handle_clone = app_handle.clone();
 
@@ -40,16 +45,34 @@ pub async fn grpc_login(
     );
 
     let group_account = group_account_result.map_err(|e| e.to_string())?;
-    let safe_group_user = Arc::new(RwLock::new(Some(group_account)));
-    app_handle.manage(safe_group_user);
+
+    let state_result = catch_unwind(AssertUnwindSafe(|| {
+        app_handle.state::<Arc<RwLock<Option<Device>>>>()
+    }));
+
+    match state_result {
+        Ok(device_account_state) => {
+            let mut guard = device_account_state.inner().write().await;
+            *guard = Some(group_account);
+        }
+        Err(_) => {
+            log::warn!("State not managed yet, managing now...");
+            let safe_group_user = Arc::new(RwLock::new(Some(group_account)));
+            app_handle.manage(safe_group_user.clone());
+        }
+    }
 
     let user_status = user_status_result.ok();
     let safe_user_status = Arc::new(RwLock::new(user_status));
-    app_handle.manage(safe_user_status);
+    if !app_handle.manage(safe_user_status) {
+        log::error!("Failed to manage user status")
+    };
 
     let voice_client = voice_client_result;
     let safe_voice_client = Arc::new(RwLock::new(voice_client));
-    app_handle.manage(safe_voice_client);
+    if !app_handle.manage(safe_voice_client) {
+        log::error!("Failed to manage voice client")
+    };
 
     Ok(serde_json::json!({
         "user_id": account.credential.account_id.user_id,
@@ -135,6 +158,9 @@ pub async fn log_out(app_handle: AppHandle) -> Result<String, String> {
         .write()
         .await
         .take();
+    app_handle.unmanage::<Arc<Account>>(); // Changing account to Account Option 
+    // will cause too many problems
+    // maybe after i will change it
     Ok("Logged out successfully".to_string())
 }
 

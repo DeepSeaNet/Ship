@@ -107,11 +107,13 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
 interface SettingsProps {
   closeSettings: () => void
+  clearUserData: () => void
   isMobile?: boolean
 }
 
 const Settings: React.FC<SettingsProps> = ({
   closeSettings,
+  clearUserData,
   isMobile = false,
 }) => {
   const { currentTheme, toggleDarkMode, setTheme, themes } = useTheme()
@@ -196,12 +198,16 @@ const Settings: React.FC<SettingsProps> = ({
             localStorage.removeItem('username')
             localStorage.removeItem('userId')
 
+            localStorage.removeItem('publicAddress')
+            localStorage.removeItem('serverAddress')
+            localStorage.removeItem('serverPubKey')
+
             // Закрываем окно настроек
             setShowConfirmation(false)
             closeSettings()
-
+            clearUserData()
             // Перезагружаем приложение или перенаправляем на страницу авторизации
-            window.location.reload()
+            //window.location.reload()
           })
           .catch((error) => {
             console.error('Error logging out:', error)

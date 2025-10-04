@@ -317,6 +317,7 @@ impl Device {
     pub async fn send_message(
         &self,
         group_id: &GroupId,
+        message_id: u64,
         message: UserGroupMessage,
     ) -> Result<(), GroupError> {
         let group_arc = self.groups.get(group_id).await?;
@@ -341,7 +342,6 @@ impl Device {
             GroupError::StorageError(format!("Failed to write group to storage: {}", e))
         })?;
 
-        let message_id = Self::generate_message_id();
         log::debug!("Sending message to group {:?}", group_id);
         self.backend
             .as_ref()

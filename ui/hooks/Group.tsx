@@ -66,27 +66,21 @@ export function isGroup(chat: Chat | Group | null): chat is Group {
 }
 
 interface GroupProps {
-  groups: Group[]
-  setGroups: React.Dispatch<React.SetStateAction<Group[]>>
-  isLoading: boolean
-  setIsLoading: React.Dispatch<React.SetStateAction<boolean>>
   messages: Record<string, Message[]>
   setMessages: React.Dispatch<React.SetStateAction<Record<string, Message[]>>>
+  setPendingIndex?: React.Dispatch<
+    React.SetStateAction<Map<string, { chatId: string; message: Message }>>
+  >
   selectedChat: Chat | Group | null
-  setSelectedChat: React.Dispatch<React.SetStateAction<Chat | Group | null>>
   currentChatMessages: Message[]
   setCurrentChatMessages: React.Dispatch<React.SetStateAction<Message[]>>
 }
 
 export const Group = ({
-  groups,
-  setGroups,
-  isLoading,
-  setIsLoading,
   messages,
   setMessages,
+  setPendingIndex,
   selectedChat,
-  setSelectedChat,
   currentChatMessages,
   setCurrentChatMessages,
 }: GroupProps) => {
@@ -230,6 +224,11 @@ export const Group = ({
           })
         }
 
+        if (setPendingIndex) setPendingIndex((prev) => {
+          prev.set(messageId, { chatId: groupId, message: tempMessage })
+          return prev
+        })
+
         return true
       } catch (err) {
         console.error('Ошибка при отправке группового сообщения:', err)
@@ -242,7 +241,7 @@ export const Group = ({
         return false
       }
     },
-    [selectedChat, messages, currentChatMessages],
+    [selectedChat, messages, currentChatMessages, setPendingIndex],
   )
 
   return {

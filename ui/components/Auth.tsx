@@ -22,6 +22,7 @@ import {
   ModalBody,
   Textarea,
   useDisclosure,
+  addToast,
 } from '@heroui/react'
 import { Listbox, ListboxItem, Avatar } from '@heroui/react'
 import { login, register, Account, import_account } from '@/hooks/Auth'
@@ -188,8 +189,14 @@ export default function Auth({
         setLoadingAccounts(true)
         const accountList = (await invoke('get_account_list')) as Account[]
         setAccounts(accountList)
-      } catch (err) {
-        console.error('Failed to load accounts:', err)
+      } catch (error) {
+        console.error('Failed to load accounts:', error)
+        addToast({
+          title: `Failed to load accounts`,
+          description: error as string,
+          color: 'danger',
+          variant: 'flat',
+        })
       } finally {
         setLoadingAccounts(false)
       }
@@ -326,8 +333,20 @@ export default function Auth({
       setImportKey('')
       const accountList = (await invoke('get_account_list')) as Account[]
       setAccounts(accountList)
+      addToast({
+        title: `Account imported successfully`,
+        description: 'Account id: ' + user_id.toString(),
+        color: 'success',
+        variant: 'flat',
+      })
     } catch (error) {
       console.error('Import failed:', error)
+      addToast({
+        title: `Error while importing account`,
+        description: error as string,
+        color: 'danger',
+        variant: 'flat',
+      })
     }
   }
 

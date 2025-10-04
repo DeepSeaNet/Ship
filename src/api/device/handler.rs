@@ -228,6 +228,48 @@ impl GroupHandler {
         Ok(())
     }
 
+    async fn emit_message_delivery_event(
+        &self,
+        message_id: u64,
+        success: bool,
+    ) -> Result<(), GroupError> {
+        let event_payload = serde_json::json!({
+            "type": "message_delivery",
+            "data": {
+                "message_id": (message_id as i64).to_string(),
+                "success": success
+            }
+        });
+
+        if let Some(app_handle) = &self.app_handle {
+            app_handle
+                .emit("server-event", event_payload)
+                .map_err(|e| GroupError::EventError(e.to_string()))?;
+        }
+        Ok(())
+    }
+
+    async fn emit_welcome_message_event(
+        &self,
+        message_id: u64,
+        success: bool,
+    ) -> Result<(), GroupError> {
+        let event_payload = serde_json::json!({
+            "type": "welcome_message",
+            "data": {
+                "message_id": message_id.to_string(),
+                "success": success
+            }
+        });
+
+        if let Some(app_handle) = &self.app_handle {
+            app_handle
+                .emit("server-event", event_payload)
+                .map_err(|e| GroupError::EventError(e.to_string()))?;
+        }
+        Ok(())
+    }
+
     async fn emit_new_group_config(
         &self,
         group_id: &GroupId,
@@ -433,6 +475,8 @@ impl GroupHandler {
                                     msg.message_id,
                                     msg.success
                                 );
+                                self.emit_message_delivery_event(msg.message_id, msg.success)
+                                    .await?;
                             }
                             group_microservice::stream_response::Response::SendWelcomeMessage(
                                 msg,
@@ -442,6 +486,8 @@ impl GroupHandler {
                                     msg.message_id,
                                     msg.success
                                 );
+                                self.emit_welcome_message_event(msg.message_id, msg.success)
+                                    .await?;
                             }
                             group_microservice::stream_response::Response::WelcomeMessage(msg) => {
                                 log::info!("Received welcome message for user {}", self.user_id);

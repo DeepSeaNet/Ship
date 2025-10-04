@@ -68,6 +68,7 @@ export const ChatMessage = memo(
     appearanceSettings,
     showSenderName = true,
     contacts = [],
+    isPending = false,
   }: {
     message: Message
     getUserColor: (name: string) => string
@@ -78,6 +79,7 @@ export const ChatMessage = memo(
     appearanceSettings: AppearanceSettings
     showSenderName?: boolean
     contacts?: Record<number, User>
+    isPending?: boolean
   }) => {
     const replyToMessage = message.reply_to
       ? findMessageById(message.reply_to)
@@ -164,13 +166,14 @@ export const ChatMessage = memo(
             )}
             <div
               className={`
-            px-3 py-2 rounded-2xl shadow-sm relative min-w-[100px] ${message.edited ? 'min-w-[140px]' : ''}
-            ${
-              message.sender_id === 0
-                ? 'bg-gradient-to-r from-primary to-accent text-white rounded-br-none'
-                : 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-bl-none'
-            }
-          `}
+                  px-3 py-2 rounded-2xl shadow-sm relative min-w-[100px] ${message.edited ? 'min-w-[140px]' : ''}
+                  ${
+                    message.sender_id === 0
+                      ? 'bg-gradient-to-r from-primary to-accent text-white rounded-br-none'
+                      : 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-bl-none'
+                  }
+                  ${isPending ? 'opacity-70' : ''}
+                `}
             >
               {message.reply_to && replyToMessage && (
                 <div
@@ -379,10 +382,10 @@ export const ChatMessage = memo(
               {/* Отображение времени */}
               <div
                 className={`
-              text-xs text-right
-              ${message.sender_id === 0 ? 'text-white/70' : 'text-slate-400 dark:text-slate-500'} 
-              flex items-center gap-0.5 justify-end mt-0.5 text-[10px]
-            `}
+                  text-xs text-right
+                  ${message.sender_id === 0 ? 'text-white/70' : 'text-slate-400 dark:text-slate-500'} 
+                  flex items-center gap-1 justify-end mt-0.5 text-[10px]
+                `}
               >
                 <span>
                   {new Date(message.timestamp).toLocaleTimeString(undefined, {
@@ -392,6 +395,22 @@ export const ChatMessage = memo(
                 </span>
                 {message.edited && (
                   <span className="italic whitespace-nowrap">(изм.)</span>
+                )}
+                {isPending && (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-3.5 w-3.5 opacity-70"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
                 )}
               </div>
             </div>

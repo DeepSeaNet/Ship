@@ -12,6 +12,9 @@ interface ListenerProps {
   selectedChat: Chat | Group | null
   setCurrentChatMessages: React.Dispatch<SetStateAction<Message[]>>
   setMessages: React.Dispatch<SetStateAction<Record<string, Message[]>>>
+  setPendingIndex: React.Dispatch<
+    SetStateAction<Map<string, { chatId: string; message: Message }>>
+  >
   setChats: React.Dispatch<SetStateAction<Chat[]>>
   setGroups: React.Dispatch<SetStateAction<Group[]>>
   setSelectedChat: React.Dispatch<SetStateAction<Chat | Group | null>>
@@ -25,6 +28,7 @@ export const Listener = ({
   selectedChat,
   setCurrentChatMessages,
   setMessages,
+  setPendingIndex,
   setChats,
   setGroups,
   setSelectedChat,
@@ -844,6 +848,28 @@ export const Listener = ({
     [setTypingStatuses],
   )
 
+  const handleMessageDelivery = useCallback(
+    (data: any) => {
+      console.log('Message delivery:', data)
+      setPendingIndex((prev) => {
+        prev.delete(data.message_id)
+        return prev
+      })
+    },
+    [setMessages, setPendingIndex],
+  )
+
+  const handleWelcomeMessage = useCallback(
+    (data: any) => {
+      console.log('Welcome message:', data)
+      setPendingIndex((prev) => {
+        prev.delete(data.message_id)
+        return prev
+      })
+    },
+    [setMessages, setPendingIndex],
+  )
+
   const setupMessageListener = useCallback(async () => {
     console.log('Setting up message listener')
     try {
@@ -909,6 +935,14 @@ export const Listener = ({
               break
             case 'user_typing_status_changed':
               handleUserTypingStatusChanged(data)
+              break
+
+            case 'message_delivery':
+              handleMessageDelivery(data)
+              break
+
+            case 'welcome_message':
+              handleWelcomeMessage(data)
               break
           }
         })

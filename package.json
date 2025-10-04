@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "dev": "pnpm --filter ship-ui dev",
-    "build": "pnpm --filter ship-ui build", 
+    "build": "pnpm --filter ship-ui build",
     "lint": "pnpm --filter ship-ui lint",
     "lint:fix": "pnpm --filter ship-ui lint:fix",
     "ts": "pnpm --filter ship-ui ts",

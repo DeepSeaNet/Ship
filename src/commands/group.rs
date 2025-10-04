@@ -329,13 +329,17 @@ pub async fn send_group_message(
                 .build(message_id as i64, &app_handle, user.user_id() as i64)
                 .unwrap();
 
-            user.send_message(&group_id, UserGroupMessage::TextMessage(message.clone()))
-                .await
-                .map_err(|e| {
-                    log::error!("Failed to send message: {}", e);
-                    e.to_string()
-                })
-                .ok();
+            user.send_message(
+                &group_id,
+                message_id,
+                UserGroupMessage::TextMessage(message.clone()),
+            )
+            .await
+            .map_err(|e| {
+                log::error!("Failed to send message: {}", e);
+                e.to_string()
+            })
+            .ok();
 
             let success_payload = {
                 serde_json::json!({
@@ -359,7 +363,7 @@ pub async fn send_group_message(
         }
     });
 
-    Ok(message_id.to_string())
+    Ok((message_id as i64).to_string())
 }
 
 #[tauri::command]

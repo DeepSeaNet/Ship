@@ -233,7 +233,7 @@
   --theme-danger: #dc3545;
   --theme-info: #17a2b8;
   --theme-surface: rgb(255, 255, 255);
-  --theme-chat_background: rgb(240, 240, 245); 
+  --theme-chat_background: rgb(240, 240, 245);
 
   /* Safe area environment variables with fallbacks */
   --safe-area-inset-top: env(safe-area-inset-top, 0px);

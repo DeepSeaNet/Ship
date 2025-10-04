@@ -192,6 +192,10 @@ export class AdvancedMicrophoneController {
         // Дополнительные опции
         positiveSpeechThreshold: 0.4, // Порог обнаружения речи (0-1)
         negativeSpeechThreshold: 0.4, // Порог обнаружения тишины (0-1)
+        onnxWASMBasePath:
+          'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/',
+        baseAssetPath:
+          'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.27/dist/',
       })
 
       // Запускаем VAD

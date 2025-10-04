@@ -41,6 +41,10 @@ interface ChatWindowProps {
   setGroups: React.Dispatch<React.SetStateAction<Group[]>>
   messages: Record<string, Message[]>
   setMessages: React.Dispatch<React.SetStateAction<Record<string, Message[]>>>
+  pendingIndex: Map<string, { chatId: string; message: Message }>
+  setPendingIndex: React.Dispatch<
+    React.SetStateAction<Map<string, { chatId: string; message: Message }>>
+  >
   setSelectedChat: React.Dispatch<React.SetStateAction<Chat | Group | null>>
   isLoading: boolean
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>
@@ -56,7 +60,8 @@ export default function ChatWindow({
   chats,
   groups,
   setChats,
-  setGroups,
+  pendingIndex,
+  setPendingIndex,
   messages,
   setMessages,
   setSelectedChat,
@@ -67,14 +72,10 @@ export default function ChatWindow({
 }: ChatWindowProps) {
   const { appearanceSettings } = useSettingsStore()
   const { sendGroupMessage, checkPermission } = Group({
-    groups,
-    setGroups,
-    isLoading,
-    setIsLoading,
     messages,
     setMessages,
+    setPendingIndex,
     selectedChat,
-    setSelectedChat,
     currentChatMessages,
     setCurrentChatMessages,
   })
@@ -424,6 +425,7 @@ export default function ChatWindow({
           handleContextMenu={handleContextMenu}
           handleImageClick={handleImageClick}
           findMessageById={findMessageByIdMemo}
+          isPending={pendingIndex.has(message.message_id)}
           appearanceSettings={appearanceSettings}
           showSenderName={showSenderName}
           contacts={contacts}
@@ -506,7 +508,7 @@ export default function ChatWindow({
         }
       />
 
-      {/* Input Bar - фиксированное позиционирование */}
+      {/* Input Bar */}
       {canSendMessages ? (
         <div className="flex-shrink-0">
           <InputBar

@@ -32,10 +32,16 @@ use std::path::PathBuf;
 const CIPHERSUITE: CipherSuite = CipherSuite::CURVE25519_AES128;
 
 pub type MlsClient = Client<
-    WithIdentityProvider<BasicIdentityProvider, WithCryptoProvider<AwsLcCryptoProvider, BaseConfig>>,
+    WithIdentityProvider<
+        BasicIdentityProvider,
+        WithCryptoProvider<AwsLcCryptoProvider, BaseConfig>,
+    >,
 >;
 pub type MlsGroup = Group<
-    WithIdentityProvider<BasicIdentityProvider, WithCryptoProvider<AwsLcCryptoProvider, BaseConfig>>,
+    WithIdentityProvider<
+        BasicIdentityProvider,
+        WithCryptoProvider<AwsLcCryptoProvider, BaseConfig>,
+    >,
 >;
 
 pub struct VoiceUser {

@@ -427,7 +427,7 @@ impl Device {
     /// Generate a random message identifier
     pub fn generate_message_id() -> u64 {
         let mut rng = rand::rng();
-        rng.random_range(0..u64::MAX)
+        rng.random_range(0..i64::MAX as u64)
     }
 }
 

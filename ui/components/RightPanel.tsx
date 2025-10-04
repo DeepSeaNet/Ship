@@ -93,14 +93,9 @@ const RightPanel: React.FC<RightPanelProps> = ({
   isMobile,
 }) => {
   const { checkPermission } = Group({
-    groups,
-    setGroups,
-    isLoading,
-    setIsLoading,
     messages,
     setMessages,
     selectedChat,
-    setSelectedChat,
     currentChatMessages,
     setCurrentChatMessages,
   })

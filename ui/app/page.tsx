@@ -76,6 +76,9 @@ export default function Home() {
   const [selectedChat, setSelectedChat] = useState<Chat | Group | null>(null)
   const [currentChatMessages, setCurrentChatMessages] = useState<Message[]>([])
   const [messages, setMessages] = useState<Record<string, Message[]>>({})
+  const [pendingIndex, setPendingIndex] = useState<
+    Map<string, { chatId: string; message: Message }>
+  >(new Map())
   const [groups, setGroups] = useState<Chat[]>([])
   const [chats, setChats] = useState<Chat[]>([])
   const [contacts, setContacts] = useState<Record<number, User>>({})
@@ -119,6 +122,16 @@ export default function Home() {
 
   const closeSettings = () => {
     setIsSettingsOpen(false)
+  }
+
+  const clearUserData = () => {
+    setSelectedChat(null)
+    setCurrentChatMessages([])
+    setMessages({})
+    setGroups([])
+    setContacts({})
+    setConnectionStatus('disconnected')
+    setUserData(null)
   }
 
   // Handler to receive the search toggle function from ChatWindow
@@ -242,6 +255,8 @@ export default function Home() {
         setGroups={setGroups}
         messages={messages}
         setMessages={setMessages}
+        pendingIndex={pendingIndex}
+        setPendingIndex={setPendingIndex}
         setSelectedChat={setSelectedChat}
         isLoading={isLoading}
         setIsLoading={setIsLoading}
@@ -260,6 +275,7 @@ export default function Home() {
       setChats,
       setGroups,
       messages,
+      pendingIndex,
       setMessages,
       setSelectedChat,
       isLoading,
@@ -312,6 +328,7 @@ export default function Home() {
     selectedChat: selectedChat,
     setCurrentChatMessages: setCurrentChatMessages,
     setMessages: setMessages,
+    setPendingIndex: setPendingIndex,
     setChats: setChats,
     setGroups: setGroups,
     setSelectedChat: setSelectedChat,
@@ -476,7 +493,7 @@ export default function Home() {
           {memoizedLeftSidebar}
         </div>
         <div
-          className={`flex-1 flex flex-col overflow-hidden min-h-0 ${isMobile && isMobileMenuOpen ? 'invisible' : 'visible'} pt-12 md:pt-0 h-[calc(100dvh-3rem)] md:h-auto`}
+          className={`flex-1 flex flex-col overflow-hidden min-h-0 ${isMobile && isMobileMenuOpen ? 'invisible' : 'visible'} md:h-auto`}
         >
           {memoizedChatWindow}
         </div>
@@ -512,7 +529,11 @@ export default function Home() {
       {isSettingsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
           <div className="w-full max-w-5xl h-[80vh]">
-            <Settings closeSettings={closeSettings} isMobile={isMobile} />
+            <Settings
+              closeSettings={closeSettings}
+              clearUserData={clearUserData}
+              isMobile={isMobile}
+            />
           </div>
         </div>
       )}

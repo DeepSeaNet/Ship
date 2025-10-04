@@ -22,26 +22,14 @@ export default function AccountDropdown({ onLogout }: AccountDropdownProps) {
   } | null>(null)
 
   useEffect(() => {
-    const fetchAccountData = () => {
-      try {
-        const storedUserId = localStorage.getItem('userId')
-        const storedUsername = localStorage.getItem('username')
-        const storedPublicAddress = localStorage.getItem('publicAddress')
-        if (storedUserId && storedUsername) {
-          setUserData({
-            username: storedUsername,
-            user_id: parseInt(storedUserId),
-            public_address: storedPublicAddress || 'N/A',
-          })
-        } else {
-          console.error('No user data found in localStorage')
-        }
-      } catch (error) {
-        console.error('Failed to fetch account data from localStorage:', error)
-      }
-    }
-
-    fetchAccountData()
+    const storedUserId = localStorage.getItem('userId') || ''
+    const storedUsername = localStorage.getItem('username') || '0'
+    const storedPublicAddress = localStorage.getItem('publicAddress')
+    setUserData({
+      username: storedUsername,
+      user_id: parseInt(storedUserId),
+      public_address: storedPublicAddress || 'N/A',
+    })
   }, [])
 
   const copyToClipboard = (text: string | number, label: string) => {
