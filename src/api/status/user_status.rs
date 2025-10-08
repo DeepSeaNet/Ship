@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime};
 use tokio::sync::Mutex;
 
 use crate::api::account::Account;
-use crate::api::connection::get_avaliable_servers;
+use crate::api::connection::get_status_servers;
 use crate::api::status::connection::Backend;
 use crate::api::status::connection::user_service_proto::{
     OnlineStatus, OnlineStatusRequest, TypingStatus, UpdateAvatarResponse, UserStatusRequest,
@@ -51,7 +51,7 @@ impl UserStatusClient {
         app_handler: Option<tauri::AppHandle>,
     ) -> Result<Self, anyhow::Error> {
         // Создаем канал для отправки статусов
-        let addr = get_avaliable_servers();
+        let addr = get_status_servers();
         let (status_tx, status_rx) = mpsc::channel(100);
 
         let status_cache = Arc::new(RwLock::new(HashMap::new()));

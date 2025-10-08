@@ -526,19 +526,14 @@ export default function Home() {
       />
 
       {/* Settings modal */}
-      {isSettingsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
-          <div className="w-full max-w-5xl h-[80vh]">
-            <Settings
-              closeSettings={closeSettings}
-              clearUserData={clearUserData}
-              isMobile={isMobile}
-            />
-          </div>
-        </div>
-      )}
+      <Settings
+        isOpen={isSettingsOpen}
+        closeSettings={closeSettings}
+        clearUserData={clearUserData}
+        isMobile={isMobile}
+      />
 
-      {/* Auth modal - показываем только при необходимости */}
+      {/* Auth modal */}
       {showAuthModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm">
           <Auth onAuthSuccess={handleAuthSuccess} />

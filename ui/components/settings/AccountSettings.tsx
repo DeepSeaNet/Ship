@@ -9,6 +9,7 @@ import {
   FiEyeOff,
   FiSmartphone,
   FiDownload,
+  FiCloud,
 } from 'react-icons/fi'
 import { toast } from 'react-hot-toast'
 import {
@@ -54,14 +55,20 @@ const AccountSettings: React.FC = () => {
     const username = localStorage.getItem('username') || ''
     const publicAddress = localStorage.getItem('publicAddress') || ''
     const serverAddress = localStorage.getItem('serverAddress') || ''
-    const serverPubKey = localStorage.getItem('serverPubKey') || ''
+    const serverPubKeyArray = (localStorage.getItem('serverPubKey') || '')
+      .split(',')
+      .map((n) => parseInt(n, 10))
+
+    const serverPubKeyBase64 = serverPubKeyArray.length
+      ? btoa(String.fromCharCode(...serverPubKeyArray))
+      : ''
 
     setAccountInfo({
       userId,
       username,
       publicAddress,
       serverAddress,
-      serverPubKey: serverPubKey || undefined,
+      serverPubKey: serverPubKeyBase64 || undefined,
     })
   }, [])
 
@@ -222,7 +229,7 @@ const AccountSettings: React.FC = () => {
           label="ID пользователя"
           value={accountInfo.userId}
           icon={
-            <FiUser className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+            <FiCloud className="w-5 h-5 text-slate-600 dark:text-slate-400" />
           }
           fieldName="userId"
         />

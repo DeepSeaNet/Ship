@@ -908,16 +908,6 @@ const RightPanel: React.FC<RightPanelProps> = ({
                         <div>
                           <div className="font-medium text-slate-900 dark:text-slate-100 flex items-center gap-1">
                             {username}
-                            {isCreator && (
-                              <span className="inline-flex items-center justify-center bg-amber-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-md ml-1">
-                                Создатель
-                              </span>
-                            )}
-                            {isAdmin && !isCreator && (
-                              <span className="inline-flex items-center justify-center bg-blue-500 text-white text-xs font-bold px-1.5 py-0.5 rounded-md ml-1">
-                                Админ
-                              </span>
-                            )}
                           </div>
                           <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center">
                             {isOnline ? 'В сети' : 'Не в сети'}

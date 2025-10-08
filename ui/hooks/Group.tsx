@@ -224,10 +224,11 @@ export const Group = ({
           })
         }
 
-        if (setPendingIndex) setPendingIndex((prev) => {
-          prev.set(messageId, { chatId: groupId, message: tempMessage })
-          return prev
-        })
+        if (setPendingIndex)
+          setPendingIndex((prev) => {
+            prev.set(messageId, { chatId: groupId, message: tempMessage })
+            return prev
+          })
 
         return true
       } catch (err) {
