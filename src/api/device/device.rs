@@ -54,7 +54,6 @@ pub struct Device {
     pub backend: Option<Backend>,
     pub app_handle: Option<AppHandle>,
     pub(super) contacts_parsed_cache: Cache<u64, AccountCredential>,
-    pub(super) display_key_cache: Cache<Vec<u8>, Vec<u8>>,
 }
 
 impl Device {
@@ -76,9 +75,6 @@ impl Device {
         let contacts_parsed_cache = CacheBuilder::new(10_000)
             .time_to_live(Duration::from_secs(60 * 30))
             .build();
-        let display_key_cache = CacheBuilder::new(2_000)
-            .time_to_live(Duration::from_secs(60 * 10))
-            .build();
         Ok(Self {
             identity,
             device_id: device_id.to_string(),
@@ -88,7 +84,6 @@ impl Device {
             backend,
             app_handle,
             contacts_parsed_cache,
-            display_key_cache,
         })
     }
 
@@ -119,9 +114,6 @@ impl Device {
         let contacts_parsed_cache = CacheBuilder::new(10_000)
             .time_to_live(Duration::from_secs(60 * 30))
             .build();
-        let display_key_cache = CacheBuilder::new(2_000)
-            .time_to_live(Duration::from_secs(60 * 10))
-            .build();
         Ok(Self {
             identity,
             device_id: device_id.to_string(),
@@ -131,7 +123,6 @@ impl Device {
             backend,
             app_handle,
             contacts_parsed_cache,
-            display_key_cache,
         })
     }
 
