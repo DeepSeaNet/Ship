@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "{}/service/group/proto/group_microservice.proto",
         sea_path
     ))?;
-    
+
     // Compile signaling.proto with serde support and service client
     tonic_prost_build::configure()
         .type_attribute(".", "#[derive(serde::Serialize, serde::Deserialize)]")
@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             &[format!("{}/service/voice/proto/signaling.proto", sea_path)],
             &[format!("{}/service/voice/proto", sea_path)],
         )?;
-    
+
     tonic_prost_build::compile_protos(format!(
         "{}/service/status/proto/user_status.proto",
         sea_path

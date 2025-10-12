@@ -1,16 +1,16 @@
 use crate::api::connection::get_avaliable_voice_servers;
 use crate::api::voice::grpc_generated::echolocator::signaling_service_client::SignalingServiceClient;
 use crate::api::voice::grpc_generated::echolocator::{
-    TryGetRoomRequest, UpdateGroupInfoRequest, VoiceMessage, ClientMessage, ServerMessage,
+    ClientMessage, ServerMessage, TryGetRoomRequest, UpdateGroupInfoRequest, VoiceMessage,
 };
 use anyhow::{Result, anyhow};
 use std::sync::Arc;
+use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::transport::Channel;
-use tauri::{AppHandle, Emitter};
 
 pub type VoiceStreamHandler = Arc<dyn Fn(VoiceMessage) + Send + Sync + 'static>;
 
@@ -301,7 +301,11 @@ impl Backend {
     }
 
     // Инициализация SignalingStream для WebRTC
-    pub async fn init_signaling_stream(&self, room_id: String, rtp_capabilities: Option<String>) -> Result<()> {
+    pub async fn init_signaling_stream(
+        &self,
+        room_id: String,
+        rtp_capabilities: Option<String>,
+    ) -> Result<()> {
         let mut client_guard = self.client.lock().await;
 
         let client = client_guard
@@ -317,7 +321,7 @@ impl Backend {
             // Парсим RTP capabilities из JSON
             let rtp_caps: serde_json::Value = serde_json::from_str(&rtp_caps_json)
                 .map_err(|e| anyhow!("Failed to parse RTP capabilities: {}", e))?;
-            
+
             ClientMessage {
                 message: Some(crate::api::voice::grpc_generated::echolocator::client_message::Message::Init(
                     crate::api::voice::grpc_generated::echolocator::InitRequest {
@@ -340,15 +344,19 @@ impl Backend {
         } else {
             // Если RTP capabilities не переданы, используем минимальные
             ClientMessage {
-                message: Some(crate::api::voice::grpc_generated::echolocator::client_message::Message::Init(
-                    crate::api::voice::grpc_generated::echolocator::InitRequest {
-                        room_id: room_id.clone(),
-                        rtp_capabilities: Some(crate::api::voice::grpc_generated::echolocator::RtpCapabilities {
-                            codecs: vec![],
-                            header_extensions: vec![],
-                        }),
-                    }
-                ))
+                message: Some(
+                    crate::api::voice::grpc_generated::echolocator::client_message::Message::Init(
+                        crate::api::voice::grpc_generated::echolocator::InitRequest {
+                            room_id: room_id.clone(),
+                            rtp_capabilities: Some(
+                                crate::api::voice::grpc_generated::echolocator::RtpCapabilities {
+                                    codecs: vec![],
+                                    header_extensions: vec![],
+                                },
+                            ),
+                        },
+                    ),
+                ),
             }
         };
 
@@ -373,12 +381,18 @@ impl Backend {
         let response = client.signaling_stream(request).await?;
         let mut inbound = response.into_inner();
 
-        log::info!("Signaling stream initialized successfully for room {}", room_id);
+        log::info!(
+            "Signaling stream initialized successfully for room {}",
+            room_id
+        );
 
         // Запускаем задачу для обработки входящих сообщений
         let app_handle = self.app_handle.clone();
         tokio::spawn(async move {
-            log::info!("Starting signaling stream processing task for room {}", room_id);
+            log::info!(
+                "Starting signaling stream processing task for room {}",
+                room_id
+            );
 
             while let Some(message) = inbound.next().await {
                 match message {

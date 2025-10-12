@@ -1,7 +1,7 @@
 use crate::api::connection::get_avaliable_voice_servers;
 use crate::api::voice::VoiceUser;
-use crate::api::voice::types::codec_types::{CodecType, get_vp8_encryption_offset};
 use crate::api::voice::grpc_generated::echolocator::ClientMessage;
+use crate::api::voice::types::codec_types::{CodecType, get_vp8_encryption_offset};
 use std::sync::Arc;
 use tauri::State;
 use tokio::sync::RwLock;
@@ -169,10 +169,13 @@ pub async fn init_webrtc_signaling(
 
     let voice_user = state.read().await;
     voice_user.initialize().await.map_err(|e| e.to_string())?;
-    
+
     // Initialize signaling stream with RTP capabilities
-    voice_user.init_signaling_stream(session_id, rtp_capabilities).await.map_err(|e| e.to_string())?;
-    
+    voice_user
+        .init_signaling_stream(session_id, rtp_capabilities)
+        .await
+        .map_err(|e| e.to_string())?;
+
     log::info!("WebRTC signaling stream initialized successfully");
     Ok(())
 }
@@ -190,8 +193,11 @@ pub async fn send_webrtc_message(
         .map_err(|e| format!("Failed to parse message JSON: {}", e))?;
 
     let voice_user = state.read().await;
-    voice_user.send_signaling_message(client_message).await.map_err(|e| e.to_string())?;
-    
+    voice_user
+        .send_signaling_message(client_message)
+        .await
+        .map_err(|e| e.to_string())?;
+
     log::info!("WebRTC message sent successfully");
     Ok(())
 }

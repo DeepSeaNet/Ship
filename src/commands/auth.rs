@@ -33,7 +33,10 @@ pub async fn grpc_login(
 
     let (group_account_result, voice_client_result, user_status_result) = tokio::join!(
         Device::load_from_db(account.clone(), Some(app_handle.clone())),
-        VoiceUser::new_with_app_handle(account.credential.account_id.user_id as i64, Some(app_handle.clone())),
+        VoiceUser::new_with_app_handle(
+            account.credential.account_id.user_id as i64,
+            Some(app_handle.clone())
+        ),
         async {
             crate::api::status::user_status::UserStatusClient::new(
                 account.user_id as i64,

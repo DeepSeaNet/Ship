@@ -26,9 +26,9 @@ use crate::api::voice::types::ratchet_key::GroupRatchetManager;
 use crate::api::voice::types::ratchet_key::RatchetConfig;
 use crate::api::voice::voice_handler::VoiceHandler;
 use crate::api::voice::{connection::voice_connection::Backend, types::basic_types::VoiceUserData};
-use tauri::AppHandle;
 use mls_rs_crypto_awslc::AwsLcCryptoProvider;
 use std::path::PathBuf;
+use tauri::AppHandle;
 
 const CIPHERSUITE: CipherSuite = CipherSuite::CURVE25519_AES128;
 
@@ -72,13 +72,13 @@ impl VoiceUser {
             .crypto_provider(crypto_provider.clone())
             .signing_identity(signing_identity.clone(), secret.clone(), CIPHERSUITE)
             .build();
-        
+
         let backend = if let Some(app_handle) = &app_handle {
             Backend::with_app_handle(app_handle.clone())
         } else {
             Backend::new()
         };
-        
+
         let voice_user = Self {
             current_voice: Arc::new(RwLock::new(None)),
             identity: signing_identity,
@@ -501,15 +501,24 @@ impl VoiceUser {
     }
 
     // Инициализация signaling stream для WebRTC
-    pub async fn init_signaling_stream(&self, room_id: String, rtp_capabilities: Option<String>) -> Result<(), anyhow::Error> {
+    pub async fn init_signaling_stream(
+        &self,
+        room_id: String,
+        rtp_capabilities: Option<String>,
+    ) -> Result<(), anyhow::Error> {
         log::info!("Initializing signaling stream for room {}", room_id);
-        self.backend.init_signaling_stream(room_id, rtp_capabilities).await?;
+        self.backend
+            .init_signaling_stream(room_id, rtp_capabilities)
+            .await?;
         log::info!("Signaling stream initialized successfully");
         Ok(())
     }
 
     // Отправка signaling сообщения
-    pub async fn send_signaling_message(&self, message: crate::api::voice::grpc_generated::echolocator::ClientMessage) -> Result<(), anyhow::Error> {
+    pub async fn send_signaling_message(
+        &self,
+        message: crate::api::voice::grpc_generated::echolocator::ClientMessage,
+    ) -> Result<(), anyhow::Error> {
         self.backend.send_signaling_message(message).await?;
         Ok(())
     }
