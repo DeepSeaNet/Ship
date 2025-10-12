@@ -65,7 +65,7 @@ export class GrpcSignalingAdapter {
     try {
       // Настраиваем слушатель событий сначала
       await this.setupEventListener()
-      
+
       const minimalCapabilities = {
         codecs: [
           // ===== AUDIO =====
@@ -79,16 +79,16 @@ export class GrpcSignalingAdapter {
               useinbandfec: 1,
               stereo: 1,
               maxplaybackrate: 48000,
-              ptime: 20
+              ptime: 20,
             },
             rtcpFeedback: [
               { type: 'transport-cc' },
               { type: 'ccm', parameter: 'fir' },
               { type: 'nack' },
-              { type: 'nack', parameter: 'pli' }
-            ]
+              { type: 'nack', parameter: 'pli' },
+            ],
           },
-      
+
           // ===== VIDEO VP8 =====
           {
             kind: 'video',
@@ -101,8 +101,8 @@ export class GrpcSignalingAdapter {
               { type: 'nack', parameter: 'pli' },
               { type: 'ccm', parameter: 'fir' },
               { type: 'goog-remb' },
-              { type: 'transport-cc' }
-            ]
+              { type: 'transport-cc' },
+            ],
           },
           // RTX для VP8
           {
@@ -111,9 +111,9 @@ export class GrpcSignalingAdapter {
             preferredPayloadType: 97,
             clockRate: 90000,
             parameters: { apt: 96 },
-            rtcpFeedback: []
+            rtcpFeedback: [],
           },
-      
+
           // ===== VIDEO VP9 =====
           {
             kind: 'video',
@@ -126,8 +126,8 @@ export class GrpcSignalingAdapter {
               { type: 'nack', parameter: 'pli' },
               { type: 'ccm', parameter: 'fir' },
               { type: 'goog-remb' },
-              { type: 'transport-cc' }
-            ]
+              { type: 'transport-cc' },
+            ],
           },
           // RTX для VP9
           {
@@ -136,9 +136,9 @@ export class GrpcSignalingAdapter {
             preferredPayloadType: 99,
             clockRate: 90000,
             parameters: { apt: 98 },
-            rtcpFeedback: []
+            rtcpFeedback: [],
           },
-      
+
           // ===== VIDEO H264 =====
           {
             kind: 'video',
@@ -148,15 +148,15 @@ export class GrpcSignalingAdapter {
             parameters: {
               'level-asymmetry-allowed': 1,
               'packetization-mode': 1,
-              'profile-level-id': '42e01f'
+              'profile-level-id': '42e01f',
             },
             rtcpFeedback: [
               { type: 'nack' },
               { type: 'nack', parameter: 'pli' },
               { type: 'ccm', parameter: 'fir' },
               { type: 'goog-remb' },
-              { type: 'transport-cc' }
-            ]
+              { type: 'transport-cc' },
+            ],
           },
           // RTX для H264
           {
@@ -165,10 +165,10 @@ export class GrpcSignalingAdapter {
             preferredPayloadType: 101,
             clockRate: 90000,
             parameters: { apt: 100 },
-            rtcpFeedback: []
-          }
+            rtcpFeedback: [],
+          },
         ],
-      
+
         headerExtensions: [
           // ===== AUDIO =====
           {
@@ -176,132 +176,132 @@ export class GrpcSignalingAdapter {
             uri: 'urn:ietf:params:rtp-hdrext:sdes:mid',
             preferredId: 1,
             preferredEncrypt: false,
-            direction: 'sendrecv'
+            direction: 'sendrecv',
           },
           {
             kind: 'audio',
             uri: 'http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time',
             preferredId: 4,
             preferredEncrypt: false,
-            direction: 'sendrecv'
+            direction: 'sendrecv',
           },
           {
             kind: 'audio',
             uri: 'http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01',
             preferredId: 5,
             preferredEncrypt: false,
-            direction: 'sendrecv'
+            direction: 'sendrecv',
           },
           {
             kind: 'audio',
             uri: 'urn:ietf:params:rtp-hdrext:ssrc-audio-level',
             preferredId: 10,
             preferredEncrypt: false,
-            direction: 'sendrecv'
+            direction: 'sendrecv',
           },
           {
             kind: 'audio',
             uri: 'urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id',
             preferredId: 11,
             preferredEncrypt: false,
-            direction: 'sendrecv'
+            direction: 'sendrecv',
           },
           {
             kind: 'audio',
             uri: 'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id',
             preferredId: 12,
             preferredEncrypt: false,
-            direction: 'sendrecv'
+            direction: 'sendrecv',
           },
-      
+
           // ===== VIDEO =====
           {
             kind: 'video',
             uri: 'urn:ietf:params:rtp-hdrext:sdes:mid',
             preferredId: 1,
             preferredEncrypt: false,
-            direction: 'sendrecv'
+            direction: 'sendrecv',
           },
           {
             kind: 'video',
             uri: 'http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time',
             preferredId: 4,
             preferredEncrypt: false,
-            direction: 'sendrecv'
+            direction: 'sendrecv',
           },
           {
             kind: 'video',
             uri: 'http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01',
             preferredId: 5,
             preferredEncrypt: false,
-            direction: 'sendrecv'
+            direction: 'sendrecv',
           },
           {
             kind: 'video',
             uri: 'urn:ietf:params:rtp-hdrext:toffset',
             preferredId: 13,
             preferredEncrypt: false,
-            direction: 'sendrecv'
+            direction: 'sendrecv',
           },
           {
             kind: 'video',
             uri: 'urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id',
             preferredId: 14,
             preferredEncrypt: false,
-            direction: 'sendrecv'
+            direction: 'sendrecv',
           },
           {
             kind: 'video',
             uri: 'urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id',
             preferredId: 15,
             preferredEncrypt: false,
-            direction: 'sendrecv'
+            direction: 'sendrecv',
           },
           {
             kind: 'video',
             uri: 'urn:ietf:params:rtp-hdrext:framemarking',
             preferredId: 16,
             preferredEncrypt: false,
-            direction: 'sendrecv'
+            direction: 'sendrecv',
           },
           {
             kind: 'video',
             uri: 'urn:3gpp:video-orientation',
             preferredId: 17,
             preferredEncrypt: false,
-            direction: 'sendrecv'
+            direction: 'sendrecv',
           },
           {
             kind: 'video',
             uri: 'urn:ietf:params:rtp-hdrext:playout-delay',
             preferredId: 18,
             preferredEncrypt: false,
-            direction: 'sendrecv'
+            direction: 'sendrecv',
           },
           {
             kind: 'video',
             uri: 'http://www.webrtc.org/experiments/rtp-hdrext/video-content-type',
             preferredId: 19,
             preferredEncrypt: false,
-            direction: 'sendrecv'
+            direction: 'sendrecv',
           },
           {
             kind: 'video',
             uri: 'http://www.webrtc.org/experiments/rtp-hdrext/video-timing',
             preferredId: 20,
             preferredEncrypt: false,
-            direction: 'sendrecv'
-          }
-        ]
-      }      
-      
+            direction: 'sendrecv',
+          },
+        ],
+      }
+
       // Инициализируем signaling stream с RTP capabilities
       // Init сообщение отправляется автоматически на стороне Rust
-      await invoke('init_webrtc_signaling', { 
+      await invoke('init_webrtc_signaling', {
         sessionId: this.sessionId,
-        rtpCapabilities: JSON.stringify(minimalCapabilities)
+        rtpCapabilities: JSON.stringify(minimalCapabilities),
       })
-      
+
       this.isConnected = true
       this.onConnectionStateChange(true)
       this.addLog('gRPC SignalingStream соединение установлено', 'success')
@@ -336,7 +336,7 @@ export class GrpcSignalingAdapter {
       // Конвертируем TypeScript ClientMessage в proto формат
       const protoMessage = this.convertToProto(message)
       const messageString = JSON.stringify(protoMessage)
-      
+
       this.addLog(`Отправка gRPC сообщения: ${message.action}`, 'info')
       await invoke('send_webrtc_message', { messageJson: messageString })
     } catch (error) {
@@ -351,7 +351,7 @@ export class GrpcSignalingAdapter {
   private async setupEventListener(): Promise<void> {
     this.unlistenFn = await listen('voice-event', (event) => {
       const { type, data } = event.payload as any
-      
+
       if (type === 'signaling_message') {
         this.handleMessage(data)
       }
@@ -361,14 +361,19 @@ export class GrpcSignalingAdapter {
   // Обработка входящих сообщений
   private handleMessage(serverMessage: any): void {
     // Определяем тип сообщения для логирования
-    const messageType = serverMessage.message ? Object.keys(serverMessage.message)[0] : 'unknown'
+    const messageType = serverMessage.message
+      ? Object.keys(serverMessage.message)[0]
+      : 'unknown'
     this.addLog(`Получено gRPC сообщение: ${messageType}`, 'info')
 
     // Конвертируем proto message в mediasoup format
     const message = this.convertProtoToMediasoup(serverMessage)
-    
+
     if (!message) {
-      this.addLog(`Не удалось конвертировать proto сообщение типа: ${messageType}`, 'error')
+      this.addLog(
+        `Не удалось конвертировать proto сообщение типа: ${messageType}`,
+        'error',
+      )
       return
     }
 
@@ -423,7 +428,7 @@ export class GrpcSignalingAdapter {
   // Конвертация proto сообщения в mediasoup формат
   private convertProtoToMediasoup(protoMessage: any): ServerMessage | null {
     const message = protoMessage.message
-    
+
     if (!message) {
       this.addLog('Proto message не содержит поле message', 'error')
       return null
@@ -433,12 +438,21 @@ export class GrpcSignalingAdapter {
     if (message.init) {
       return {
         action: 'Init',
-        routerRtpCapabilities: this.parseRtpCapabilities(message.init.routerRtpCapabilities || message.init.router_rtp_capabilities),
-        producerTransportOptions: this.parseTransportOptions(message.init.producerTransportOptions || message.init.producer_transport_options),
-        consumerTransportOptions: this.parseTransportOptions(message.init.consumerTransportOptions || message.init.consumer_transport_options),
+        routerRtpCapabilities: this.parseRtpCapabilities(
+          message.init.routerRtpCapabilities ||
+            message.init.router_rtp_capabilities,
+        ),
+        producerTransportOptions: this.parseTransportOptions(
+          message.init.producerTransportOptions ||
+            message.init.producer_transport_options,
+        ),
+        consumerTransportOptions: this.parseTransportOptions(
+          message.init.consumerTransportOptions ||
+            message.init.consumer_transport_options,
+        ),
       } as ServerInit
     }
-    
+
     if (message.producerAdded || message.producer_added) {
       const data = message.producerAdded || message.producer_added
       return {
@@ -448,7 +462,7 @@ export class GrpcSignalingAdapter {
         appData: JSON.parse(data.appData || data.app_data || '{}'),
       } as ServerProducerAdded
     }
-    
+
     if (message.producerRemoved || message.producer_removed) {
       const data = message.producerRemoved || message.producer_removed
       return {
@@ -457,38 +471,46 @@ export class GrpcSignalingAdapter {
         participantId: data.participantId || data.participant_id,
       } as ServerProducerRemoved
     }
-    
+
     if (message.consumed) {
       return {
         action: 'Consumed',
         id: message.consumed.consumerId || message.consumed.consumer_id,
         producerId: message.consumed.producerId || message.consumed.producer_id,
         kind: this.convertMediaKind(message.consumed.kind),
-        rtpParameters: this.parseRtpParameters(message.consumed.rtpParameters || message.consumed.rtp_parameters),
+        rtpParameters: this.parseRtpParameters(
+          message.consumed.rtpParameters || message.consumed.rtp_parameters,
+        ),
       } as ServerConsumed
     }
-    
-    if (message.connectedProducerTransport || message.connected_producer_transport) {
+
+    if (
+      message.connectedProducerTransport ||
+      message.connected_producer_transport
+    ) {
       return {
         action: 'ConnectedProducerTransport',
         success: true,
       } as ServerMessage
     }
-    
-    if (message.connectedConsumerTransport || message.connected_consumer_transport) {
+
+    if (
+      message.connectedConsumerTransport ||
+      message.connected_consumer_transport
+    ) {
       return {
         action: 'ConnectedConsumerTransport',
         success: true,
       } as ServerMessage
     }
-    
+
     if (message.produced) {
       return {
         action: 'Produced',
         id: message.produced.producerId || message.produced.producer_id,
       } as ServerMessage
     }
-    
+
     if (message.error) {
       return {
         action: 'Error',
@@ -496,7 +518,10 @@ export class GrpcSignalingAdapter {
       } as ServerError
     }
 
-    this.addLog(`Неизвестный тип proto сообщения: ${Object.keys(message).join(', ')}`, 'error')
+    this.addLog(
+      `Неизвестный тип proto сообщения: ${Object.keys(message).join(', ')}`,
+      'error',
+    )
     return null
   }
 
@@ -505,12 +530,12 @@ export class GrpcSignalingAdapter {
     if (!proto || !proto.codecs || !proto.codecs[0]) {
       return { codecs: [], headerExtensions: [] }
     }
-    
+
     const mimeType = proto.codecs[0].mimeType || proto.codecs[0].mime_type
     if (!mimeType) {
       return { codecs: [], headerExtensions: [] }
     }
-    
+
     try {
       // RtpCapabilities сериализованы в JSON в поле mimeType/mime_type
       return JSON.parse(mimeType)
@@ -531,33 +556,40 @@ export class GrpcSignalingAdapter {
     const dtlsParams = proto.dtlsParameters || proto.dtls_parameters
 
     // Парсим fingerprints, которые могут прийти в Debug формате из Rust
-    const fingerprints = dtlsParams?.fingerprints?.map((fp: any) => {
-      let algorithm = fp.algorithm
-      let value = fp.value
-      
-      // Если algorithm содержит "Sha1 { value" и т.д., извлекаем правильное имя
-      if (algorithm.includes('{')) {
-        algorithm = algorithm.split(' ')[0].toLowerCase() // "Sha1" -> "sha1"
-        // Нормализуем имена алгоритмов для mediasoup
-        if (algorithm === 'sha1') algorithm = 'sha-1'
-        else if (algorithm === 'sha224') algorithm = 'sha-224'
-        else if (algorithm === 'sha256') algorithm = 'sha-256'
-        else if (algorithm === 'sha384') algorithm = 'sha-384'
-        else if (algorithm === 'sha512') algorithm = 'sha-512'
-      }
-      
-      // Если value содержит кавычки и закрывающую скобку, очищаем
-      if (value.includes('"')) {
-        value = value.replace(/"/g, '').replace(/\s*}\s*$/, '').trim()
-      }
-      
-      this.addLog(`Fingerprint parsed: ${algorithm} = ${value.substring(0, 20)}...`, 'debug')
-      
-      return {
-        algorithm,
-        value,
-      }
-    }) || []
+    const fingerprints =
+      dtlsParams?.fingerprints?.map((fp: any) => {
+        let algorithm = fp.algorithm
+        let value = fp.value
+
+        // Если algorithm содержит "Sha1 { value" и т.д., извлекаем правильное имя
+        if (algorithm.includes('{')) {
+          algorithm = algorithm.split(' ')[0].toLowerCase() // "Sha1" -> "sha1"
+          // Нормализуем имена алгоритмов для mediasoup
+          if (algorithm === 'sha1') algorithm = 'sha-1'
+          else if (algorithm === 'sha224') algorithm = 'sha-224'
+          else if (algorithm === 'sha256') algorithm = 'sha-256'
+          else if (algorithm === 'sha384') algorithm = 'sha-384'
+          else if (algorithm === 'sha512') algorithm = 'sha-512'
+        }
+
+        // Если value содержит кавычки и закрывающую скобку, очищаем
+        if (value.includes('"')) {
+          value = value
+            .replace(/"/g, '')
+            .replace(/\s*}\s*$/, '')
+            .trim()
+        }
+
+        this.addLog(
+          `Fingerprint parsed: ${algorithm} = ${value.substring(0, 20)}...`,
+          'debug',
+        )
+
+        return {
+          algorithm,
+          value,
+        }
+      }) || []
 
     // Парсим DTLS role
     let dtlsRole: 'auto' | 'client' | 'server' = 'auto'
@@ -571,19 +603,23 @@ export class GrpcSignalingAdapter {
     return {
       id: proto.id,
       iceParameters: {
-        usernameFragment: iceParams?.usernameFragment || iceParams?.username_fragment || '',
+        usernameFragment:
+          iceParams?.usernameFragment || iceParams?.username_fragment || '',
         password: iceParams?.password || '',
         iceLite: iceParams?.iceLite || iceParams?.ice_lite || false,
       },
-      iceCandidates: iceCandidates?.map((candidate: any) => ({
-        foundation: candidate.foundation,
-        priority: candidate.priority,
-        ip: candidate.address,
-        protocol: (candidate.protocol?.toLowerCase() || 'udp') as 'udp' | 'tcp',
-        port: candidate.port,
-        type: 'host' as 'host' | 'srflx' | 'prflx' | 'relay',
-        tcpType: candidate.tcpType || candidate.tcp_type || undefined,
-      })) || [],
+      iceCandidates:
+        iceCandidates?.map((candidate: any) => ({
+          foundation: candidate.foundation,
+          priority: candidate.priority,
+          ip: candidate.address,
+          protocol: (candidate.protocol?.toLowerCase() || 'udp') as
+            | 'udp'
+            | 'tcp',
+          port: candidate.port,
+          type: 'host' as 'host' | 'srflx' | 'prflx' | 'relay',
+          tcpType: candidate.tcpType || candidate.tcp_type || undefined,
+        })) || [],
       dtlsParameters: {
         role: dtlsRole,
         fingerprints,
@@ -596,7 +632,7 @@ export class GrpcSignalingAdapter {
     if (!proto || !proto.mid) {
       return {}
     }
-    
+
     try {
       // RtpParameters сериализованы в JSON в поле mid
       return JSON.parse(proto.mid)
@@ -631,51 +667,55 @@ export class GrpcSignalingAdapter {
             init: {
               roomId: this.sessionId,
               rtpCapabilities: {
-                codecs: [{
-                  mimeType: JSON.stringify(message.rtpCapabilities),
-                  kind: 'serialized',
-                  preferredPayloadType: 0,
-                  clockRate: 0,
-                  channels: 0,
-                  parameters: '',
-                  rtcpFeedback: '',
-                }],
+                codecs: [
+                  {
+                    mimeType: JSON.stringify(message.rtpCapabilities),
+                    kind: 'serialized',
+                    preferredPayloadType: 0,
+                    clockRate: 0,
+                    channels: 0,
+                    parameters: '',
+                    rtcpFeedback: '',
+                  },
+                ],
                 headerExtensions: [],
               },
             },
           },
         }
-      
+
       case 'ConnectProducerTransport':
         return {
           message: {
             connectProducerTransport: {
               dtlsParameters: {
-                fingerprints: message.dtlsParameters?.fingerprints?.map(fp => ({
-                  algorithm: fp.algorithm,
-                  value: fp.value,
-                })) || [],
+                fingerprints:
+                  message.dtlsParameters?.fingerprints?.map((fp) => ({
+                    algorithm: fp.algorithm,
+                    value: fp.value,
+                  })) || [],
                 role: message.dtlsParameters?.role || 'auto',
               },
             },
           },
         }
-      
+
       case 'ConnectConsumerTransport':
         return {
           message: {
             connectConsumerTransport: {
               dtlsParameters: {
-                fingerprints: message.dtlsParameters?.fingerprints?.map(fp => ({
-                  algorithm: fp.algorithm,
-                  value: fp.value,
-                })) || [],
+                fingerprints:
+                  message.dtlsParameters?.fingerprints?.map((fp) => ({
+                    algorithm: fp.algorithm,
+                    value: fp.value,
+                  })) || [],
                 role: message.dtlsParameters?.role || 'auto',
               },
             },
           },
         }
-      
+
       case 'Produce':
         return {
           message: {
@@ -695,7 +735,7 @@ export class GrpcSignalingAdapter {
             },
           },
         }
-      
+
       case 'Consume':
         return {
           message: {
@@ -704,7 +744,7 @@ export class GrpcSignalingAdapter {
             },
           },
         }
-      
+
       case 'ConsumerResume':
         return {
           message: {
@@ -713,7 +753,7 @@ export class GrpcSignalingAdapter {
             },
           },
         }
-      
+
       default:
         return baseMessage
     }

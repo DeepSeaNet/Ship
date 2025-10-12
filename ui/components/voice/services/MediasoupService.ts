@@ -184,10 +184,16 @@ export class MediasoupService {
         callback: () => void,
       ) => {
         this.addLog('SendTransport событие: connect', 'info')
-        const result = sendMessage({ action: 'ConnectProducerTransport', dtlsParameters })
+        const result = sendMessage({
+          action: 'ConnectProducerTransport',
+          dtlsParameters,
+        })
         if (result instanceof Promise) {
           result.catch((error) => {
-            this.addLog(`Ошибка подключения Producer Transport: ${error}`, 'error')
+            this.addLog(
+              `Ошибка подключения Producer Transport: ${error}`,
+              'error',
+            )
           })
         }
         this.setResponseCallback(
@@ -212,7 +218,12 @@ export class MediasoupService {
         callback: (response: ServerProduced) => void,
       ) => {
         this.addLog(`SendTransport событие: produce (kind: ${kind})`, 'info')
-        const result = sendMessage({ action: 'Produce', kind, rtpParameters, appData })
+        const result = sendMessage({
+          action: 'Produce',
+          kind,
+          rtpParameters,
+          appData,
+        })
         if (result instanceof Promise) {
           result.catch((error) => {
             this.addLog(`Ошибка создания Producer: ${error}`, 'error')
@@ -271,10 +282,16 @@ export class MediasoupService {
         callback: () => void,
       ) => {
         this.addLog('RecvTransport событие: connect', 'info')
-        const result = sendMessage({ action: 'ConnectConsumerTransport', dtlsParameters })
+        const result = sendMessage({
+          action: 'ConnectConsumerTransport',
+          dtlsParameters,
+        })
         if (result instanceof Promise) {
           result.catch((error) => {
-            this.addLog(`Ошибка подключения Consumer Transport: ${error}`, 'error')
+            this.addLog(
+              `Ошибка подключения Consumer Transport: ${error}`,
+              'error',
+            )
           })
         }
         this.setResponseCallback(
