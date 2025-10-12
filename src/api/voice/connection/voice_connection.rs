@@ -1,7 +1,7 @@
 use crate::api::connection::get_avaliable_voice_servers;
 use crate::api::voice::grpc_generated::echolocator::signaling_service_client::SignalingServiceClient;
 use crate::api::voice::grpc_generated::echolocator::{
-    TryGetRoomRequest, UpdateGroupInfoRequest, VoiceMessage,
+    TryGetRoomRequest, UpdateGroupInfoRequest, VoiceMessage, ClientMessage, ServerMessage,
 };
 use anyhow::{Result, anyhow};
 use std::sync::Arc;
@@ -10,6 +10,7 @@ use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::transport::Channel;
+use tauri::{AppHandle, Emitter};
 
 pub type VoiceStreamHandler = Arc<dyn Fn(VoiceMessage) + Send + Sync + 'static>;
 
@@ -18,6 +19,8 @@ pub struct Backend {
     client: Arc<Mutex<Option<SignalingServiceClient<Channel>>>>,
     grpc_url: String,
     voice_message_sender: Arc<Mutex<Option<mpsc::Sender<VoiceMessage>>>>,
+    signaling_message_sender: Arc<Mutex<Option<mpsc::Sender<ClientMessage>>>>,
+    app_handle: Option<AppHandle>,
 }
 
 impl Default for Backend {
@@ -33,6 +36,19 @@ impl Backend {
             client: Arc::new(Mutex::new(None)),
             grpc_url: format!("http://{}:50059", addr),
             voice_message_sender: Arc::new(Mutex::new(None)),
+            signaling_message_sender: Arc::new(Mutex::new(None)),
+            app_handle: None,
+        }
+    }
+
+    pub fn with_app_handle(app_handle: AppHandle) -> Self {
+        let addr = get_avaliable_voice_servers();
+        Backend {
+            client: Arc::new(Mutex::new(None)),
+            grpc_url: format!("http://{}:50059", addr),
+            voice_message_sender: Arc::new(Mutex::new(None)),
+            signaling_message_sender: Arc::new(Mutex::new(None)),
+            app_handle: Some(app_handle),
         }
     }
 
@@ -281,6 +297,139 @@ impl Backend {
         } else {
             log::error!("Voice stream not initialized");
             Err(anyhow!("Voice stream not initialized"))
+        }
+    }
+
+    // Инициализация SignalingStream для WebRTC
+    pub async fn init_signaling_stream(&self, room_id: String, rtp_capabilities: Option<String>) -> Result<()> {
+        let mut client_guard = self.client.lock().await;
+
+        let client = client_guard
+            .as_mut()
+            .ok_or_else(|| anyhow!("gRPC client not initialized"))?;
+
+        log::info!("Initializing signaling stream for room {}...", room_id);
+
+        let (tx, rx) = mpsc::channel(100);
+
+        // Создаем начальное Init сообщение
+        let init_message = if let Some(rtp_caps_json) = rtp_capabilities {
+            // Парсим RTP capabilities из JSON
+            let rtp_caps: serde_json::Value = serde_json::from_str(&rtp_caps_json)
+                .map_err(|e| anyhow!("Failed to parse RTP capabilities: {}", e))?;
+            
+            ClientMessage {
+                message: Some(crate::api::voice::grpc_generated::echolocator::client_message::Message::Init(
+                    crate::api::voice::grpc_generated::echolocator::InitRequest {
+                        room_id: room_id.clone(),
+                        rtp_capabilities: Some(crate::api::voice::grpc_generated::echolocator::RtpCapabilities {
+                            codecs: vec![crate::api::voice::grpc_generated::echolocator::RtpCodecCapability {
+                                kind: "serialized".to_string(),
+                                mime_type: rtp_caps.to_string(),
+                                preferred_payload_type: 0,
+                                clock_rate: 0,
+                                channels: 0,
+                                parameters: String::new(),
+                                rtcp_feedback: String::new(),
+                            }],
+                            header_extensions: vec![],
+                        }),
+                    }
+                ))
+            }
+        } else {
+            // Если RTP capabilities не переданы, используем минимальные
+            ClientMessage {
+                message: Some(crate::api::voice::grpc_generated::echolocator::client_message::Message::Init(
+                    crate::api::voice::grpc_generated::echolocator::InitRequest {
+                        room_id: room_id.clone(),
+                        rtp_capabilities: Some(crate::api::voice::grpc_generated::echolocator::RtpCapabilities {
+                            codecs: vec![],
+                            header_extensions: vec![],
+                        }),
+                    }
+                ))
+            }
+        };
+
+        // Отправляем Init сообщение первым в канал
+        if let Err(e) = tx.send(init_message).await {
+            log::error!("Failed to send init message: {}", e);
+            return Err(anyhow!("Failed to send init message: {}", e));
+        }
+
+        log::info!("Init message sent for room {}", room_id);
+
+        // Сохраняем отправитель для последующих сообщений
+        {
+            let mut sender_guard = self.signaling_message_sender.lock().await;
+            *sender_guard = Some(tx.clone());
+        }
+
+        let outbound = ReceiverStream::new(rx);
+
+        let request = tonic::Request::new(outbound);
+
+        let response = client.signaling_stream(request).await?;
+        let mut inbound = response.into_inner();
+
+        log::info!("Signaling stream initialized successfully for room {}", room_id);
+
+        // Запускаем задачу для обработки входящих сообщений
+        let app_handle = self.app_handle.clone();
+        tokio::spawn(async move {
+            log::info!("Starting signaling stream processing task for room {}", room_id);
+
+            while let Some(message) = inbound.next().await {
+                match message {
+                    Ok(server_message) => {
+                        log::info!("Received signaling message: {:?}", server_message);
+
+                        // Emit Tauri event for each message type
+                        if let Some(app_handle) = &app_handle {
+                            let event_payload = serde_json::json!({
+                                "type": "signaling_message",
+                                "data": server_message
+                            });
+
+                            if let Err(e) = app_handle.emit("voice-event", event_payload) {
+                                log::error!("Failed to emit voice-event: {}", e);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("Error in signaling stream: {}", e);
+                        break;
+                    }
+                }
+            }
+
+            log::info!("Signaling stream terminated");
+        });
+
+        Ok(())
+    }
+
+    // Отправка signaling сообщения
+    pub async fn send_signaling_message(&self, message: ClientMessage) -> Result<()> {
+        let sender_guard = self.signaling_message_sender.lock().await;
+
+        if let Some(sender) = sender_guard.as_ref() {
+            log::info!("Sending signaling message: {:?}", message);
+
+            match sender.send(message).await {
+                Ok(_) => {
+                    log::info!("Signaling message successfully queued for sending");
+                    Ok(())
+                }
+                Err(e) => {
+                    log::error!("Error sending signaling message: {}", e);
+                    Err(anyhow!("Failed to send signaling message: {}", e))
+                }
+            }
+        } else {
+            log::error!("Signaling stream not initialized");
+            Err(anyhow!("Signaling stream not initialized"))
         }
     }
 }

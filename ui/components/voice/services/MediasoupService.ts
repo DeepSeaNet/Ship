@@ -155,7 +155,7 @@ export class MediasoupService {
   public createTransports(
     producerTransportOptions: mediasoupTypes.TransportOptions,
     consumerTransportOptions: mediasoupTypes.TransportOptions,
-    sendMessage: (message: WebSocketMessage) => void,
+    sendMessage: (message: WebSocketMessage) => void | Promise<void>,
   ): void {
     if (!this.device) {
       this.addLog(
@@ -184,7 +184,12 @@ export class MediasoupService {
         callback: () => void,
       ) => {
         this.addLog('SendTransport событие: connect', 'info')
-        sendMessage({ action: 'ConnectProducerTransport', dtlsParameters })
+        const result = sendMessage({ action: 'ConnectProducerTransport', dtlsParameters })
+        if (result instanceof Promise) {
+          result.catch((error) => {
+            this.addLog(`Ошибка подключения Producer Transport: ${error}`, 'error')
+          })
+        }
         this.setResponseCallback(
           'ConnectedProducerTransport',
           (response: CallbackResponse) => {
@@ -207,7 +212,12 @@ export class MediasoupService {
         callback: (response: ServerProduced) => void,
       ) => {
         this.addLog(`SendTransport событие: produce (kind: ${kind})`, 'info')
-        sendMessage({ action: 'Produce', kind, rtpParameters, appData })
+        const result = sendMessage({ action: 'Produce', kind, rtpParameters, appData })
+        if (result instanceof Promise) {
+          result.catch((error) => {
+            this.addLog(`Ошибка создания Producer: ${error}`, 'error')
+          })
+        }
         this.setResponseCallback('Produced', (response: CallbackResponse) => {
           this.addLog(
             `Producer ${(response as ServerProduced).id} (kind: ${kind}) успешно создан на сервере`,
@@ -261,7 +271,12 @@ export class MediasoupService {
         callback: () => void,
       ) => {
         this.addLog('RecvTransport событие: connect', 'info')
-        sendMessage({ action: 'ConnectConsumerTransport', dtlsParameters })
+        const result = sendMessage({ action: 'ConnectConsumerTransport', dtlsParameters })
+        if (result instanceof Promise) {
+          result.catch((error) => {
+            this.addLog(`Ошибка подключения Consumer Transport: ${error}`, 'error')
+          })
+        }
         this.setResponseCallback(
           'ConnectedConsumerTransport',
           (response: CallbackResponse) => {

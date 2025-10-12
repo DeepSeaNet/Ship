@@ -61,6 +61,8 @@ pub fn run() {
             commands::voice::join_session,
             commands::voice::get_voice_servers,
             commands::voice::leave_session,
+            commands::voice::init_webrtc_signaling,
+            commands::voice::send_webrtc_message,
             commands::user::get_user_status,
             commands::user::get_user_info,
             commands::user::update_username,

@@ -1,6 +1,7 @@
 use crate::api::connection::get_avaliable_voice_servers;
 use crate::api::voice::VoiceUser;
 use crate::api::voice::types::codec_types::{CodecType, get_vp8_encryption_offset};
+use crate::api::voice::grpc_generated::echolocator::ClientMessage;
 use std::sync::Arc;
 use tauri::State;
 use tokio::sync::RwLock;
@@ -155,4 +156,42 @@ pub async fn leave_session(state: State<'_, SafeVoiceUser>) -> Result<(), String
 pub async fn get_voice_servers() -> Result<Vec<String>, String> {
     let servers = get_avaliable_voice_servers();
     Ok(vec![servers])
+}
+
+// Команда для инициализации WebRTC signaling stream
+#[tauri::command]
+pub async fn init_webrtc_signaling(
+    session_id: String,
+    rtp_capabilities: Option<String>,
+    state: State<'_, SafeVoiceUser>,
+) -> Result<(), String> {
+    log::info!("init_webrtc_signaling: session_id={}", session_id);
+
+    let voice_user = state.read().await;
+    voice_user.initialize().await.map_err(|e| e.to_string())?;
+    
+    // Initialize signaling stream with RTP capabilities
+    voice_user.init_signaling_stream(session_id, rtp_capabilities).await.map_err(|e| e.to_string())?;
+    
+    log::info!("WebRTC signaling stream initialized successfully");
+    Ok(())
+}
+
+// Команда для отправки WebRTC сообщения
+#[tauri::command]
+pub async fn send_webrtc_message(
+    message_json: String,
+    state: State<'_, SafeVoiceUser>,
+) -> Result<(), String> {
+    log::info!("send_webrtc_message: {}", message_json);
+
+    // Parse JSON to ClientMessage
+    let client_message: ClientMessage = serde_json::from_str(&message_json)
+        .map_err(|e| format!("Failed to parse message JSON: {}", e))?;
+
+    let voice_user = state.read().await;
+    voice_user.send_signaling_message(client_message).await.map_err(|e| e.to_string())?;
+    
+    log::info!("WebRTC message sent successfully");
+    Ok(())
 }

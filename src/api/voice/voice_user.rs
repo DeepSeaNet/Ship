@@ -26,6 +26,7 @@ use crate::api::voice::types::ratchet_key::GroupRatchetManager;
 use crate::api::voice::types::ratchet_key::RatchetConfig;
 use crate::api::voice::voice_handler::VoiceHandler;
 use crate::api::voice::{connection::voice_connection::Backend, types::basic_types::VoiceUserData};
+use tauri::AppHandle;
 use mls_rs_crypto_awslc::AwsLcCryptoProvider;
 use std::path::PathBuf;
 
@@ -50,12 +51,16 @@ pub struct VoiceUser {
     signer: SignatureSecretKey,
     backend: Backend,
     client: MlsClient,
-    app_handle: Option<tauri::AppHandle>,
+    app_handle: Option<AppHandle>,
     user_id: u64,
 }
 
 impl VoiceUser {
     pub async fn new(user_id: i64) -> Self {
+        Self::new_with_app_handle(user_id, None).await
+    }
+
+    pub async fn new_with_app_handle(user_id: i64, app_handle: Option<AppHandle>) -> Self {
         let crypto_provider = AwsLcCryptoProvider::default();
         let cipher_suite = crypto_provider.cipher_suite_provider(CIPHERSUITE).unwrap();
         let (secret, public) = cipher_suite.signature_key_generate().await.unwrap();
@@ -67,14 +72,21 @@ impl VoiceUser {
             .crypto_provider(crypto_provider.clone())
             .signing_identity(signing_identity.clone(), secret.clone(), CIPHERSUITE)
             .build();
+        
+        let backend = if let Some(app_handle) = &app_handle {
+            Backend::with_app_handle(app_handle.clone())
+        } else {
+            Backend::new()
+        };
+        
         let voice_user = Self {
             current_voice: Arc::new(RwLock::new(None)),
             identity: signing_identity,
             signer: secret,
-            backend: Backend::new(),
+            backend,
             client,
             user_id: user_id as u64,
-            app_handle: None,
+            app_handle,
         };
         voice_user.save().await;
         voice_user
@@ -485,6 +497,20 @@ impl VoiceUser {
         // Удаляем информацию о группе из локального хранилища
         let mut lock = self.current_voice.write().await;
         *lock = None;
+        Ok(())
+    }
+
+    // Инициализация signaling stream для WebRTC
+    pub async fn init_signaling_stream(&self, room_id: String, rtp_capabilities: Option<String>) -> Result<(), anyhow::Error> {
+        log::info!("Initializing signaling stream for room {}", room_id);
+        self.backend.init_signaling_stream(room_id, rtp_capabilities).await?;
+        log::info!("Signaling stream initialized successfully");
+        Ok(())
+    }
+
+    // Отправка signaling сообщения
+    pub async fn send_signaling_message(&self, message: crate::api::voice::grpc_generated::echolocator::ClientMessage) -> Result<(), anyhow::Error> {
+        self.backend.send_signaling_message(message).await?;
         Ok(())
     }
 }

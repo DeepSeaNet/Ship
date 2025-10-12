@@ -1,4 +1,5 @@
 import { MediasoupService } from './MediasoupService'
+import { GrpcSignalingAdapter } from './GrpcSignalingAdapter'
 import {
   ServerMessage,
   ClientMessage,
@@ -18,7 +19,6 @@ interface ServerError extends ServerMessage {
 
 export interface WebRTCConnectionOptions {
   sessionId: string
-  serverUrl: string
   addLog: LoggerFunction
   mediasoupService: MediasoupService
   onProducerAdded: (
@@ -31,9 +31,8 @@ export interface WebRTCConnectionOptions {
 }
 
 export class WebRTCConnectionManager {
-  private ws: WebSocket | null = null
+  private grpcAdapter: GrpcSignalingAdapter | null = null
   private sessionId: string
-  private serverUrl: string
   private addLog: LoggerFunction
   private mediasoupService: MediasoupService
   private pendingMessagesQueue: ServerMessage[] = []
@@ -47,7 +46,6 @@ export class WebRTCConnectionManager {
 
   constructor(options: WebRTCConnectionOptions) {
     this.sessionId = options.sessionId
-    this.serverUrl = options.serverUrl
     this.addLog = options.addLog
     this.mediasoupService = options.mediasoupService
     this.onProducerAdded = options.onProducerAdded
@@ -57,77 +55,67 @@ export class WebRTCConnectionManager {
 
   // Начать WebRTC соединение
   public async connect(): Promise<void> {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.addLog('Соединение уже установлено', 'warning')
+    if (this.grpcAdapter) {
+      this.addLog('gRPC соединение уже установлено', 'warning')
       return
     }
 
-    const wsUrl = `${this.serverUrl}/ws?roomId=${encodeURIComponent(this.sessionId)}`
-    this.addLog(`Подключение к WebSocket: ${wsUrl}`, 'info')
+    this.addLog(`Подключение к gRPC SignalingStream: ${this.sessionId}`, 'info')
 
-    const ws = new WebSocket(wsUrl)
-    this.ws = ws
+    // Создаем gRPC адаптер
+    this.grpcAdapter = new GrpcSignalingAdapter({
+      sessionId: this.sessionId,
+      addLog: this.addLog,
+      onProducerAdded: this.onProducerAdded,
+      onProducerRemoved: this.onProducerRemoved,
+      onConnectionStateChange: this.onConnectionStateChange,
+      onMessage: this.handleMessage.bind(this),
+    })
 
     // Очищаем очередь при новом подключении
     this.pendingMessagesQueue = []
 
-    ws.onopen = async () => {
-      this.addLog('WebSocket соединение установлено', 'success')
+    try {
+      // Подключаемся через gRPC
+      await this.grpcAdapter.connect()
+      
+      // Присоединяемся к сессии
       await invoke('join_session', { sessionId: this.sessionId })
-    }
-
-    ws.onmessage = this.handleMessage.bind(this)
-
-    ws.onerror = (error) => {
-      this.addLog(`Ошибка WebSocket: ${error}`, 'error')
+      
+      this.addLog('gRPC SignalingStream соединение установлено', 'success')
+    } catch (error) {
+      this.addLog(`Ошибка gRPC соединения: ${error}`, 'error')
       this.closeConnection()
-    }
-
-    ws.onclose = (event) => {
-      this.addLog(
-        `WebSocket соединение закрыто: код=${event.code}, причина=${event.reason}`,
-        event.wasClean ? 'info' : 'warning',
-      )
-      this.onConnectionStateChange(false)
-      // Можно добавить логику автоматического переподключения здесь
+      throw error
     }
   }
 
   // Закрыть соединение
   public closeConnection(): void {
-    if (this.ws) {
-      this.addLog('Закрытие WebSocket соединения...', 'info')
-      this.ws.close()
-      this.ws = null
+    if (this.grpcAdapter) {
+      this.addLog('Закрытие gRPC соединения...', 'info')
+      this.grpcAdapter.closeConnection()
+      this.grpcAdapter = null
     }
     this.mediasoupService.cleanup()
     this.onConnectionStateChange(false)
   }
 
   // Отправить сообщение серверу
-  public sendMessage(message: ClientMessage): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      const messageString = JSON.stringify(message)
-      this.addLog(`Отправка WS сообщения: ${message.action}`, 'info')
-      this.ws.send(messageString)
+  public async sendMessage(message: ClientMessage): Promise<void> {
+    if (this.grpcAdapter) {
+      await this.grpcAdapter.sendMessage(message)
     } else {
       this.addLog(
-        `Не удалось отправить WS сообщение (${message.action}): WebSocket не готов`,
+        `Не удалось отправить gRPC сообщение (${message.action}): соединение не установлено`,
         'error',
       )
     }
   }
 
-  // Обработка входящих сообщений
-  private async handleMessage(event: MessageEvent): Promise<void> {
-    let message: ServerMessage
-    try {
-      message = JSON.parse(event.data)
-      this.addLog(`Получено WS сообщение: ${message.action}`, 'info')
-    } catch (error) {
-      this.addLog(`Ошибка парсинга WS сообщения: ${error}`, 'error')
-      return
-    }
+  // Обработка входящих сообщений (теперь вызывается из GrpcSignalingAdapter)
+  public async handleMessage(message: ServerMessage): Promise<void> {
+    this.addLog(`Получено gRPC сообщение: ${message.action}`, 'info')
 
     // Проверяем, есть ли колбэк для этого типа сообщения в MediasoupService
     // Проверка для общих сообщений
@@ -208,12 +196,6 @@ export class WebRTCConnectionManager {
         initMessage.routerRtpCapabilities,
       )
 
-      // Отправляем наши rtpCapabilities серверу
-      this.sendMessage({
-        action: 'Init',
-        rtpCapabilities: this.mediasoupService.getDevice()!.rtpCapabilities,
-      })
-
       // Создаем транспорты
       this.mediasoupService.createTransports(
         initMessage.producerTransportOptions,
@@ -251,9 +233,7 @@ export class WebRTCConnectionManager {
 
       // Обрабатываем каждое сообщение
       messagesToProcess.forEach((message) => {
-        // Создаем фейковое событие с данными сообщения
-        const fakeEvent = { data: JSON.stringify(message) } as MessageEvent
-        this.handleMessage(fakeEvent)
+        this.handleMessage(message)
       })
     }
   }
