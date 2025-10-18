@@ -358,7 +358,6 @@ impl VoiceUser {
 
     pub async fn join(&self, session_id: String) -> Result<(), anyhow::Error> {
         log::info!("join: session_id={:?}", session_id);
-        self.init_voice_stream().await?;
 
         let session_exists = self.backend.try_get_room(session_id.clone()).await?;
 
@@ -388,58 +387,6 @@ impl VoiceUser {
             log::info!("Created new voice channel");
         };
 
-        let voice_id = session_id.clone();
-
-        self.init_voice_stream_for_channel(&voice_id).await?;
-
-        Ok(())
-    }
-
-    pub async fn init_voice_stream(&self) -> Result<(), anyhow::Error> {
-        log::info!(
-            "Initializing general voice stream for user {}",
-            self.user_id
-        );
-
-        let voice_handler = VoiceHandler::new(
-            self.current_voice.clone(),
-            self.user_id,
-            self.identity.clone(),
-            self.backend.clone(),
-        );
-        let handler = voice_handler.create_handler();
-
-        self.backend
-            .init_voice_stream(self.user_id, Arc::new(handler))
-            .await?;
-
-        log::info!("General voice stream initialized successfully");
-        Ok(())
-    }
-
-    pub async fn init_voice_stream_for_channel(&self, voice_id: &str) -> Result<(), anyhow::Error> {
-        log::info!(
-            "Initializing voice stream for user {} in channel {}",
-            self.user_id,
-            voice_id
-        );
-
-        let voice_handler = VoiceHandler::new(
-            self.current_voice.clone(),
-            self.user_id,
-            self.identity.clone(),
-            self.backend.clone(),
-        );
-        let handler = voice_handler.create_handler();
-
-        self.backend
-            .init_voice_stream_for_channel(self.user_id, voice_id.to_string(), Arc::new(handler))
-            .await?;
-
-        log::info!(
-            "Voice stream initialized successfully for channel {}",
-            voice_id
-        );
         Ok(())
     }
 
@@ -452,23 +399,10 @@ impl VoiceUser {
                 .ok_or_else(|| anyhow::anyhow!("No active voice session"))?
         };
 
-        match self
-            .backend
-            .send_voice_message(self.user_id, voice_id.clone(), message.clone())
+        self.backend
+            .send_voice_message(voice_id, message)
             .await
-        {
-            Ok(_) => Ok(()),
-            Err(e) => {
-                if e.to_string().contains("Voice stream not initialized") {
-                    self.init_voice_stream_for_channel(&voice_id).await?;
-                    self.backend
-                        .send_voice_message(self.user_id, voice_id, message.clone())
-                        .await?;
-                    return Ok(());
-                }
-                Err(anyhow::anyhow!("Failed to send voice message: {}", e))
-            }
-        }
+            .map_err(|e| anyhow::anyhow!("Failed to send voice message: {}", e))
     }
 
     pub async fn leave_voice_channel(&self) -> Result<(), anyhow::Error> {
@@ -503,9 +437,32 @@ impl VoiceUser {
     // Инициализация signaling stream для WebRTC
     pub async fn init_signaling_stream(&self, room_id: String, rtp_capabilities: Option<String>) -> Result<(), anyhow::Error> {
         log::info!("Initializing signaling stream for room {}", room_id);
+        
+        // Set voice data handler before initializing stream
+        let voice_handler = crate::api::voice::voice_handler::VoiceHandler::new(
+            self.current_voice.clone(),
+            self.user_id,
+            self.identity.clone(),
+            self.backend.clone(),
+        );
+        
+        let handler = Self::create_voice_data_handler(voice_handler);
+        self.backend.set_voice_data_handler(handler).await;
+        
         self.backend.init_signaling_stream(room_id, rtp_capabilities).await?;
         log::info!("Signaling stream initialized successfully");
         Ok(())
+    }
+    
+    fn create_voice_data_handler(
+        voice_handler: crate::api::voice::voice_handler::VoiceHandler,
+    ) -> std::sync::Arc<dyn Fn(u64, String, Vec<u8>) + Send + Sync + 'static> {
+        std::sync::Arc::new(move |user_id, voice_id, data| {
+            let handler_clone = voice_handler.clone();
+            tokio::spawn(async move {
+                handler_clone.process_voice_data(user_id, voice_id, data).await;
+            });
+        })
     }
 
     // Отправка signaling сообщения

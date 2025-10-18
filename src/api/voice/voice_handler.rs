@@ -10,6 +10,7 @@ use crate::api::voice::connection::voice_connection::Backend;
 use crate::api::voice::types::basic_types::Voice;
 use crate::api::voice::types::client_messages::*;
 
+#[derive(Clone)]
 pub struct VoiceHandler {
     voice: Arc<RwLock<Option<Voice>>>,
     user_id: u64,
@@ -32,17 +33,17 @@ impl VoiceHandler {
         }
     }
 
-    pub async fn process_message(
+    pub async fn process_voice_data(
         &self,
-        voice_message: crate::api::voice::grpc_generated::echolocator::VoiceMessage,
+        user_id: u64,
+        voice_id: String,
+        data: Vec<u8>,
     ) {
-        let sender_id = voice_message.user_id;
-        let message_data = voice_message.message;
-
         log::info!(
-            "Processing voice message from user {}, size: {} bytes",
-            sender_id,
-            message_data.len()
+            "Processing voice data from user {} for voice_id {}, size: {} bytes",
+            user_id,
+            voice_id,
+            data.len()
         );
 
         let voice_lock = self.voice.read().await;
@@ -51,11 +52,11 @@ impl VoiceHandler {
             .ok_or_else(|| anyhow::anyhow!("No active voice session"))
             .unwrap();
 
-        if message_data.is_empty() {
+        if data.is_empty() {
             return;
         }
 
-        let message_in = MlsMessage::from_bytes(message_data.as_slice());
+        let message_in = MlsMessage::from_bytes(data.as_slice());
         let message_in = match message_in {
             Ok(m) => m,
             Err(e) => {
@@ -101,7 +102,7 @@ impl VoiceHandler {
                 .ok_or_else(|| anyhow::anyhow!("No active voice session"))?
         };
         self.backend
-            .send_voice_message(self.user_id, voice_id, message)
+            .send_voice_message(voice_id, message)
             .await
     }
 
@@ -149,25 +150,4 @@ impl VoiceHandler {
         Ok(())
     }
 
-    pub fn create_handler(
-        &self,
-    ) -> impl Fn(crate::api::voice::grpc_generated::echolocator::VoiceMessage) + Send + Sync + 'static
-    {
-        let voice = self.voice.clone();
-        let user_id = self.user_id;
-        let identity = self.identity.clone();
-        let backend = self.backend.clone();
-
-        move |voice_message| {
-            let voice_clone = voice.clone();
-            let identity_clone = identity.clone();
-            let backend_clone = backend.clone();
-
-            tokio::spawn(async move {
-                let handler =
-                    VoiceHandler::new(voice_clone, user_id, identity_clone, backend_clone);
-                handler.process_message(voice_message).await;
-            });
-        }
-    }
 }

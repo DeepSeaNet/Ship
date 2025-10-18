@@ -1,7 +1,7 @@
 use crate::api::connection::get_avaliable_voice_servers;
 use crate::api::voice::grpc_generated::echolocator::signaling_service_client::SignalingServiceClient;
 use crate::api::voice::grpc_generated::echolocator::{
-    TryGetRoomRequest, UpdateGroupInfoRequest, VoiceMessage, ClientMessage, ServerMessage,
+    TryGetRoomRequest, UpdateGroupInfoRequest, ClientMessage, ServerMessage,
 };
 use anyhow::{Result, anyhow};
 use std::sync::Arc;
@@ -12,15 +12,24 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::transport::Channel;
 use tauri::{AppHandle, Emitter};
 
-pub type VoiceStreamHandler = Arc<dyn Fn(VoiceMessage) + Send + Sync + 'static>;
+pub type VoiceDataHandler = Arc<dyn Fn(u64, String, Vec<u8>) + Send + Sync + 'static>;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Backend {
     client: Arc<Mutex<Option<SignalingServiceClient<Channel>>>>,
     grpc_url: String,
-    voice_message_sender: Arc<Mutex<Option<mpsc::Sender<VoiceMessage>>>>,
     signaling_message_sender: Arc<Mutex<Option<mpsc::Sender<ClientMessage>>>>,
+    voice_data_handler: Arc<Mutex<Option<VoiceDataHandler>>>,
     app_handle: Option<AppHandle>,
+}
+
+impl std::fmt::Debug for Backend {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Backend")
+            .field("grpc_url", &self.grpc_url)
+            .field("app_handle", &self.app_handle)
+            .finish()
+    }
 }
 
 impl Default for Backend {
@@ -35,8 +44,8 @@ impl Backend {
         Backend {
             client: Arc::new(Mutex::new(None)),
             grpc_url: format!("http://{}:50059", addr),
-            voice_message_sender: Arc::new(Mutex::new(None)),
             signaling_message_sender: Arc::new(Mutex::new(None)),
+            voice_data_handler: Arc::new(Mutex::new(None)),
             app_handle: None,
         }
     }
@@ -46,10 +55,16 @@ impl Backend {
         Backend {
             client: Arc::new(Mutex::new(None)),
             grpc_url: format!("http://{}:50059", addr),
-            voice_message_sender: Arc::new(Mutex::new(None)),
             signaling_message_sender: Arc::new(Mutex::new(None)),
+            voice_data_handler: Arc::new(Mutex::new(None)),
             app_handle: Some(app_handle),
         }
+    }
+    
+    /// Set handler for incoming voice data
+    pub async fn set_voice_data_handler(&self, handler: VoiceDataHandler) {
+        let mut handler_guard = self.voice_data_handler.lock().await;
+        *handler_guard = Some(handler);
     }
 
     // Инициализация соединения
@@ -116,187 +131,43 @@ impl Backend {
         }
     }
 
-    // Инициализация голосового потока с указанием voice_id
-    pub async fn init_voice_stream(&self, user_id: u64, handler: VoiceStreamHandler) -> Result<()> {
-        let mut client_guard = self.client.lock().await;
-
-        let client = client_guard
-            .as_mut()
-            .ok_or_else(|| anyhow!("gRPC client not initialized"))?;
-
-        log::info!("Initializing voice stream for user {}...", user_id);
-
-        let (tx, rx) = mpsc::channel(100);
-
-        {
-            let mut sender_guard = self.voice_message_sender.lock().await;
-            *sender_guard = Some(tx.clone());
-        }
-
-        let outbound = ReceiverStream::new(rx);
-
-        // Создаем метаданные с user_id
-        let mut metadata = tonic::metadata::MetadataMap::new();
-        metadata.insert("user-id", user_id.to_string().parse().unwrap());
-
-        // Отправляем запрос на создание двунаправленного потока с метаданными
-        let request = tonic::Request::from_parts(metadata, tonic::Extensions::default(), outbound);
-
-        let response = client.voice_stream(request).await?;
-        let mut inbound = response.into_inner();
-
-        println!("Voice stream initialized successfully for user {}", user_id);
-
-        tokio::spawn(async move {
-            log::info!("Starting voice stream processing task");
-
-            while let Some(message) = inbound.next().await {
-                match message {
-                    Ok(voice_message) => {
-                        log::info!(
-                            "Received voice message, user_id: {}, voice_id: {}, size: {} bytes",
-                            voice_message.user_id,
-                            voice_message.voice_id,
-                            voice_message.message.len()
-                        );
-
-                        // Вызываем обработчик для полученного сообщения
-                        handler(voice_message);
-                    }
-                    Err(e) => {
-                        log::error!("Error in voice stream: {}", e);
-                        break;
-                    }
-                }
-            }
-
-            log::info!("Voice stream terminated");
-        });
-
-        Ok(())
-    }
-
-    // Инициализация голосового потока для конкретного voice_id
-    pub async fn init_voice_stream_for_channel(
-        &self,
-        user_id: u64,
-        voice_id: String,
-        handler: VoiceStreamHandler,
-    ) -> Result<()> {
-        let mut client_guard = self.client.lock().await;
-
-        let client = client_guard
-            .as_mut()
-            .ok_or_else(|| anyhow!("gRPC client not initialized"))?;
-
-        log::info!(
-            "Initializing voice stream for user {} in channel {}...",
-            user_id,
-            voice_id
-        );
-
-        let (tx, rx) = mpsc::channel(100);
-
-        {
-            let mut sender_guard = self.voice_message_sender.lock().await;
-            *sender_guard = Some(tx.clone());
-        }
-
-        let outbound = ReceiverStream::new(rx);
-
-        let mut metadata = tonic::metadata::MetadataMap::new();
-        metadata.insert("user-id", user_id.to_string().parse().unwrap());
-
-        let request = tonic::Request::from_parts(metadata, tonic::Extensions::default(), outbound);
-
-        let response = client.voice_stream(request).await?;
-        let mut inbound = response.into_inner();
-
-        println!("Voice stream initialized successfully for user {}", user_id);
-
-        let init_message = VoiceMessage {
-            user_id,
-            voice_id: voice_id.clone(),
-            message: vec![],
-        };
-
-        // Отправляем инициализирующее сообщение
-        if let Err(e) = tx.send(init_message).await {
-            log::error!("Error sending init message: {}", e);
-            return Err(anyhow!("Failed to send init message: {}", e));
-        }
-
-        log::info!("Init message with voice_id={} successfully sent", voice_id);
-
-        // Запускаем задачу для обработки входящих сообщений
-        tokio::spawn(async move {
-            log::info!(
-                "Starting voice stream processing task for channel {}",
-                voice_id
-            );
-
-            while let Some(message) = inbound.next().await {
-                match message {
-                    Ok(voice_message) => {
-                        log::info!(
-                            "Received voice message, user_id: {}, voice_id: {}, size: {} bytes",
-                            voice_message.user_id,
-                            voice_message.voice_id,
-                            voice_message.message.len()
-                        );
-
-                        // Вызываем обработчик для полученного сообщения
-                        handler(voice_message);
-                    }
-                    Err(e) => {
-                        log::error!("Error in voice stream: {}", e);
-                        break;
-                    }
-                }
-            }
-
-            log::info!("Voice stream terminated");
-        });
-
-        Ok(())
-    }
-
-    // Отправка голосового сообщения
+    // Отправка голосового сообщения через signaling stream
     pub async fn send_voice_message(
         &self,
-        user_id: u64,
         voice_id: String,
-        message: Vec<u8>,
+        data: Vec<u8>,
     ) -> Result<()> {
-        let sender_guard = self.voice_message_sender.lock().await;
+        let sender_guard = self.signaling_message_sender.lock().await;
 
         if let Some(sender) = sender_guard.as_ref() {
-            let voice_message = VoiceMessage {
-                user_id,
-                voice_id: voice_id.clone(),
-                message,
+            let voice_data_message = ClientMessage {
+                message: Some(crate::api::voice::grpc_generated::echolocator::client_message::Message::VoiceData(
+                    crate::api::voice::grpc_generated::echolocator::VoiceDataRequest {
+                        voice_id: voice_id.clone(),
+                        data: data.clone(),
+                    }
+                ))
             };
 
             log::info!(
-                "Sending message: user_id={}, voice_id={}, size={} bytes",
-                user_id,
+                "Sending voice data: voice_id={}, size={} bytes",
                 voice_id,
-                voice_message.message.len()
+                data.len()
             );
 
-            match sender.send(voice_message).await {
+            match sender.send(voice_data_message).await {
                 Ok(_) => {
-                    log::info!("Message successfully queued for sending");
+                    log::info!("Voice data successfully queued for sending");
                     Ok(())
                 }
                 Err(e) => {
-                    log::error!("Error sending voice message: {}", e);
-                    Err(anyhow!("Failed to send voice message: {}", e))
+                    log::error!("Error sending voice data: {}", e);
+                    Err(anyhow!("Failed to send voice data: {}", e))
                 }
             }
         } else {
-            log::error!("Voice stream not initialized");
-            Err(anyhow!("Voice stream not initialized"))
+            log::error!("Signaling stream not initialized");
+            Err(anyhow!("Signaling stream not initialized"))
         }
     }
 
@@ -377,15 +248,34 @@ impl Backend {
 
         // Запускаем задачу для обработки входящих сообщений
         let app_handle = self.app_handle.clone();
+        let voice_data_handler = self.voice_data_handler.clone();
+        
         tokio::spawn(async move {
             log::info!("Starting signaling stream processing task for room {}", room_id);
 
             while let Some(message) = inbound.next().await {
                 match message {
                     Ok(server_message) => {
-                        log::info!("Received signaling message: {:?}", server_message);
+                        // Check if this is VoiceData message
+                        if let Some(ref msg) = server_message.message {
+                            if let crate::api::voice::grpc_generated::echolocator::server_message::Message::VoiceData(voice_data) = msg {
+                                log::debug!("Received voice data: user_id={}, voice_id={}, size={} bytes", 
+                                    voice_data.user_id, voice_data.voice_id, voice_data.data.len());
+                                
+                                // Call voice data handler if set
+                                let handler_guard = voice_data_handler.lock().await;
+                                if let Some(handler) = handler_guard.as_ref() {
+                                    handler(voice_data.user_id, voice_data.voice_id.clone(), voice_data.data.clone());
+                                } else {
+                                    log::warn!("Voice data received but no handler set");
+                                }
+                                continue;
+                            }
+                        }
+                        
+                        log::debug!("Received signaling message: {:?}", server_message);
 
-                        // Emit Tauri event for each message type
+                        // Emit Tauri event for WebRTC signaling messages
                         if let Some(app_handle) = &app_handle {
                             let event_payload = serde_json::json!({
                                 "type": "signaling_message",

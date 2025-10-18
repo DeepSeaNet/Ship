@@ -412,6 +412,13 @@ export class GrpcSignalingAdapter {
           'error',
         )
         break
+      case 'VoiceData':
+        this.addLog(
+          `Получены голосовые данные: ${(message as any).data.length} bytes`,
+          'debug',
+        )
+        // Voice data обрабатывается внешним обработчиком через onMessage
+        break
       default:
         this.addLog(
           `Получено необработанное gRPC сообщение: ${message.action}`,
@@ -494,6 +501,16 @@ export class GrpcSignalingAdapter {
         action: 'Error',
         message: message.error.errorMessage || message.error.error_message,
       } as ServerError
+    }
+    
+    if (message.voiceData || message.voice_data) {
+      const data = message.voiceData || message.voice_data
+      return {
+        action: 'VoiceData',
+        userId: data.userId || data.user_id,
+        voiceId: data.voiceId || data.voice_id,
+        data: data.data,
+      } as ServerMessage
     }
 
     this.addLog(`Неизвестный тип proto сообщения: ${Object.keys(message).join(', ')}`, 'error')
@@ -710,6 +727,16 @@ export class GrpcSignalingAdapter {
           message: {
             consumerResume: {
               consumerId: (message as any).id,
+            },
+          },
+        }
+      
+      case 'VoiceData':
+        return {
+          message: {
+            voiceData: {
+              voiceId: (message as any).voiceId,
+              data: (message as any).data,
             },
           },
         }
