@@ -349,6 +349,7 @@ export class GrpcSignalingAdapter {
 
   // Настройка слушателя событий
   private async setupEventListener(): Promise<void> {
+    // Listen for WebRTC signaling messages
     this.unlistenFn = await listen('voice-event', (event) => {
       const { type, data } = event.payload as any
       
@@ -417,7 +418,21 @@ export class GrpcSignalingAdapter {
           `Получены голосовые данные: ${(message as any).data.length} bytes`,
           'debug',
         )
-        // Voice data обрабатывается внешним обработчиком через onMessage
+        // Voice data обрабатывается в Rust
+        break
+      case 'AddProposal':
+        // AddProposal обрабатывается в Rust
+        this.addLog(
+          `Получен AddProposal для voice_id: ${(message as any).voiceId}`,
+          'debug',
+        )
+        break
+      case 'ServerCommit':
+        // ServerCommit обрабатывается в Rust
+        this.addLog(
+          `Получен ServerCommit для voice_id: ${(message as any).voiceId}, commit_id: ${(message as any).commitId}`,
+          'debug',
+        )
         break
       default:
         this.addLog(
@@ -510,6 +525,25 @@ export class GrpcSignalingAdapter {
         userId: data.userId || data.user_id,
         voiceId: data.voiceId || data.voice_id,
         data: data.data,
+      } as ServerMessage
+    }
+    
+    if (message.serverCommit || message.server_commit) {
+      const data = message.serverCommit || message.server_commit
+      return {
+        action: 'ServerCommit',
+        voiceId: data.voiceId || data.voice_id,
+        commit: data.commit,
+        commitId: data.commitId || data.commit_id,
+      } as ServerMessage
+    }
+    
+    if (message.addProposal || message.add_proposal) {
+      const data = message.addProposal || message.add_proposal
+      return {
+        action: 'AddProposal',
+        voiceId: data.voiceId || data.voice_id,
+        proposal: data.proposal,
       } as ServerMessage
     }
 

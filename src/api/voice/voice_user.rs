@@ -1,13 +1,8 @@
 use log;
 use mls_rs::{
-    CipherSuite, CipherSuiteProvider, CryptoProvider, ExtensionList, Group, MlsMessage,
-    client::Client,
-    client_builder::{BaseConfig, ClientBuilder, WithCryptoProvider, WithIdentityProvider},
-    crypto::SignatureSecretKey,
-    identity::{
-        SigningIdentity,
-        basic::{BasicCredential, BasicIdentityProvider},
-    },
+    client::Client, client_builder::{BaseConfig, ClientBuilder, WithCryptoProvider, WithIdentityProvider}, crypto::SignatureSecretKey, extension::built_in::ExternalSendersExt, identity::{
+        basic::{BasicCredential, BasicIdentityProvider}, SigningIdentity
+    }, CipherSuite, CipherSuiteProvider, CryptoProvider, ExtensionList, Group, MlsMessage
 };
 use mls_rs_codec::{MlsDecode, MlsEncode};
 use std::sync::Arc;
@@ -173,17 +168,25 @@ impl VoiceUser {
 
     pub async fn create_voice_channel(&self, voice_id: String) -> Result<Vec<u8>, anyhow::Error> {
         let group_id = VoiceId::from_string(&voice_id);
+
+        let server_identity_bytes = self.backend.get_server_info().await?;
+        let server_identity = SigningIdentity::mls_decode(&mut &*server_identity_bytes)?;
+        
+        let mut extension_list = ExtensionList::new();
+        extension_list.set_from(ExternalSendersExt::new(vec![server_identity])).unwrap();
+
         let group = self
             .client
             .create_group_with_id(
                 group_id.to_vec(),
-                ExtensionList::default(),
+                extension_list,
                 Default::default(),
                 None,
             )
             .await
             .map_err(|e| anyhow::anyhow!("Failed to create MLS group: {}", e))?;
 
+        // Get group_info for server to observe
         let group_info = group.group_info_message_allowing_ext_commit(true).await?;
         let group_info_bytes = group_info.mls_encode_to_vec()?;
 
@@ -220,50 +223,35 @@ impl VoiceUser {
         let mut lock = self.current_voice.write().await;
         *lock = Some(voice);
 
+        // Send group_info to server for observation
+        self.backend.send_group_info_to_server(voice_id, group_info_bytes.clone()).await?;
+
         Ok(group_info_bytes)
     }
 
-    // Обработка полученной групповой информации
-    pub async fn process_received_group_info(
+    // Process welcome message after joining room
+    async fn process_welcome_message(
         &self,
-        voice_id: &str,
-        group_info: Vec<u8>,
+        voice_id: String,
+        welcome_message: Vec<u8>,
     ) -> Result<(), Error> {
-        if group_info.is_empty() {
-            log::info!("No group info received for voice {}", voice_id);
-            return Ok(());
-        }
-
-        log::info!(
-            "Processing received group info for voice {}, size: {}",
-            voice_id,
-            group_info.len()
-        );
-        let group_info = MlsMessage::from_bytes(&group_info)
-            .map_err(|e| anyhow::anyhow!("Failed to deserialize group info: {}", e))?;
-        // Присоединяемся к группе по информации о группе
-        let (mut group, welcome) = self
+        log::info!("Processing welcome message for voice {}", voice_id);
+        
+        let welcome = MlsMessage::from_bytes(&welcome_message)
+            .map_err(|e| anyhow::anyhow!("Failed to deserialize welcome message: {}", e))?;
+        
+        let (mut group, _) = self
             .client
-            .commit_external(group_info)
+            .join_group(None, &welcome, None)
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to join by external commit: {}", e))?;
-
+            .map_err(|e| anyhow::anyhow!("Failed to join group: {}", e))?;
+        
         group
             .write_to_storage()
             .await
             .map_err(|e| anyhow::anyhow!("Failed to write to storage: {}", e))?;
-        // Получаем сообщение для отправки другим участникам
-        let message = welcome
-            .to_bytes()
-            .map_err(|e| anyhow::anyhow!("Failed to serialize welcome message: {}", e))?;
-
-        // Экспортируем обновленную информацию о группе
-        let updated_group_info = group
-            .group_info_message(true)
-            .await
-            .map_err(|e| anyhow::anyhow!("Cannot export updated group info: {}", e))?;
-
-        // Экспортируем секрет для рачет-менеджера
+        
+        // Export secret for ratchet manager
         let secret = group
             .export_secret(
                 EXPORT_SECRET_LABEL.as_bytes(),
@@ -272,15 +260,15 @@ impl VoiceUser {
             )
             .await
             .map_err(|e| anyhow::anyhow!("Failed to export secret: {}", e))?;
-
+        
         let secret_array: [u8; EXPORT_SECRET_LENGTH] = secret
             .as_bytes()
             .try_into()
             .map_err(|e| anyhow::anyhow!("Secret must be exactly 16 bytes: {}", e))?;
-
+        
         let group_epoch = group.context().epoch;
-
-        // Создаем рачет-менеджер с обновленными данными
+        
+        // Create ratchet manager
         let signature_key = group
             .current_member_signing_identity()?
             .signature_key
@@ -294,36 +282,23 @@ impl VoiceUser {
             Some(config),
             group_epoch,
         );
-
+        
         let _ = voice_ratchet_manager
             .update_voice_ratchet(&group, self.user_id)
             .await;
-
-        // Сериализуем обновленную информацию о группе
-        let group_info_bytes = updated_group_info
-            .mls_encode_to_vec()
-            .map_err(|e| anyhow::anyhow!("Failed to serialize updated group info: {}", e))?;
-
-        // Сохраняем группу и рачет-менеджер
+        
+        // Save group and ratchet manager
         let _ = self.current_voice.write().await.insert(Voice {
-            voice_id: voice_id.to_string(),
+            voice_id: voice_id.clone(),
             voice_name: "".to_string(),
             mls_group: Arc::new(RwLock::new(group)),
             voice_ratchet_manager: Arc::new(RwLock::new(voice_ratchet_manager)),
         });
-
-        // Отправляем сообщение для присоединения к группе
-        self.send_voice_message(message).await?;
-        log::info!("Successfully joined by external commit: {}", voice_id);
-
-        // Обновляем информацию о группе на сервере
-        self.backend
-            .update_group_info(voice_id.to_string(), group_info_bytes)
-            .await?;
-
+        
+        log::info!("Successfully joined group: {}", voice_id);
         Ok(())
     }
-
+    
     pub async fn encrypt_voice(&self, bytes: Vec<u8>) -> Result<Vec<u8>, anyhow::Error> {
         let lock = self.current_voice.read().await;
         let voice = lock
@@ -361,29 +336,34 @@ impl VoiceUser {
 
         let session_exists = self.backend.try_get_room(session_id.clone()).await?;
 
-        if let Some(session_exists) = session_exists {
-            log::info!("Session {} exists, joining with group info", session_id);
-            if let Err(e) = self
-                .process_received_group_info(&session_id, session_exists)
+        if session_exists {
+            log::info!("Session {} exists, joining room", session_id);
+            
+            // Create key package for joining
+            let key_package = self.client
+                .generate_key_package_message(Default::default(), Default::default(), None)
                 .await
-            {
-                log::error!("Failed to process received group info: {}", e);
-                return Err(anyhow::anyhow!(
-                    "Failed to process received group info: {}",
-                    e
-                ));
-            }
+                .map_err(|e| anyhow::anyhow!("Failed to generate key package: {}", e))?;
+            
+            let key_package_bytes = key_package.mls_encode_to_vec()
+                .map_err(|e| anyhow::anyhow!("Failed to serialize key package: {}", e))?;
+            
+            // Send join request to server and wait for welcome message
+            let welcome_message = self.backend
+                .join_room(session_id.clone(), key_package_bytes)
+                .await?;
+            
+            // Process welcome message to join the group
+            self.process_welcome_message(session_id, welcome_message).await?;
+            
+            log::info!("Successfully joined existing session");
         } else {
             log::info!(
                 "Session {} does not exist, creating new voice channel",
                 session_id
             );
-            let voice_id = session_id.clone();
-
-            let group_info_bytes = self.create_voice_channel(voice_id.clone()).await?;
-            self.backend
-                .update_group_info(voice_id, group_info_bytes)
-                .await?;
+            
+            let _group_info_bytes = self.create_voice_channel(session_id.clone()).await?;
             log::info!("Created new voice channel");
         };
 
@@ -446,8 +426,23 @@ impl VoiceUser {
             self.backend.clone(),
         );
         
-        let handler = Self::create_voice_data_handler(voice_handler);
-        self.backend.set_voice_data_handler(handler).await;
+        let voice_data_handler = Self::create_voice_data_handler(voice_handler);
+        self.backend.set_voice_data_handler(voice_data_handler).await;
+        
+        // Set MLS event handler for AddProposal and ServerCommit
+        let mls_handler = Self::create_mls_event_handler(
+            self.current_voice.clone(),
+            self.backend.clone(),
+            self.user_id,
+        );
+        self.backend.set_mls_event_handler(mls_handler).await;
+        
+        // Set commit response handler for ServerCommitResponse
+        let commit_response_handler = Self::create_commit_response_handler(
+            self.current_voice.clone(),
+            self.user_id,
+        );
+        self.backend.set_commit_response_handler(commit_response_handler).await;
         
         self.backend.init_signaling_stream(room_id, rtp_capabilities).await?;
         log::info!("Signaling stream initialized successfully");
@@ -461,6 +456,195 @@ impl VoiceUser {
             let handler_clone = voice_handler.clone();
             tokio::spawn(async move {
                 handler_clone.process_voice_data(user_id, voice_id, data).await;
+            });
+        })
+    }
+    
+    fn create_mls_event_handler(
+        current_voice: Arc<RwLock<Option<Voice>>>,
+        backend: Backend,
+        user_id: u64,
+    ) -> std::sync::Arc<dyn Fn(String, Vec<u8>, Option<String>) + Send + Sync + 'static> {
+        std::sync::Arc::new(move |voice_id, data, commit_id| {
+            let current_voice = current_voice.clone();
+            let backend = backend.clone();
+            
+            tokio::spawn(async move {
+                if let Some(commit_id) = commit_id {
+                    // This is a ServerCommit
+                    log::info!("Processing server commit for voice_id: {}, commit_id: {}", voice_id, commit_id);
+                    
+                    let lock = current_voice.read().await;
+                    if let Some(voice) = lock.as_ref() {
+                        if voice.voice_id != voice_id {
+                            log::warn!("Voice ID mismatch: expected {}, got {}", voice.voice_id, voice_id);
+                            return;
+                        }
+                        
+                        let mut group = voice.mls_group.write().await;
+                        group.clear_pending_commit();
+                        // Process the commit
+                        match MlsMessage::from_bytes(&data) {
+                            Ok(commit_msg) => {
+                                match group.process_incoming_message(commit_msg).await {
+                                    Ok(_) => {
+                                        // Send ACK to server
+                                        if let Err(e) = backend.send_commit_ack(commit_id.clone(), true, None).await {
+                                            log::error!("Failed to send commit ACK: {}", e);
+                                        } else {
+                                            log::info!("Server commit processed successfully");
+                                            if let Err(e) = group.write_to_storage().await {
+                                                log::error!("Failed to write to storage: {}", e);
+                                                return;
+                                            }
+                                            let mut ratchet_manager = voice.voice_ratchet_manager.write().await;
+                                            if let Err(e) = ratchet_manager
+                                                .update_voice_ratchet(&group, user_id)
+                                                .await
+                                            {
+                                                log::error!("Failed to update voice ratchet: {:?}", e);
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        log::error!("Failed to process commit: {}", e);
+                                        let _ = backend.send_commit_ack(commit_id, false, Some(e.to_string())).await;
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                log::error!("Failed to deserialize commit: {}", e);
+                                let _ = backend.send_commit_ack(commit_id, false, Some(e.to_string())).await;
+                            }
+                        }
+                    } else {
+                        log::warn!("No active voice session");
+                    }
+                } else {
+                    // This is an AddProposal
+                    log::info!("Processing add proposal for voice_id: {}", voice_id);
+                    
+                    let lock = current_voice.read().await;
+                    if let Some(voice) = lock.as_ref() {
+                        if voice.voice_id != voice_id {
+                            log::warn!("Voice ID mismatch: expected {}, got {}", voice.voice_id, voice_id);
+                            return;
+                        }
+                        let mut group = voice.mls_group.write().await;
+                        // Process the proposal
+                        match MlsMessage::from_bytes(&data) {
+                            Ok(proposal_msg) => {
+                                log::info!("Processing proposal: {:?}", proposal_msg);
+                                match group.process_incoming_message(proposal_msg).await {
+                                    Ok(proposal) => {
+                                        // Commit the proposal
+                                        log::info!("Committing proposal: {:?}", proposal);
+                                        match group.commit(Vec::new()).await {
+                                            Ok(commit_output) => {
+                                                log::info!("Commit output: {:?}", commit_output);
+                                                // Serialize commit and welcome message
+                                                match commit_output.commit_message.mls_encode_to_vec() {
+                                                    Ok(commit_bytes) => {                        
+                                                        // Serialize welcome message if present
+                                                        let welcome_bytes = if !commit_output.welcome_messages.is_empty() {
+                                                            match commit_output.welcome_messages[0].mls_encode_to_vec() {
+                                                                Ok(bytes) => {
+                                                                    log::info!("Successfully serialized welcome message");
+                                                                    bytes
+                                                                }
+                                                                Err(e) => {
+                                                                    log::error!("Failed to serialize welcome: {}", e);
+                                                                    return;
+                                                                }
+                                                            }
+                                                        } else {
+                                                            log::info!("No welcome message in commit output");
+                                                            Vec::new()
+                                                        };
+                                                        
+                                                        // Send commit to server (with or without welcome message)
+                                                        // Wait for ServerCommitResponse before applying
+                                                        if let Err(e) = backend.send_client_commit(voice_id.clone(), commit_bytes, welcome_bytes).await {
+                                                            log::error!("Failed to send client commit: {}", e);
+                                                            group.clear_pending_commit();
+                                                        } else {
+                                                            log::info!("Client commit sent, waiting for server response");
+                                                            // Commit will be applied when ServerCommitResponse is received
+                                                        }
+                                                    }
+                                                    Err(e) => log::error!("Failed to serialize commit: {}", e),
+                                                }
+                                            }
+                                            Err(e) => log::error!("Failed to commit proposal: {}", e),
+                                        }
+                                    }
+                                    Err(e) => log::error!("Failed to process proposal: {}", e),
+                                }
+                            }
+                            Err(e) => log::error!("Failed to deserialize proposal: {}", e),
+                        }
+                    } else {
+                        log::warn!("No active voice session");
+                    }
+                }
+            });
+        })
+    }
+    
+    fn create_commit_response_handler(
+        current_voice: Arc<RwLock<Option<Voice>>>,
+        user_id: u64,
+    ) -> std::sync::Arc<dyn Fn(String, bool, String) + Send + Sync + 'static> {
+        std::sync::Arc::new(move |voice_id, accepted, error_message| {
+            let current_voice = current_voice.clone();
+            
+            tokio::spawn(async move {
+                log::info!("Processing commit response for voice_id: {}, accepted: {}", voice_id, accepted);
+                
+                let lock = current_voice.read().await;
+                if let Some(voice) = lock.as_ref() {
+                    if voice.voice_id != voice_id {
+                        log::warn!("Voice ID mismatch: expected {}, got {}", voice.voice_id, voice_id);
+                        return;
+                    }
+                    
+                    let mut group = voice.mls_group.write().await;
+                    
+                    if accepted {
+                        // Server accepted the commit - apply it
+                        log::info!("Server accepted commit, applying pending commit");
+                        
+                        match group.apply_pending_commit().await {
+                            Ok(_) => {
+                                if let Err(e) = group.write_to_storage().await {
+                                    log::error!("Failed to write to storage: {}", e);
+                                    return;
+                                }
+                                
+                                // Update ratchet manager
+                                let mut ratchet_manager = voice.voice_ratchet_manager.write().await;
+                                if let Err(e) = ratchet_manager
+                                    .update_voice_ratchet(&group, user_id)
+                                    .await
+                                {
+                                    log::error!("Failed to update voice ratchet: {:?}", e);
+                                } else {
+                                    log::info!("Commit applied successfully");
+                                }
+                            }
+                            Err(e) => {
+                                log::error!("Failed to apply pending commit: {}", e);
+                            }
+                        }
+                    } else {
+                        // Server rejected the commit - clear pending state
+                        log::warn!("Server rejected commit: {}", error_message);
+                        group.clear_pending_commit();
+                        log::info!("Cleared pending commit and proposal cache");
+                    }
+                } else {
+                    log::warn!("No active voice session");
+                }
             });
         })
     }
