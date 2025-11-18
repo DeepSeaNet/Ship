@@ -1,17 +1,16 @@
 use crate::api::connection::get_avaliable_voice_servers;
 use crate::api::voice::grpc_generated::echolocator::signaling_service_client::SignalingServiceClient;
 use crate::api::voice::grpc_generated::echolocator::{
-    TryGetRoomRequest, UpdateGroupInfoRequest, ClientMessage, ServerMessage,
-    ServerInfoRequest, ServerInfoResponse
+    ClientMessage, ServerInfoRequest, TryGetRoomRequest,
 };
 use anyhow::{Result, anyhow};
 use std::sync::Arc;
+use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::transport::Channel;
-use tauri::{AppHandle, Emitter};
 
 pub type VoiceDataHandler = Arc<dyn Fn(u64, String, Vec<u8>) + Send + Sync + 'static>;
 pub type MlsEventHandler = Arc<dyn Fn(String, Vec<u8>, Option<String>) + Send + Sync + 'static>;
@@ -69,19 +68,19 @@ impl Backend {
             app_handle: Some(app_handle),
         }
     }
-    
+
     /// Set handler for incoming voice data
     pub async fn set_voice_data_handler(&self, handler: VoiceDataHandler) {
         let mut handler_guard = self.voice_data_handler.lock().await;
         *handler_guard = Some(handler);
     }
-    
+
     /// Set handler for MLS events (AddProposal, ServerCommit)
     pub async fn set_mls_event_handler(&self, handler: MlsEventHandler) {
         let mut handler_guard = self.mls_event_handler.lock().await;
         *handler_guard = Some(handler);
     }
-    
+
     /// Set handler for commit response (ServerCommitResponse)
     pub async fn set_commit_response_handler(&self, handler: CommitResponseHandler) {
         let mut handler_guard = self.commit_response_handler.lock().await;
@@ -114,7 +113,7 @@ impl Backend {
         }
         Ok(false)
     }
-    
+
     pub async fn get_server_info(&self) -> Result<Vec<u8>> {
         let mut client_guard = self.client.lock().await;
         let client = client_guard
@@ -127,14 +126,22 @@ impl Backend {
     }
 
     // Send group info to server for observation (when creating new room)
-    pub async fn send_group_info_to_server(&self, room_id: String, group_info: Vec<u8>) -> Result<()> {
+    pub async fn send_group_info_to_server(
+        &self,
+        room_id: String,
+        group_info: Vec<u8>,
+    ) -> Result<()> {
         let mut client_guard = self.client.lock().await;
 
         let client = client_guard
             .as_mut()
             .ok_or_else(|| anyhow!("gRPC client not initialized"))?;
 
-        log::info!("Sending group_info to server for room {}, size: {} bytes", room_id, group_info.len());
+        log::info!(
+            "Sending group_info to server for room {}, size: {} bytes",
+            room_id,
+            group_info.len()
+        );
 
         let request = crate::api::voice::grpc_generated::echolocator::GetOrCreateRoomRequest {
             room_id: room_id.clone(),
@@ -144,7 +151,11 @@ impl Backend {
         match client.get_or_create_room(request).await {
             Ok(response) => {
                 let inner = response.into_inner();
-                log::info!("Server observed group for room {}: created={}", room_id, inner.created);
+                log::info!(
+                    "Server observed group for room {}: created={}",
+                    room_id,
+                    inner.created
+                );
                 Ok(())
             }
             Err(e) => {
@@ -153,7 +164,7 @@ impl Backend {
             }
         }
     }
-    
+
     // Join room by sending key package
     pub async fn join_room(&self, room_id: String, key_package: Vec<u8>) -> Result<Vec<u8>> {
         let mut client_guard = self.client.lock().await;
@@ -185,9 +196,14 @@ impl Backend {
             }
         }
     }
-    
+
     // Send client commit (after processing add proposal)
-    pub async fn send_client_commit(&self, voice_id: String, commit: Vec<u8>, welcome_message: Vec<u8>) -> Result<()> {
+    pub async fn send_client_commit(
+        &self,
+        voice_id: String,
+        commit: Vec<u8>,
+        welcome_message: Vec<u8>,
+    ) -> Result<()> {
         log::info!("Trying to send client commit");
         let sender_guard = self.signaling_message_sender.lock().await;
 
@@ -219,9 +235,14 @@ impl Backend {
             Err(anyhow!("Signaling stream not initialized"))
         }
     }
-    
+
     // Send commit ACK
-    pub async fn send_commit_ack(&self, commit_id: String, success: bool, error_message: Option<String>) -> Result<()> {
+    pub async fn send_commit_ack(
+        &self,
+        commit_id: String,
+        success: bool,
+        error_message: Option<String>,
+    ) -> Result<()> {
         let sender_guard = self.signaling_message_sender.lock().await;
 
         if let Some(sender) = sender_guard.as_ref() {
@@ -254,11 +275,7 @@ impl Backend {
     }
 
     // Отправка голосового сообщения через signaling stream
-    pub async fn send_voice_message(
-        &self,
-        voice_id: String,
-        data: Vec<u8>,
-    ) -> Result<()> {
+    pub async fn send_voice_message(&self, voice_id: String, data: Vec<u8>) -> Result<()> {
         let sender_guard = self.signaling_message_sender.lock().await;
 
         if let Some(sender) = sender_guard.as_ref() {
@@ -294,7 +311,11 @@ impl Backend {
     }
 
     // Инициализация SignalingStream для WebRTC
-    pub async fn init_signaling_stream(&self, room_id: String, rtp_capabilities: Option<String>) -> Result<()> {
+    pub async fn init_signaling_stream(
+        &self,
+        room_id: String,
+        rtp_capabilities: Option<String>,
+    ) -> Result<()> {
         let mut client_guard = self.client.lock().await;
 
         let client = client_guard
@@ -310,7 +331,7 @@ impl Backend {
             // Парсим RTP capabilities из JSON
             let rtp_caps: serde_json::Value = serde_json::from_str(&rtp_caps_json)
                 .map_err(|e| anyhow!("Failed to parse RTP capabilities: {}", e))?;
-            
+
             ClientMessage {
                 message: Some(crate::api::voice::grpc_generated::echolocator::client_message::Message::Init(
                     crate::api::voice::grpc_generated::echolocator::InitRequest {
@@ -333,15 +354,19 @@ impl Backend {
         } else {
             // Если RTP capabilities не переданы, используем минимальные
             ClientMessage {
-                message: Some(crate::api::voice::grpc_generated::echolocator::client_message::Message::Init(
-                    crate::api::voice::grpc_generated::echolocator::InitRequest {
-                        room_id: room_id.clone(),
-                        rtp_capabilities: Some(crate::api::voice::grpc_generated::echolocator::RtpCapabilities {
-                            codecs: vec![],
-                            header_extensions: vec![],
-                        }),
-                    }
-                ))
+                message: Some(
+                    crate::api::voice::grpc_generated::echolocator::client_message::Message::Init(
+                        crate::api::voice::grpc_generated::echolocator::InitRequest {
+                            room_id: room_id.clone(),
+                            rtp_capabilities: Some(
+                                crate::api::voice::grpc_generated::echolocator::RtpCapabilities {
+                                    codecs: vec![],
+                                    header_extensions: vec![],
+                                },
+                            ),
+                        },
+                    ),
+                ),
             }
         };
 
@@ -366,16 +391,22 @@ impl Backend {
         let response = client.signaling_stream(request).await?;
         let mut inbound = response.into_inner();
 
-        log::info!("Signaling stream initialized successfully for room {}", room_id);
+        log::info!(
+            "Signaling stream initialized successfully for room {}",
+            room_id
+        );
 
         // Запускаем задачу для обработки входящих сообщений
         let app_handle = self.app_handle.clone();
         let voice_data_handler = self.voice_data_handler.clone();
         let mls_event_handler = self.mls_event_handler.clone();
         let commit_response_handler = self.commit_response_handler.clone();
-        
+
         tokio::spawn(async move {
-            log::info!("Starting signaling stream processing task for room {}", room_id);
+            log::info!(
+                "Starting signaling stream processing task for room {}",
+                room_id
+            );
 
             while let Some(message) = inbound.next().await {
                 match message {
@@ -386,7 +417,6 @@ impl Backend {
                                 crate::api::voice::grpc_generated::echolocator::server_message::Message::VoiceData(voice_data) => {
                                     log::debug!("Received voice data: user_id={}, voice_id={}, size={} bytes", 
                                         voice_data.user_id, voice_data.voice_id, voice_data.data.len());
-                                    
                                     // Call voice data handler if set
                                     let handler_guard = voice_data_handler.lock().await;
                                     if let Some(handler) = handler_guard.as_ref() {
@@ -398,7 +428,6 @@ impl Backend {
                                 }
                                 crate::api::voice::grpc_generated::echolocator::server_message::Message::AddProposal(add_proposal) => {
                                     log::info!("Received add proposal for voice_id: {}", add_proposal.voice_id);
-                                    
                                     // Call MLS event handler for AddProposal
                                     let handler_guard = mls_event_handler.lock().await;
                                     if let Some(handler) = handler_guard.as_ref() {
@@ -411,7 +440,6 @@ impl Backend {
                                 crate::api::voice::grpc_generated::echolocator::server_message::Message::ServerCommit(server_commit) => {
                                     log::info!("Received server commit for voice_id: {}, commit_id: {}", 
                                         server_commit.voice_id, server_commit.commit_id);
-                                    
                                     // Call MLS event handler for ServerCommit
                                     let handler_guard = mls_event_handler.lock().await;
                                     if let Some(handler) = handler_guard.as_ref() {
@@ -424,7 +452,6 @@ impl Backend {
                                 crate::api::voice::grpc_generated::echolocator::server_message::Message::ServerCommitResponse(commit_response) => {
                                     log::info!("Received server commit response for voice_id: {}, accepted: {}", 
                                         commit_response.voice_id, commit_response.accepted);
-                                    
                                     // Call commit response handler
                                     let handler_guard = commit_response_handler.lock().await;
                                     if let Some(handler) = handler_guard.as_ref() {
@@ -439,7 +466,7 @@ impl Backend {
                                 }
                             }
                         }
-                        
+
                         // Emit Tauri event for WebRTC signaling messages
                         if let Some(app_handle) = &app_handle {
                             let event_payload = serde_json::json!({

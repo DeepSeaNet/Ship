@@ -137,7 +137,11 @@ impl GroupRatchetManager {
         user_id: u64,
     ) -> Result<(), RatchetError> {
         let group_epoch = voice.context().epoch;
-        log::info!("Updating voice ratchet for user {} with group epoch {}", user_id, group_epoch);
+        log::info!(
+            "Updating voice ratchet for user {} with group epoch {}",
+            user_id,
+            group_epoch
+        );
         self.update_group_epoch(group_epoch).await;
         let sender_secret = self.export_secret(voice, &user_id.to_le_bytes()).await?;
         self.update_sender_epoch(&sender_secret, group_epoch).await;
@@ -151,7 +155,11 @@ impl GroupRatchetManager {
                 .clone();
             let member_id_bytes = credential.identifier;
             let member_id = u64::from_le_bytes(member_id_bytes.clone().try_into().unwrap());
-            log::info!("Updating voice ratchet for member {} with group epoch {}", member_id, group_epoch);
+            log::info!(
+                "Updating voice ratchet for member {} with group epoch {}",
+                member_id,
+                group_epoch
+            );
             let secret = self.export_secret(voice, &member_id_bytes).await?;
             self.add_participant(
                 member_id,

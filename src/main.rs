@@ -4,6 +4,11 @@
 fn main() {
     unsafe {
         std::env::set_var("RUST_LOG", "debug");
+        #[cfg(target_os = "linux")]
+        {
+            // Prevent craching on nvidia
+            std::env::set_var("__NV_DISABLE_EXPLICIT_SYNC", "1");
+        }
     }
     env_logger::init();
 
