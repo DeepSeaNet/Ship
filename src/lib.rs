@@ -26,8 +26,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::auth::grpc_login,
-            commands::auth::grpc_register,
+            commands::auth::login,
+            commands::auth::register,
             commands::auth::reconnect,
             commands::utils::save_media_file,
             commands::utils::save_file_from_memory,

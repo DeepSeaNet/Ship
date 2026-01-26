@@ -16,6 +16,7 @@ export const loginWithAccount = async (account: Account, password?: string): Pro
   try {
     // Replace this with: await invoke('login_account', { account, password })
     console.log("Logging in with account:", account, "Password:", password ? "******" : "None");
+    const result = await invoke('login', { username: account.username })
   } catch (error) {
     console.error("Failed to login:", error);
     throw error;
