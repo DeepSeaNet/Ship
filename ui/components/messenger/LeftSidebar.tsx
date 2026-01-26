@@ -48,6 +48,7 @@ export function LeftSidebar({ onClose }: LeftSidebarProps) {
       </div>
 
       {/* Avatar Status Row */}
+      {/*
       <div className="overflow-x-auto pb-2 -mx-4 px-4">
         <div className="flex gap-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -60,7 +61,7 @@ export function LeftSidebar({ onClose }: LeftSidebarProps) {
           ))}
         </div>
       </div>
-
+      */}
       {/* Pinned Section */}
       <div>
         <p className="text-xs font-semibold text-muted mb-2 px-2">PINNED</p>

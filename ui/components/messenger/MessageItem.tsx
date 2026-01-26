@@ -26,14 +26,14 @@ export function MessageItem({ message }: MessageItemProps) {
       {!isOwn && (
         <Avatar size="sm" className="bg-default text-default-foreground mt-1">
           <Avatar.Fallback>
-            {message.senderName.slice(0, 2).toUpperCase()}
+            {message.senderName?.slice(0, 2).toUpperCase() || '??'}
           </Avatar.Fallback>
         </Avatar>
       )}
 
       <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[80%]`}>
         {!isOwn && (
-          <p className="text-xs text-muted mb-1 px-1">{message.senderName}</p>
+          <p className="text-xs text-muted mb-1 px-1">{message.senderName || 'Anonymous'}</p>
         )}
 
         <div
@@ -41,19 +41,40 @@ export function MessageItem({ message }: MessageItemProps) {
           onContextMenu={handleContextMenu}
         >
           <Card
-            className={`px-4 py-2 ${isOwn
+            className={`px-3 py-1.5 ${isOwn
               ? 'bg-accent text-accent-foreground'
               : 'bg-surface text-surface-foreground border border-border'
-              } cursor-default`}
+              } cursor-default min-w-[60px] max-w-full`}
           >
-            <p className="text-sm break-words whitespace-pre-wrap">{message.content}</p>
+            <div className="flex flex-wrap items-end justify-end gap-x-2 gap-y-1">
+              <p className="text-sm break-words whitespace-pre-wrap flex-1 min-w-[10px]">
+                {message.content}
+              </p>
+              <div className={`flex items-center gap-1 shrink-0 mb-[-2px] ${isOwn ? 'ml-auto' : ''}`}>
+                <span className="text-[10px] opacity-60 font-medium">
+                  {message.timestamp}
+                </span>
+                {isOwn && message.status && (
+                  <div className="flex items-center opacity-60">
+                    {message.status === 'sending' && (
+                      <Clock className="w-3.5 h-3.5" />
+                    )}
+                    {message.status === 'sent' && (
+                      <Check className="w-3.5 h-3.5" />
+                    )}
+                    {message.status === 'read' && (
+                      <CheckDouble className="w-3.5 h-3.5" />
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </Card>
 
           {/* Context Menu Dropdown */}
           <div className="fixed w-0 h-0" style={{ left: position.x, top: position.y }}>
             <Dropdown isOpen={isOpen} onOpenChange={setIsOpen}>
               <Dropdown.Trigger>
-                {/* Invisible trigger for positioning */}
                 <button className="w-0 h-0 opacity-0 outline-none" />
               </Dropdown.Trigger>
               <Dropdown.Popover placement="bottom start" offset={0}>
@@ -81,23 +102,6 @@ export function MessageItem({ message }: MessageItemProps) {
               </Dropdown.Popover>
             </Dropdown>
           </div>
-        </div>
-
-        <div className="flex items-center gap-1 mt-1 px-1">
-          <p className="text-xs text-muted">{message.timestamp}</p>
-          {isOwn && message.status && (
-            <>
-              {message.status === 'sending' && (
-                <Clock className="w-3 h-3 text-muted" />
-              )}
-              {message.status === 'sent' && (
-                <Check className="w-3 h-3 text-muted" />
-              )}
-              {message.status === 'read' && (
-                <CheckDouble className="w-3 h-3 text-muted" />
-              )}
-            </>
-          )}
         </div>
       </div>
     </div>

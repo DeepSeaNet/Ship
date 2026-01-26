@@ -87,7 +87,7 @@ export function ChatArea() {
             <p className="text-sm text-muted">No messages yet. Start the conversation!</p>
           </div>
         ) : (
-          <div className="space-y-4 flex flex-col">
+          <div className="space-y-1 flex flex-col">
             {messages.map((msg) => (
               <MessageItem key={msg.id} message={msg} />
             ))}
