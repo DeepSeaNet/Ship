@@ -6,17 +6,20 @@ import { useChats } from '@/hooks/useChats';
 import { useMessengerState } from '@/hooks/useMessengerState';
 import { Chat } from '@/hooks/messengerTypes';
 import { ChatListItem } from './ChatListItem';
+import { CreateGroupModal } from './CreateGroupModal';
+import { useState } from 'react';
 
 interface LeftSidebarProps {
   onClose?: () => void;
 }
 
 export function LeftSidebar({ onClose }: LeftSidebarProps) {
-  const { chats, loading } = useChats();
+  const { chats, loading, refresh } = useChats();
   const { uiState, setActiveChatId } = useMessengerState();
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
 
   const handleStartNewChat = () => {
-    console.log('Start new chat');
+    setIsCreateGroupOpen(true);
   };
 
   return (
@@ -90,6 +93,12 @@ export function LeftSidebar({ onClose }: LeftSidebarProps) {
           </div>
         )}
       </ScrollShadow>
+
+      <CreateGroupModal
+        isOpen={isCreateGroupOpen}
+        onOpenChange={setIsCreateGroupOpen}
+        onSuccess={refresh}
+      />
     </div>
   );
 }

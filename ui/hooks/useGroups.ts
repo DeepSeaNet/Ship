@@ -141,6 +141,40 @@ export function useGroups() {
         }
     }, []);
 
+    const createGroup = useCallback(async (
+        groupName: string,
+        options: {
+            visibility?: 'public' | 'private',
+            joinMode?: 'invite_only' | 'request_to_join' | 'open',
+            description?: string,
+            maxMembers?: number,
+        } = {}
+    ) => {
+        setLoading(true);
+        try {
+            const result = await invoke<any>('create_group', {
+                groupName,
+                visibility: options.visibility || null,
+                joinMode: options.joinMode || null,
+                description: options.description || null,
+                maxMembers: options.maxMembers || null,
+            });
+
+            if (result.success) {
+                toast('Group created successfully', { variant: 'success' });
+                await loadGroups(); // Refresh the list
+                return true;
+            }
+            return false;
+        } catch (err) {
+            console.error('Error creating group:', err);
+            toast(`Failed to create group: ${err}`, { variant: 'danger' });
+            return false;
+        } finally {
+            setLoading(false);
+        }
+    }, [loadGroups]);
+
     return {
         groups,
         loading,
@@ -149,5 +183,6 @@ export function useGroups() {
         checkPermission,
         inviteUserToGroup,
         removeUserFromGroup,
+        createGroup,
     };
 }
