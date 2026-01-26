@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { UIState, MessengerContextType, Message } from './messengerTypes';
+import { UIState, MessengerContextType, Message, User } from './messengerTypes';
 import { MOCK_MESSAGES_BY_CHAT } from './mock_data';
 
 const defaultUIState: UIState = {
@@ -21,6 +21,7 @@ interface MessengerProviderProps {
 export function MessengerProvider({ children }: MessengerProviderProps) {
   const [uiState, setUIState] = useState<UIState>(defaultUIState);
   const [messagesByChat, setMessagesByChat] = useState<Record<string, Message[]>>(MOCK_MESSAGES_BY_CHAT);
+  const [users, setUsers] = useState<Record<string, User>>({});
 
   const setActiveChatId = (id: string) => {
     setUIState((prev) => ({
@@ -59,6 +60,13 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
     }));
   };
 
+  const setMessagesForChat = (chatId: string, messages: Message[]) => {
+    setMessagesByChat((prev) => ({
+      ...prev,
+      [chatId]: messages,
+    }));
+  };
+
   const updateMessageStatus = (chatId: string, messageId: string, status: Message['status']) => {
     setMessagesByChat((prev) => {
       const chatMessages = prev[chatId];
@@ -83,16 +91,26 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
     });
   };
 
+  const upsertUser = (user: User) => {
+    setUsers((prev) => ({
+      ...prev,
+      [user.id]: { ...(prev[user.id] || {}), ...user },
+    }));
+  };
+
   const value: MessengerContextType = {
     uiState,
     messagesByChat,
+    users,
     setActiveChatId,
     setActiveGroupId,
     toggleRightSidebar,
     setAnimatingIn,
     addMessage,
+    setMessagesForChat,
     updateMessageStatus,
     markChatAsLoaded,
+    upsertUser,
   };
 
   return (

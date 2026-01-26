@@ -17,6 +17,11 @@ export const loginWithAccount = async (account: Account, password?: string): Pro
     // Replace this with: await invoke('login_account', { account, password })
     console.log("Logging in with account:", account, "Password:", password ? "******" : "None");
     const result = await invoke('login', { username: account.username })
+    localStorage.setItem('userId', account.user_id.toString())
+    localStorage.setItem('username', account.username)
+    localStorage.setItem('publicAddress', account.public_address)
+    localStorage.setItem('serverAddress', account.server_address)
+    //localStorage.setItem('serverPubKey', account.server_pub_key.toString())
   } catch (error) {
     console.error("Failed to login:", error);
     throw error;

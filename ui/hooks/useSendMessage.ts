@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { Message } from './messengerTypes';
 import { useMessengerState } from './useMessengerState';
+import { invoke } from '@tauri-apps/api/core';
+import { toast } from '@heroui/react';
+
+// Helper for temporary ID generation
+const generateTempId = () => `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 export function useSendMessage() {
   const { addMessage, updateMessageStatus } = useMessengerState();
@@ -9,9 +14,15 @@ export function useSendMessage() {
 
   const sendMessage = async (
     chatId: string,
-    content: string
+    content: string,
+    options: {
+      file?: string;
+      replyTo?: string;
+      editId?: string;
+      expires?: number;
+    } = {}
   ): Promise<Message | null> => {
-    if (!content.trim()) {
+    if (!content.trim() && !options.file) {
       setError('Message cannot be empty');
       return null;
     }
@@ -19,10 +30,13 @@ export function useSendMessage() {
     setSending(true);
     setError(null);
 
-    const messageId = `msg_${Date.now()}`;
+    const tempId = generateTempId();
+    const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : '0';
+
     const newMessage: Message = {
-      id: messageId,
-      senderId: 'current_user',
+      id: tempId,
+      chatId,
+      senderId: userId || '0',
       senderName: 'You',
       content: content.trim(),
       timestamp: new Date().toLocaleTimeString([], {
@@ -31,23 +45,37 @@ export function useSendMessage() {
       }),
       isOwn: true,
       status: 'sending',
+      reply_to: options.replyTo,
+      edited: !!options.editId,
+      expires: options.expires,
     };
 
-    // Optimistically add the message
+    // Optimistically add the message to UI state
     addMessage(chatId, newMessage);
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      const messageId = await invoke<string>('send_group_message', {
+        groupId: chatId,
+        text: content.trim(),
+        file: options.file || null,
+        replyMessageId: options.replyTo || null,
+        editMessageId: options.editId || null,
+        expires: options.expires || null,
+      });
 
-      // Update status to 'sent'
-      updateMessageStatus(chatId, messageId, 'sent');
+      // Update message with real ID and status
+      updateMessageStatus(chatId, tempId, 'sent');
+      // In a real implementation we might want to update the ID as well
+      // but updateMessageStatus currently only updates status
 
       setSending(false);
-      return newMessage;
+      return { ...newMessage, id: messageId, status: 'sent' };
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to send message';
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error('Error sending message:', err);
       setError(errorMessage);
+      updateMessageStatus(chatId, tempId, 'error');
+      toast(`Failed to send message: ${errorMessage}`, { variant: 'danger' });
       setSending(false);
       return null;
     }

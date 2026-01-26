@@ -18,13 +18,20 @@ export function TopBar({ onInfoClick }: TopBarProps) {
     <div className="h-16 border-b border-border flex items-center px-6 justify-between bg-surface">
       {activeChat ? (
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-neutral-700 to-neutral-800 flex items-center justify-center text-accent-foreground font-bold text-sm border border-neutral-700">
-            {activeChat.name.slice(0, 2).toUpperCase()}
-          </div>
+          {activeChat.avatar ? (
+            <img src={activeChat.avatar} alt={activeChat.name} className="w-10 h-10 rounded-full object-cover border border-border" />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-neutral-700 to-neutral-800 flex items-center justify-center text-accent-foreground font-bold text-sm border border-neutral-700">
+              {activeChat.name.slice(0, 1).toUpperCase()}
+            </div>
+          )}
           <div>
             <h3 className="font-semibold text-sm text-accent-surface">{activeChat.name}</h3>
             <p className="text-xs text-muted">
-              {activeChat.isGroup ? `${Math.floor(Math.random() * 50) + 5} members` : 'Online'}
+              {activeChat.isGroup
+                ? `${activeChat.participants?.length || 0} members`
+                : 'Online'
+              }
             </p>
           </div>
         </div>

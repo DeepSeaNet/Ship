@@ -28,6 +28,7 @@ export function ChatListItem({ chat, isActive, onSelect }: ChatListItemProps) {
         {/* Avatar */}
         <div className="relative flex-shrink-0">
           <Avatar size="md">
+            {chat.avatar && <Avatar.Image src={chat.avatar} alt={chat.name} />}
             <Avatar.Fallback>{initials}</Avatar.Fallback>
           </Avatar>
           {chat.unreadCount > 0 && (

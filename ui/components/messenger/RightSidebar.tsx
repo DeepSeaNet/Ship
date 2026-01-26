@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ScrollShadow } from '@heroui/react';
+import { ScrollShadow, Avatar } from '@heroui/react';
 import { Picture, MusicNote, Video, FileText, PersonPlus, ChevronDown, ChevronRight, Xmark, Gear } from '@gravity-ui/icons';
 import { useMessengerState } from '@/hooks/useMessengerState';
 import { useGroupInfo } from '@/hooks/useGroupInfo';
@@ -62,7 +62,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
   const membersCount = groupInfo.members.length;
 
   return (
-    <div className="w-96 bg-surface flex flex-col h-full">
+    <div className="w-96 bg-surface flex flex-col h-full border-l border-border">
       <ScrollShadow className="flex-1 overflow-y-auto">
         <div className="p-6 space-y-6">
           {/* Header with Close and Expand Buttons */}
@@ -109,15 +109,23 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
                 />
               </button>
             </div>
-            {expandedSections.photos && photosCount > 0 && (
-              <div className="grid grid-cols-4 gap-2 animate-in fade-in duration-200">
-                {groupInfo.photos.slice(0, 4).map((photo) => (
-                  <div
-                    key={photo.id}
-                    className="aspect-square bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-xl hover:opacity-80 cursor-pointer border border-neutral-700"
-                  />
-                ))}
-              </div>
+            {expandedSections.photos && (
+              photosCount > 0 ? (
+                <div className="grid grid-cols-4 gap-2 animate-in fade-in duration-200">
+                  {groupInfo.photos.slice(0, 8).map((photo) => (
+                    <div
+                      key={photo.id}
+                      title={photo.name}
+                      className="aspect-square bg-neutral-800 rounded-xl hover:opacity-80 cursor-pointer border border-neutral-700 flex items-center justify-center overflow-hidden"
+                    >
+                      {/* We'd call get_group_media(photo.id) here if we wanted to show thumbnails */}
+                      <Picture className="w-4 h-4 text-neutral-600" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted px-8">No photos yet</p>
+              )
             )}
           </div>
 
@@ -139,10 +147,16 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
                 />
               </button>
             </div>
-            {expandedSections.audio && audioCount > 0 && (
-              <div className="pb-3 animate-in fade-in duration-200">
-                <p className="text-sm text-muted">Audio files will be displayed here</p>
-              </div>
+            {expandedSections.audio && (
+              audioCount > 0 ? (
+                <div className="space-y-2 animate-in fade-in duration-200">
+                  {groupInfo.audio.slice(0, 3).map(a => (
+                    <div key={a.id} className="text-xs text-accent-surface truncate px-2 py-1 bg-on-surface rounded">{a.name}</div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted px-8">No audio files</p>
+              )
             )}
           </div>
 
@@ -164,10 +178,18 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
                 />
               </button>
             </div>
-            {expandedSections.videos && videosCount > 0 && (
-              <div className="pb-3 animate-in fade-in duration-200">
-                <p className="text-sm text-muted">Video files will be displayed here</p>
-              </div>
+            {expandedSections.videos && (
+              videosCount > 0 ? (
+                <div className="grid grid-cols-2 gap-2 animate-in fade-in duration-200">
+                  {groupInfo.videos.slice(0, 2).map(v => (
+                    <div key={v.id} className="aspect-video bg-neutral-800 rounded-lg flex items-center justify-center">
+                      <Video className="w-6 h-6 text-neutral-600" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted px-8">No videos yet</p>
+              )
             )}
           </div>
 
@@ -189,10 +211,19 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
                 />
               </button>
             </div>
-            {expandedSections.documents && documentsCount > 0 && (
-              <div className="pb-3 animate-in fade-in duration-200">
-                <p className="text-sm text-muted">Document files will be displayed here</p>
-              </div>
+            {expandedSections.documents && (
+              documentsCount > 0 ? (
+                <div className="space-y-2 animate-in fade-in duration-200">
+                  {groupInfo.documents.slice(0, 5).map(doc => (
+                    <div key={doc.id} className="flex items-center gap-2 p-2 rounded hover:bg-on-surface">
+                      <FileText className="w-4 h-4 text-muted" />
+                      <span className="text-xs text-accent-surface truncate">{doc.name}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted px-8">No documents yet</p>
+              )
             )}
           </div>
 
@@ -215,31 +246,31 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
             </div>
             {expandedSections.members && (
               <div className="space-y-3 animate-in fade-in duration-200">
-                {groupInfo.members.slice(0, 3).map((member) => (
+                {groupInfo.members.map((member) => (
                   <div
                     key={member.id}
                     className="flex items-center gap-3"
                   >
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-neutral-700 to-neutral-800 flex items-center justify-center text-accent-foreground text-sm font-bold border border-neutral-700">
-                      {member.name.slice(0, 1)}
+                    <div className="relative">
+                      <Avatar size="md">
+                        {member.avatar && <Avatar.Image src={member.avatar} alt={member.name} />}
+                        <Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                      </Avatar>
+                      {member.role === 'owner' && <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full border-2 border-surface z-10" title="Owner" />}
+                      {member.role === 'admin' && <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-surface z-10" title="Admin" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-accent-surface">{member.name}</p>
-                      <p className="text-xs text-muted">{member.email}</p>
+                      <p className="text-sm font-medium text-accent-surface truncate">{member.name}</p>
+                      <p className="text-xs text-muted truncate">{member.role?.toUpperCase() || 'MEMBER'}</p>
                     </div>
                   </div>
                 ))}
 
-                {/* View All Button */}
-                <button className="text-sm text-muted hover:text-accent-foreground transition font-medium">
-                  View All
-                </button>
-
-                {/* Scroll Down Button */}
-                <button className="w-full py-3 flex items-center justify-center gap-2 text-sm text-muted hover:text-accent-foreground transition">
-                  <span>Scroll Down</span>
-                  <ChevronDown className="w-4 h-4" />
-                </button>
+                {membersCount > 5 && (
+                  <button className="text-sm text-primary hover:underline transition font-medium">
+                    View All {membersCount} Members
+                  </button>
+                )}
               </div>
             )}
           </div>
