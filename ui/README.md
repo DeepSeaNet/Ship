@@ -1,80 +1,36 @@
-# Secure Messenger UI
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Современный UI дизайн для приложения защищенного обмена сообщениями, разработанный с использованием React, TypeScript и Tailwind CSS. Дизайн вдохновлен мессенджером Element, с акцентом на безопасность, современный внешний вид и удобство использования.
+## Getting Started
 
-## Особенности
-
-- **Современный интерфейс**: Чистый, минималистичный дизайн с плавными анимациями и интуитивно понятным расположением элементов.
-- **Темная и светлая темы**: Полная поддержка переключения между темным и светлым режимами.
-- **Отзывчивый дизайн**: Адаптивный интерфейс, который хорошо работает как на мобильных устройствах, так и на десктопах.
-- **Функциональные компоненты**:
-  - Левая боковая панель со списком чатов и контактов
-  - Центральное окно чата с сообщениями и возможностью прикрепления файлов
-  - Правая панель с информацией о чате, медиафайлами и настройками безопасности
-
-## Технологии
-
-- **React**: Библиотека для создания пользовательских интерфейсов
-- **Next.js**: Фреймворк для React с рендерингом на стороне сервера
-- **TypeScript**: Типизированный JavaScript для более надежного кода
-- **Tailwind CSS**: Утилитарный CSS-фреймворк для быстрой разработки интерфейса
-- **Framer Motion**: Библиотека для создания плавных анимаций
-- **React Icons**: Иконки для интерфейса
-
-## Начало работы
-
-### Установка
-
-```bash
-# Клонирование репозитория
-git clone <repository-url>
-
-# Переход в директорию проекта
-cd secure-messenger-ui
-
-# Установка зависимостей
-npm install
-```
-
-### Запуск приложения в режиме разработки
+First, run the development server:
 
 ```bash
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-Откройте [http://localhost:3000](http://localhost:3000) в вашем браузере для просмотра приложения.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-### Сборка для production
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-```bash
-npm run build
-```
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-### Запуск production-версии
+## Learn More
 
-```bash
-npm run start
-```
+To learn more about Next.js, take a look at the following resources:
 
-## Структура проекта
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-- **app/**: Директория Next.js с файлами страниц и макетов
-- **components/**: Многоразовые компоненты интерфейса
-- **public/**: Статические файлы
-- **tailwind.config.js**: Конфигурация Tailwind CSS с кастомными цветами и анимациями
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Ключевые компоненты
+## Deploy on Vercel
 
-- **Header**: Верхняя панель с логотипом, поиском и переключателем темы
-- **LeftSidebar**: Боковая панель с чатами и контактами
-- **ChatWindow**: Основное окно чата с сообщениями и полем ввода
-- **RightPanel**: Правая панель с информацией, файлами и настройками безопасности
-- **ThemeProvider**: Провайдер для управления темой приложения
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-## Скриншоты
-
-[Добавьте скриншоты вашего приложения здесь]
-
----
-
-Создано с ❤️ для демонстрации современного UI дизайна защищенного мессенджера.
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
