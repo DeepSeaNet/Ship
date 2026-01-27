@@ -15,6 +15,7 @@ import { Eye, EyeSlash, ArrowRight } from "@gravity-ui/icons";
 interface RegisterFormProps {
   isLoading: boolean;
   onSubmit: (
+    username: string,
     email: string,
     password: string,
     confirmPassword: string
@@ -23,6 +24,7 @@ interface RegisterFormProps {
 
 export function RegisterForm({ isLoading, onSubmit }: RegisterFormProps) {
   const [registerShowPassword, setRegisterShowPassword] = useState(false);
+  const [registerUsername, setRegisterUsername] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState("");
@@ -35,7 +37,7 @@ export function RegisterForm({ isLoading, onSubmit }: RegisterFormProps) {
       alert("Passwords do not match");
       return;
     }
-    await onSubmit(registerEmail, registerPassword, registerConfirmPassword);
+    await onSubmit(registerUsername, registerEmail, registerPassword, registerConfirmPassword);
   };
 
   return (
@@ -43,6 +45,18 @@ export function RegisterForm({ isLoading, onSubmit }: RegisterFormProps) {
       className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300"
       onSubmit={handleRegisterSubmit}
     >
+      <TextField
+        fullWidth
+        isRequired
+        name="username"
+        type="text"
+        value={registerUsername}
+        onChange={setRegisterUsername}
+      >
+        <Label>Username</Label>
+        <Input placeholder="username" />
+      </TextField>
+
       <TextField
         fullWidth
         isRequired

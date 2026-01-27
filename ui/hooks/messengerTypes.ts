@@ -122,6 +122,9 @@ export interface MediaItem {
 
 export interface GroupInfo {
   chatId: string;
+  name: string;
+  description?: string;
+  avatar?: string;
   photos: MediaItem[];
   audio: MediaItem[];
   videos: MediaItem[];

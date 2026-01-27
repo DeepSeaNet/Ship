@@ -9,25 +9,25 @@ export const useAccountList = () => {
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadAccounts = async () => {
-      try {
-        setLoadingAccounts(true);
-        setError(null);
-        const accountList = await getAccountList();
-        setAccounts(accountList);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to load accounts";
-        setError(errorMessage);
-        console.error("Failed to load accounts:", err);
-      } finally {
-        setLoadingAccounts(false);
-      }
-    };
+  const loadAccounts = async () => {
+    try {
+      setLoadingAccounts(true);
+      setError(null);
+      const accountList = await getAccountList();
+      setAccounts(accountList);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to load accounts";
+      setError(errorMessage);
+      console.error("Failed to load accounts:", err);
+    } finally {
+      setLoadingAccounts(false);
+    }
+  };
 
+  useEffect(() => {
     loadAccounts();
   }, []);
 
-  return { accounts, loadingAccounts, error };
+  return { accounts, loadingAccounts, error, refreshAccounts: loadAccounts };
 };

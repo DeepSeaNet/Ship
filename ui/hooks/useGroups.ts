@@ -175,6 +175,82 @@ export function useGroups() {
         }
     }, [loadGroups]);
 
+    const updateGroupConfig = useCallback(async (
+        groupId: string,
+        updates: {
+            name?: string;
+            visibility?: 'public' | 'private';
+            joinMode?: 'invite_only' | 'request_to_join' | 'open';
+            description?: string;
+            avatar?: string; // file path
+            maxMembers?: number;
+            slowModeDelay?: number;
+            allowStickers?: boolean;
+            allowGifs?: boolean;
+            allowVoiceMessages?: boolean;
+            allowVideoMessages?: boolean;
+            allowLinks?: boolean;
+            allowMessages?: boolean;
+        }
+    ) => {
+        try {
+            await invoke('update_group_config', {
+                groupId,
+                groupName: updates.name || null,
+                visibility: updates.visibility || null,
+                joinMode: updates.joinMode || null,
+                description: updates.description || null,
+                avatar: updates.avatar || null,
+                maxMembers: updates.maxMembers || null,
+                slowModeDelay: updates.slowModeDelay || null,
+                allowStickers: updates.allowStickers || null,
+                allowGifs: updates.allowGifs || null,
+                allowVoiceMessages: updates.allowVoiceMessages || null,
+                allowVideoMessages: updates.allowVideoMessages || null,
+                allowLinks: updates.allowLinks || null,
+                allowMessages: updates.allowMessages || null,
+            });
+            toast('Group configuration updated successfully', { variant: 'success' });
+            return true;
+        } catch (err) {
+            console.error('Error updating group config:', err);
+            toast(`Failed to update group config: ${err}`, { variant: 'danger' });
+            return false;
+        }
+    }, []);
+
+    const getGroupDisplayKey = useCallback(async (groupId: string) => {
+        try {
+            const key = await invoke<number[]>('get_group_display_key', { groupId });
+            return new Uint8Array(key);
+        } catch (err) {
+            console.error('Error getting group display key:', err);
+            return null;
+        }
+    }, []);
+
+    const updateMemberPermissions = useCallback(async (
+        groupId: string,
+        memberId: number,
+        permissions: Partial<Permissions>,
+        role?: string
+    ) => {
+        try {
+            await invoke('update_member_permissions', {
+                groupId,
+                memberId,
+                permissions,
+                role: role || null,
+            });
+            toast('Member permissions updated successfully', { variant: 'success' });
+            return true;
+        } catch (err) {
+            console.error('Error updating member permissions:', err);
+            toast(`Failed to update member permissions: ${err}`, { variant: 'danger' });
+            return false;
+        }
+    }, []);
+
     return {
         groups,
         loading,
@@ -184,5 +260,8 @@ export function useGroups() {
         inviteUserToGroup,
         removeUserFromGroup,
         createGroup,
+        updateGroupConfig,
+        getGroupDisplayKey,
+        updateMemberPermissions,
     };
 }

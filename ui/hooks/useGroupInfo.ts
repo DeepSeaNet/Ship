@@ -84,6 +84,9 @@ export function useGroupInfo(chatId: string | null) {
 
             setGroupInfo({
                 chatId,
+                name: group.group_name || 'Group ' + chatId,
+                description: group.description || '',
+                avatar: createMediaUrl(group.avatar),
                 photos,
                 audio,
                 videos,

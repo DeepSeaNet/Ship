@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button, Card, Alert, Spinner } from "@heroui/react";
-import { useAccountList } from "@/hooks";
+import { useAccountList, register, import_account } from "@/hooks";
 import { LandscapeBackground } from "@/components/landscape";
 import { MainMenu } from "@/components/messenger";
 import { LoginForm } from "./LoginForm";
@@ -22,7 +22,7 @@ export default function AuthPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Load accounts
-  const { accounts, loadingAccounts } = useAccountList();
+  const { accounts, loadingAccounts, refreshAccounts } = useAccountList();
 
   // Show account selection if accounts exist and we just loaded
   useEffect(() => {
@@ -44,32 +44,45 @@ export default function AuthPage() {
   const handleLoginSubmit = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+
       setSuccessMessage("Login successful! Redirecting...");
       setTimeout(() => {
         setSuccessMessage("");
         setIsAuthenticated(true);
-      }, 2000);
+      }, 1000);
+    } catch (error) {
+      console.error("Login failed:", error);
+      // setErrorMessage would be nice but using alert for now as per current pattern
+      alert(`Login failed: ${error}`);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleRegisterSubmit = async (
+    username: string,
     email: string,
     password: string,
     confirmPassword: string
   ) => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      setSuccessMessage("Account created successfully! Logging in...");
+      await register(username, email, password);
+
+      setSuccessMessage("Account created successfully! Updating account list...");
+
+      // Refresh accounts so the new one appears
+      await refreshAccounts();
+
       setTimeout(() => {
         setSuccessMessage("");
+        setShowAccountSelection(true);
+        setSkipAccountSelection(false);
         setAuthMode("login");
       }, 2000);
+    } catch (error) {
+      console.error("Registration failed:", error);
+      alert(`Registration failed: ${error}`);
     } finally {
       setIsLoading(false);
     }
@@ -82,12 +95,22 @@ export default function AuthPage() {
   const handleBase64Import = async (base64: string) => {
     setIsLoading(true);
     try {
-      // Simulate API call with base64 data
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      setSuccessMessage("Login successful with imported credentials!");
+      // Assuming the key is provided via some other means or using a default for now
+      // The user snippet had import_account(import_data, import_key)
+      const importKey = prompt("Enter your account decryption key:");
+      if (!importKey) return;
+
+      const userId = await import_account(base64, importKey);
+
+      setSuccessMessage(`Account imported successfully (ID: ${userId})!`);
       setTimeout(() => {
         setSuccessMessage("");
+        // Refresh account list if needed, or redirect
+        window.location.reload();
       }, 2000);
+    } catch (error) {
+      console.error("Import failed:", error);
+      alert(`Import failed: ${error}`);
     } finally {
       setIsLoading(false);
     }

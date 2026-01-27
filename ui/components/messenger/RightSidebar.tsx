@@ -5,6 +5,8 @@ import { ScrollShadow, Avatar } from '@heroui/react';
 import { Picture, MusicNote, Video, FileText, PersonPlus, ChevronDown, ChevronRight, Xmark, Gear } from '@gravity-ui/icons';
 import { useMessengerState } from '@/hooks/useMessengerState';
 import { useGroupInfo } from '@/hooks/useGroupInfo';
+import { useChats } from '@/hooks/useChats';
+import { GroupSettingsModal } from '../settings/GroupSettingsModal';
 
 interface RightSidebarProps {
   onClose?: () => void;
@@ -13,11 +15,15 @@ interface RightSidebarProps {
 
 export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
   const { uiState } = useMessengerState();
+  const { getChatById } = useChats();
   const { groupInfo, loading } = useGroupInfo(uiState.activeChatId);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const activeChat = uiState.activeChatId ? getChatById(uiState.activeChatId) : null;
 
   // Section expansion state
   const [expandedSections, setExpandedSections] = useState({
-    photos: true,
+    photos: false,
     audio: false,
     videos: false,
     documents: false,
@@ -66,17 +72,21 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
       <ScrollShadow className="flex-1 overflow-y-auto">
         <div className="p-6 space-y-6">
           {/* Header with Close and Expand Buttons */}
-          <div className="flex items-center justify-between pb-4 border-b border-border">
-            <h3 className="font-semibold text-xl text-accent-surface">Group Info</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-xl text-accent-surface">Info</h3>
             <div className="flex gap-1">
               <button
                 onClick={onToggle}
                 className="w-8 h-8 rounded-lg hover:bg-on-surface flex items-center justify-center transition text-muted"
+                title="Toggle Sidebar"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
               <button
+                onClick={() => setIsSettingsOpen(true)}
                 className="w-8 h-8 rounded-lg hover:bg-on-surface flex items-center justify-center transition text-muted"
+                title="Settings"
+                disabled={!activeChat?.isGroup}
               >
                 <Gear className="w-5 h-5" />
               </button>
@@ -84,10 +94,33 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
                 <button
                   onClick={onClose}
                   className="w-8 h-8 rounded-lg hover:bg-on-surface flex items-center justify-center transition text-muted"
+                  title="Close"
                 >
                   <Xmark className="w-5 h-5" />
                 </button>
               )}
+            </div>
+          </div>
+
+          {/* Group Profile Section */}
+          <div className="flex flex-col items-center text-center space-y-4 pb-6 border-b border-border">
+            <Avatar size="lg" className="w-24 h-24 text-4xl shadow-lg border-4 border-surface">
+              {groupInfo.avatar && <Avatar.Image src={groupInfo.avatar} alt={groupInfo.name} />}
+              <Avatar.Fallback className="bg-gradient-to-br from-accent to-accent-surface text-white">
+                {groupInfo.name.slice(0, 1).toUpperCase()}
+              </Avatar.Fallback>
+            </Avatar>
+            <div className="space-y-1">
+              <h2 className="text-2xl font-bold text-accent-surface">{groupInfo.name}</h2>
+              <p className="text-sm text-muted line-clamp-3">{groupInfo.description || 'No description provided'}</p>
+            </div>
+            <div className="flex w-full gap-2">
+              <button className="flex-1 px-3 py-2 bg-on-surface rounded-xl text-sm font-medium hover:bg-neutral-800 transition">
+                Share Link
+              </button>
+              <button className="flex-1 px-3 py-2 bg-on-surface rounded-xl text-sm font-medium hover:bg-neutral-800 transition">
+                Search
+              </button>
             </div>
           </div>
 
@@ -276,6 +309,14 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
           </div>
         </div>
       </ScrollShadow>
+
+      {activeChat && activeChat.isGroup && (
+        <GroupSettingsModal
+          isOpen={isSettingsOpen}
+          onOpenChange={setIsSettingsOpen}
+          group={activeChat}
+        />
+      )}
     </div>
   );
 }
