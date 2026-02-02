@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 
 import {
     Modal,
@@ -15,7 +16,6 @@ import {
     Person,
     Shield,
     Bell,
-    CreditCard,
     Xmark,
     Palette,
     Database,
@@ -24,8 +24,8 @@ import {
     Copy,
     TrashBin
 } from '@gravity-ui/icons';
-import { useState, useEffect } from 'react';
 import { toast } from '@heroui/react';
+import { ExportAccountModal } from '../settings/ExportAccountModal';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -33,6 +33,8 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+
     return (
 
         <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
@@ -184,7 +186,7 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
                                                 <Button
                                                     variant="secondary"
                                                     className="flex-1 min-w-[140px]"
-                                                    onPress={() => toast('Account export started', { variant: 'success' })}
+                                                    onPress={() => setIsExportModalOpen(true)}
                                                 >
                                                     <ArrowDownToLine className="size-4 mr-2" />
                                                     Export Account
@@ -387,6 +389,10 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
                                     </Tabs.Panel>
                                 </div>
                             </Tabs>
+                            <ExportAccountModal
+                                isOpen={isExportModalOpen}
+                                onOpenChange={setIsExportModalOpen}
+                            />
                         </Modal.Body>
                     </Modal.Dialog>
                 </Modal.Container>

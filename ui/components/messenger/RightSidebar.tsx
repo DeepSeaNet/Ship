@@ -106,19 +106,19 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
           <div className="flex flex-col items-center text-center space-y-4 pb-6 border-b border-border">
             <Avatar size="lg" className="w-24 h-24 text-4xl shadow-lg border-4 border-surface">
               {groupInfo.avatar && <Avatar.Image src={groupInfo.avatar} alt={groupInfo.name} />}
-              <Avatar.Fallback className="bg-gradient-to-br from-accent to-accent-surface text-white">
+              <Avatar.Fallback className="bg-gradient-to-br from-accent to-accent-surface text-accent-foreground">
                 {groupInfo.name.slice(0, 1).toUpperCase()}
               </Avatar.Fallback>
             </Avatar>
             <div className="space-y-1">
-              <h2 className="text-2xl font-bold text-accent-surface">{groupInfo.name}</h2>
+              <h2 className="text-2xl font-bold text-accent">{groupInfo.name}</h2>
               <p className="text-sm text-muted line-clamp-3">{groupInfo.description || 'No description provided'}</p>
             </div>
             <div className="flex w-full gap-2">
-              <button className="flex-1 px-3 py-2 bg-on-surface rounded-xl text-sm font-medium hover:bg-neutral-800 transition">
+              <button className="flex-1 px-3 py-2 bg-on-surface rounded-xl text-sm font-medium text-muted hover:bg-neutral-800 transition">
                 Share Link
               </button>
-              <button className="flex-1 px-3 py-2 bg-on-surface rounded-xl text-sm font-medium hover:bg-neutral-800 transition">
+              <button className="flex-1 px-3 py-2 bg-on-surface rounded-xl text-sm font-medium text-muted hover:bg-neutral-800 transition">
                 Search
               </button>
             </div>
@@ -129,7 +129,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Picture className="w-5 h-5 text-muted" />
-                <span className="text-sm font-medium text-accent-surface">Photos</span>
+                <span className="text-sm font-medium text-accent">Photos</span>
                 <span className="text-sm text-muted">• {photosCount}</span>
               </div>
               <button
@@ -167,7 +167,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
             <div className="flex items-center justify-between py-3">
               <div className="flex items-center gap-3">
                 <MusicNote className="w-5 h-5 text-muted" />
-                <span className="text-sm font-medium text-accent-surface">Audio</span>
+                <span className="text-sm font-medium text-accent">Audio</span>
                 <span className="text-sm text-muted">• {audioCount}</span>
               </div>
               <button
@@ -184,7 +184,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
               audioCount > 0 ? (
                 <div className="space-y-2 animate-in fade-in duration-200">
                   {groupInfo.audio.slice(0, 3).map(a => (
-                    <div key={a.id} className="text-xs text-accent-surface truncate px-2 py-1 bg-on-surface rounded">{a.name}</div>
+                    <div key={a.id} className="text-xs text-accent truncate px-2 py-1 bg-on-surface rounded">{a.name}</div>
                   ))}
                 </div>
               ) : (
@@ -198,7 +198,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
             <div className="flex items-center justify-between py-3">
               <div className="flex items-center gap-3">
                 <Video className="w-5 h-5 text-muted" />
-                <span className="text-sm font-medium text-accent-surface">Videos</span>
+                <span className="text-sm font-medium text-accent">Videos</span>
                 <span className="text-sm text-muted">• {videosCount}</span>
               </div>
               <button
@@ -231,7 +231,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
             <div className="flex items-center justify-between py-3">
               <div className="flex items-center gap-3">
                 <FileText className="w-5 h-5 text-muted" />
-                <span className="text-sm font-medium text-accent-surface">Documents</span>
+                <span className="text-sm font-medium text-accent">Documents</span>
                 <span className="text-sm text-muted">• {documentsCount}</span>
               </div>
               <button
@@ -265,7 +265,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <PersonPlus className="w-5 h-5 text-muted" />
-                <span className="text-sm font-medium text-accent-surface">Members ({membersCount})</span>
+                <span className="text-sm font-medium text-accent">Members ({membersCount})</span>
               </div>
               <button
                 onClick={() => toggleSection('members')}

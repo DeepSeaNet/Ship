@@ -76,7 +76,7 @@ export function ChatArea() {
       <ScrollShadow
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-6"
+        className="flex-1 overflow-y-auto overflow-x-hidden py-6 px-1 scroll-smooth"
       >
         {loading ? (
           <div className="flex items-center justify-center h-full">
@@ -84,10 +84,10 @@ export function ChatArea() {
           </div>
         ) : messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-center p-4">
-            <p className="text-sm text-muted">No messages yet. Start the conversation!</p>
+            <p className="text-sm text-muted animate-in fade-in duration-500">No messages yet. Start the conversation!</p>
           </div>
         ) : (
-          <div className="space-y-1 flex flex-col">
+          <div className="space-y-1 flex flex-col transition-all duration-500">
             {messages.map((msg) => (
               <MessageItem key={msg.id} message={msg} />
             ))}

@@ -26,7 +26,7 @@ export function TopBar({ onInfoClick }: TopBarProps) {
             </div>
           )}
           <div>
-            <h3 className="font-semibold text-sm text-accent-surface">{activeChat.name}</h3>
+            <h3 className="font-semibold text-sm text-accent">{activeChat.name}</h3>
             <p className="text-xs text-muted">
               {activeChat.isGroup
                 ? `${activeChat.participants?.length || 0} members`
