@@ -10,7 +10,14 @@ import {
     Input,
     Switch,
     Label,
-    Separator
+    Separator,
+    Card,
+    Slider,
+    RadioGroup,
+    Radio,
+    Tooltip,
+    Select,
+    ListBox
 } from '@heroui/react';
 import {
     Person,
@@ -22,7 +29,10 @@ import {
     ArrowRightFromSquare,
     ArrowDownToLine,
     Copy,
-    TrashBin
+    TrashBin,
+    Check,
+    Display,
+    MagicWand
 } from '@gravity-ui/icons';
 import { toast } from '@heroui/react';
 import { ExportAccountModal } from '../settings/ExportAccountModal';
@@ -206,72 +216,208 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
                                         </div>
                                     </Tabs.Panel>
 
-                                    <Tabs.Panel id="appearance" className="space-y-6 max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                        <div>
-                                            <h3 className="text-2xl font-bold mb-1">Appearance</h3>
-                                            <p className="text-muted text-sm">Customize how the application looks.</p>
+                                    <Tabs.Panel id="appearance" className="space-y-8 max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                        <div className="bg-surface/30 border border-border/50 rounded-2xl p-6 mb-4">
+                                            <div className="flex gap-4 items-start">
+                                                <Avatar className="size-10 shrink-0">
+                                                    <Avatar.Image src="/avatar.png" />
+                                                    <Avatar.Fallback>U</Avatar.Fallback>
+                                                </Avatar>
+                                                <div className="space-y-2 flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-bold text-sm">Preview User</span>
+                                                        <span className="text-[10px] text-muted">12:34 PM</span>
+                                                    </div>
+                                                    <Card className="bg-primary text-primary-foreground p-3 rounded-2xl rounded-tl-none max-w-sm shadow-lg shadow-primary/20">
+                                                        <p className="text-sm">How do you like the new theme? Everything looks so much more alive! ✨</p>
+                                                    </Card>
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        <div className="space-y-6">
-                                            <div className="space-y-4">
-                                                <h4 className="font-semibold text-sm">Interface Theme</h4>
-                                                <div className="grid grid-cols-3 gap-3">
-                                                    <Button
-                                                        variant="secondary"
-                                                        className={`flex flex-col items-center gap-2 h-auto py-4 border-2 ${typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? 'border-primary' : 'border-transparent'}`}
-                                                        onPress={() => {
-                                                            document.documentElement.classList.add('dark');
-                                                            localStorage.setItem('theme', 'dark');
-                                                            toast('Switched to Dark theme', { variant: 'success' });
-                                                        }}
-                                                    >
-                                                        <div className="w-full h-12 bg-neutral-900 rounded-md border border-neutral-700" />
-                                                        <span className="text-xs">Dark</span>
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        className={`flex flex-col items-center gap-2 h-auto py-4 border-2 ${typeof document !== 'undefined' && !document.documentElement.classList.contains('dark') ? 'border-primary' : 'border-transparent'}`}
-                                                        onPress={() => {
-                                                            document.documentElement.classList.remove('dark');
-                                                            localStorage.setItem('theme', 'light');
-                                                            toast('Switched to Light theme', { variant: 'success' });
-                                                        }}
-                                                    >
-                                                        <div className="w-full h-12 bg-white rounded-md border border-neutral-200" />
-                                                        <span className="text-xs">Light</span>
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        className="flex flex-col items-center gap-2 h-auto py-4 border-2 border-transparent"
-                                                        onPress={() => {
-                                                            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                                                            document.documentElement.classList.toggle('dark', isDark);
-                                                            localStorage.removeItem('theme');
-                                                            toast('Switched to System theme', { variant: 'success' });
-                                                        }}
-                                                    >
-                                                        <div className="w-full h-12 bg-gradient-to-br from-neutral-800 to-white rounded-md border border-neutral-400" />
-                                                        <span className="text-xs">System</span>
-                                                    </Button>
-                                                </div>
+                                        <div>
+                                            <h3 className="text-2xl font-bold mb-1">Appearance</h3>
+                                            <p className="text-muted text-sm">Customize the interface to match your style.</p>
+                                        </div>
+
+                                        {/* Theme Selection */}
+                                        <div className="space-y-4">
+                                            <h4 className="font-semibold text-sm flex items-center gap-2">
+                                                <Display className="size-4" /> Interface Theme
+                                            </h4>
+                                            <div className="grid grid-cols-3 gap-4">
+                                                {[
+                                                    { id: 'light', name: 'Light', bg: 'bg-white', text: 'text-neutral-900', border: 'border-neutral-200' },
+                                                    { id: 'dark', name: 'Dark', bg: 'bg-neutral-900', text: 'text-white', border: 'border-neutral-700' },
+                                                    { id: 'terminal', name: 'Terminal', bg: 'bg-[#0a0f0a]', text: 'text-[#00ff41]', border: 'border-[#003b00]' }
+                                                ].map((theme) => {
+                                                    const isActive = theme.id === 'terminal'
+                                                        ? (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme')?.includes('terminal'))
+                                                        : (typeof document !== 'undefined' && (theme.id === 'dark' ? document.documentElement.classList.contains('dark') : !document.documentElement.classList.contains('dark')) && !document.documentElement.getAttribute('data-theme'));
+
+                                                    return (
+                                                        <div
+                                                            key={theme.id}
+                                                            role="button"
+                                                            tabIndex={0}
+                                                            className={`relative group cursor-pointer overflow-hidden border-2 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] ${isActive ? 'border-primary ring-2 ring-primary/20' : 'border-transparent bg-surface/50 hover:border-border'}`}
+                                                            onClick={() => {
+                                                                if (theme.id === 'terminal') {
+                                                                    document.documentElement.setAttribute('data-theme', 'terminal-green-dark');
+                                                                    document.documentElement.classList.add('dark');
+                                                                } else {
+                                                                    document.documentElement.removeAttribute('data-theme');
+                                                                    document.documentElement.classList.toggle('dark', theme.id === 'dark');
+                                                                }
+                                                                localStorage.setItem('theme', theme.id === 'terminal' ? 'terminal-green-dark' : theme.id);
+                                                                toast(`Switched to ${theme.name} theme`, { variant: 'success' });
+                                                            }}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                                    e.preventDefault();
+                                                                    (e.currentTarget as HTMLElement).click();
+                                                                }
+                                                            }}
+                                                        >
+                                                            <div className={`h-24 ${theme.bg} p-3 flex flex-col gap-2 relative`}>
+                                                                <div className={`w-full h-2 rounded-sm ${theme.id === 'terminal' ? 'bg-[#003b00]' : (theme.id === 'dark' ? 'bg-neutral-800' : 'bg-neutral-100')}`} />
+                                                                <div className="flex gap-2">
+                                                                    <div className={`w-3 h-3 rounded-full ${theme.id === 'terminal' ? 'bg-[#00ff41]' : 'bg-primary'}`} />
+                                                                    <div className={`flex-1 h-3 rounded-sm ${theme.id === 'terminal' ? 'bg-[#002200]' : (theme.id === 'dark' ? 'bg-neutral-700' : 'bg-neutral-200')}`} />
+                                                                </div>
+                                                                <div className={`w-3/4 h-2 rounded-sm ${theme.id === 'terminal' ? 'bg-[#003b00]' : (theme.id === 'dark' ? 'bg-neutral-800' : 'bg-neutral-100')}`} />
+                                                                {isActive && (
+                                                                    <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1 shadow-lg">
+                                                                        <Check className="size-3" strokeWidth={3} />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="px-3 py-2 text-center text-xs font-semibold">
+                                                                {theme.name}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
+                                        </div>
 
-                                            <Separator className="opacity-50" />
+                                        <Separator className="opacity-50" />
 
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-0.5">
-                                                    <span className="font-medium">Glassmorphism</span>
-                                                    <p className="text-xs text-muted">Apply subtle glass effects to the UI.</p>
-                                                </div>
-                                                <Switch defaultSelected />
+                                        {/* Accent Color Selection */}
+                                        <div className="space-y-4">
+                                            <h4 className="font-semibold text-sm flex items-center gap-2">
+                                                <Palette className="size-4" /> Accent Colors
+                                            </h4>
+                                            <div className="flex flex-wrap gap-4">
+                                                {[
+                                                    { name: 'Default', color: 'oklch(62.04% 0.1950 253.83)' },
+                                                    { name: 'Emerald', color: 'oklch(73.29% 0.1941 150.81)' },
+                                                    { name: 'Rose', color: 'oklch(65.32% 0.2335 25.74)' },
+                                                    { name: 'Amber', color: 'oklch(78.19% 0.1590 72.33)' },
+                                                    { name: 'Violet', color: 'oklch(62.04% 0.1950 300)' },
+                                                    { name: 'Cyan', color: 'oklch(70% 0.15 200)' }
+                                                ].map((accent) => (
+                                                    <Tooltip key={accent.name} delay={0}>
+                                                        <Tooltip.Trigger>
+                                                            <button
+                                                                className="size-8 rounded-full border-2 border-transparent hover:border-primary hover:scale-110 transition-all focus:ring-2 ring-primary/30 outline-none"
+                                                                style={{ backgroundColor: accent.color }}
+                                                                onClick={() => {
+                                                                    document.documentElement.style.setProperty('--accent', accent.color);
+                                                                    toast(`Applied ${accent.name} accent`, { variant: 'success' });
+                                                                }}
+                                                            />
+                                                        </Tooltip.Trigger>
+                                                        <Tooltip.Content>
+                                                            {accent.name}
+                                                        </Tooltip.Content>
+                                                    </Tooltip>
+                                                ))}
                                             </div>
+                                        </div>
 
+                                        <Separator className="opacity-50" />
+
+                                        {/* UI Scaling */}
+                                        <div className="space-y-4">
                                             <div className="flex items-center justify-between">
-                                                <div className="space-y-0.5">
-                                                    <span className="font-medium">Modern Shadows</span>
-                                                    <p className="text-xs text-muted">Use high-quality elevation shadows.</p>
-                                                </div>
-                                                <Switch defaultSelected />
+                                                <h4 className="font-semibold text-sm flex items-center gap-2">
+                                                    <MagicWand className="size-4" /> UI Scaling
+                                                </h4>
+                                                <span className="text-xs bg-surface px-2 py-0.5 rounded border border-border">100%</span>
+                                            </div>
+                                            <Slider
+                                                defaultValue={100}
+                                                minValue={80}
+                                                maxValue={120}
+                                                step={5}
+                                                aria-label="UI Scaling"
+                                                className="max-w-md"
+                                                onChange={(value) => {
+                                                    const scale = (value as number) / 100;
+                                                    document.documentElement.style.setProperty('--ui-scale', scale.toString());
+                                                    document.documentElement.style.fontSize = `${16 * scale}px`;
+                                                }}
+                                            />
+                                            <p className="text-[10px] text-muted">Adjust the overall size of text and interface elements.</p>
+                                        </div>
+                                        <Separator className="opacity-50" />
+
+                                        {/* Typography */}
+                                        <div className="space-y-4">
+                                            <h4 className="font-semibold text-sm">Typography</h4>
+                                            <Select
+                                                className="max-w-xs"
+                                                defaultSelectedKey="sans"
+                                                onSelectionChange={(key) => {
+                                                    const font = key === 'mono' ? 'var(--font-ibm-plex-mono)' : 'var(--font-inter)';
+                                                    document.documentElement.style.setProperty('--font-sans', font);
+                                                }}
+                                            >
+                                                <Label className="text-xs text-muted mb-1 block">Font Family</Label>
+                                                <Select.Trigger>
+                                                    <Select.Value />
+                                                    <Select.Indicator />
+                                                </Select.Trigger>
+                                                <Select.Popover>
+                                                    <ListBox>
+                                                        <ListBox.Item id="sans" textValue="System Sans">
+                                                            System Sans
+                                                            <ListBox.ItemIndicator />
+                                                        </ListBox.Item>
+                                                        <ListBox.Item id="mono" textValue="Terminal Mono">
+                                                            Terminal Mono
+                                                            <ListBox.ItemIndicator />
+                                                        </ListBox.Item>
+                                                    </ListBox>
+                                                </Select.Popover>
+                                            </Select>
+                                        </div>
+
+                                        <Separator className="opacity-50" />
+
+                                        {/* Visual Effects */}
+                                        <div className="space-y-4">
+                                            <h4 className="font-semibold text-sm">Visual Effects</h4>
+                                            <div className="grid gap-3">
+                                                <Card className="bg-surface/30 border border-border/50 p-4">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="space-y-0.5">
+                                                            <span className="text-sm font-medium">Glassmorphism</span>
+                                                            <p className="text-xs text-muted">Apply frozen glass effects to panels and menus.</p>
+                                                        </div>
+                                                        <Switch defaultSelected />
+                                                    </div>
+                                                </Card>
+                                                <Card className="bg-surface/30 border border-border/50 p-4">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="space-y-0.5">
+                                                            <span className="text-sm font-medium">Smooth Transitions</span>
+                                                            <p className="text-xs text-muted">Enable fluid animations across the app.</p>
+                                                        </div>
+                                                        <Switch defaultSelected />
+                                                    </div>
+                                                </Card>
                                             </div>
                                         </div>
                                     </Tabs.Panel>

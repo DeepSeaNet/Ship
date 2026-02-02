@@ -86,7 +86,7 @@ export function MessageItem({ message }: MessageItemProps) {
         <div className="fixed w-0 h-0 p-0 m-0 overflow-visible pointer-events-none" style={{ left: position.x, top: position.y, zIndex: 9999 }}>
           <Dropdown isOpen={isOpen} onOpenChange={setIsOpen}>
             <Dropdown.Trigger>
-              <button className="w-0 h-0 opacity-0 outline-none p-0 m-0 border-none pointer-events-auto" />
+              <div className="w-0 h-0 opacity-0 outline-none p-0 m-0 border-none pointer-events-auto" />
             </Dropdown.Trigger>
             <Dropdown.Popover placement="bottom start" offset={2} className="min-w-[160px]">
               <Dropdown.Menu
