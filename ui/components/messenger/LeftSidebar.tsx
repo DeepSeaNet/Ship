@@ -14,7 +14,7 @@ interface LeftSidebarProps {
 }
 
 export function LeftSidebar({ onClose }: LeftSidebarProps) {
-  const { chats, loading, refresh } = useChats();
+  const { chats, loading } = useChats();
   const { uiState, setActiveChatId } = useMessengerState();
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
 
@@ -97,7 +97,6 @@ export function LeftSidebar({ onClose }: LeftSidebarProps) {
       <CreateGroupModal
         isOpen={isCreateGroupOpen}
         onOpenChange={setIsCreateGroupOpen}
-        onSuccess={refresh}
       />
     </div>
   );

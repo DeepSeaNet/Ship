@@ -56,15 +56,23 @@ export function GroupSettingsModal({ isOpen, onOpenChange, group }: GroupSetting
     const [isLoading, setIsLoading] = useState(false);
 
     // State for default permissions
-    const [defaultPerms, setDefaultPerms] = useState<Permissions>(group.default_permissions || {
-        manage_members: false,
-        send_messages: true,
-        delete_messages: false,
-        rename_group: false,
-        manage_permissions: false,
-        pin_messages: false,
-        manage_admins: false,
-    });
+    const [defaultPerms, setDefaultPerms] = useState<any>(() => ({
+        ...(group.default_permissions || {
+            manage_members: false,
+            send_messages: true,
+            delete_messages: false,
+            rename_group: false,
+            manage_permissions: false,
+            pin_messages: false,
+            manage_admins: false,
+        }),
+        // Add group config flags to this state object for the UI form
+        allow_stickers: group.group_config?.allow_stickers ?? true,
+        allow_gifs: group.group_config?.allow_gifs ?? true,
+        allow_voice_messages: group.group_config?.allow_voice_messages ?? true,
+        allow_video_messages: group.group_config?.allow_video_messages ?? true,
+        allow_links: group.group_config?.allow_links ?? true,
+    }));
 
     // State for member management
     const [memberToEdit, setMemberToEdit] = useState<number | null>(null);
@@ -100,11 +108,11 @@ export function GroupSettingsModal({ isOpen, onOpenChange, group }: GroupSetting
         setIsLoading(true);
         const success = await updateGroupConfig(group.id, {
             allowMessages: defaultPerms.send_messages,
-            allowLinks: true, // Existing default
-            allowStickers: (group as any).allow_stickers ?? true, // Fallback if not in state
-            allowGifs: (group as any).allow_gifs ?? true,
-            allowVoiceMessages: (group as any).allow_voice_messages ?? true,
-            allowVideoMessages: (group as any).allow_video_messages ?? true,
+            allowLinks: defaultPerms.allow_links,
+            allowStickers: defaultPerms.allow_stickers,
+            allowGifs: defaultPerms.allow_gifs,
+            allowVoiceMessages: defaultPerms.allow_voice_messages,
+            allowVideoMessages: defaultPerms.allow_video_messages,
         });
         setIsLoading(false);
         if (success) {

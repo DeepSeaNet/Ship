@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { ScrollShadow, Avatar } from '@heroui/react';
+import { useState, useEffect } from 'react';
+import { ScrollShadow, Avatar, Spinner } from '@heroui/react';
 import { Picture, MusicNote, Video, FileText, PersonPlus, ChevronDown, ChevronRight, Xmark, Gear } from '@gravity-ui/icons';
 import { useMessengerState } from '@/hooks/useMessengerState';
-import { useGroupInfo } from '@/hooks/useGroupInfo';
 import { useChats } from '@/hooks/useChats';
 import { GroupSettingsModal } from '../settings/GroupSettingsModal';
+import { invoke } from '@tauri-apps/api/core';
+import { MediaItem } from '@/hooks/messengerTypes';
 
 interface RightSidebarProps {
   onClose?: () => void;
@@ -14,10 +15,16 @@ interface RightSidebarProps {
 }
 
 export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
-  const { uiState } = useMessengerState();
+  const { uiState, chats, users } = useMessengerState();
   const { getChatById } = useChats();
-  const { groupInfo, loading } = useGroupInfo(uiState.activeChatId);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [groupMedia, setGroupMedia] = useState<{
+    photos: MediaItem[],
+    audio: MediaItem[],
+    videos: MediaItem[],
+    documents: MediaItem[]
+  } | null>(null);
 
   const activeChat = uiState.activeChatId ? getChatById(uiState.activeChatId) : null;
 
@@ -37,6 +44,60 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
     }));
   };
 
+  // Fetch media when active chat changes
+  useEffect(() => {
+    if (!activeChat || !activeChat.isGroup) {
+      setGroupMedia(null);
+      return;
+    }
+
+    const fetchMedia = async () => {
+      setMediaLoading(true);
+      try {
+        const mediaResponse = await invoke<any>('get_all_group_media', { groupName: activeChat.id });
+        const mediaList: any[] = mediaResponse.media || [];
+
+        const photos: MediaItem[] = [];
+        const audio: MediaItem[] = [];
+        const videos: MediaItem[] = [];
+        const documents: MediaItem[] = [];
+
+        mediaList.forEach(m => {
+          const item: MediaItem = {
+            id: m.media_id,
+            name: m.filename,
+            timestamp: new Date(m.timestamp * 1000).toISOString(),
+            type: 'document' // Default
+          };
+
+          const ext = m.filename.split('.').pop()?.toLowerCase();
+          if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+            item.type = 'photo';
+            photos.push(item);
+          } else if (['mp3', 'wav', 'ogg'].includes(ext)) {
+            item.type = 'audio';
+            audio.push(item);
+          } else if (['mp4', 'mov', 'avi'].includes(ext)) {
+            item.type = 'video';
+            videos.push(item);
+          } else {
+            documents.push(item);
+          }
+        });
+
+        setGroupMedia({ photos, audio, videos, documents });
+      } catch (error) {
+        console.error("Failed to fetch group media:", error);
+        // Non-critical, just empty lists
+        setGroupMedia({ photos: [], audio: [], videos: [], documents: [] });
+      } finally {
+        setMediaLoading(false);
+      }
+    };
+
+    fetchMedia();
+  }, [activeChat?.id, activeChat?.isGroup]);
+
   if (!uiState.activeChatId) {
     return (
       <div className="w-96 bg-surface border-l border-border flex items-center justify-center">
@@ -45,27 +106,27 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
     );
   }
 
-  if (loading) {
+  if (!activeChat) {
     return (
       <div className="w-96 bg-surface border-l border-border flex items-center justify-center">
-        <p className="text-sm text-muted">Loading...</p>
+        <p className="text-sm text-muted">Chat not found</p>
       </div>
     );
   }
 
-  if (!groupInfo) {
-    return (
-      <div className="w-96 bg-surface border-l border-border flex items-center justify-center">
-        <p className="text-sm text-muted">No group info available</p>
-      </div>
-    );
-  }
+  const photosCount = groupMedia?.photos.length || 0;
+  const audioCount = groupMedia?.audio.length || 0;
+  const videosCount = groupMedia?.videos.length || 0;
+  const documentsCount = groupMedia?.documents.length || 0;
+  const membersCount = activeChat.members?.length || 0;
 
-  const photosCount = groupInfo.photos.length;
-  const audioCount = groupInfo.audio.length;
-  const videosCount = groupInfo.videos.length;
-  const documentsCount = groupInfo.documents.length;
-  const membersCount = groupInfo.members.length;
+  // Resolve members from IDs
+  const memberList = (activeChat.members || []).map(id => {
+    const idStr = id.toString();
+    const user = users[idStr] || { id: idStr, name: `User ${idStr}` };
+    const role = activeChat.owner_id === id ? 'owner' : (activeChat.admins?.includes(id) ? 'admin' : 'member');
+    return { ...user, role };
+  });
 
   return (
     <div className="w-96 bg-surface flex flex-col h-full border-l border-border">
@@ -86,7 +147,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
                 onClick={() => setIsSettingsOpen(true)}
                 className="w-8 h-8 rounded-lg hover:bg-on-surface flex items-center justify-center transition text-muted"
                 title="Settings"
-                disabled={!activeChat?.isGroup}
+                disabled={!activeChat.isGroup}
               >
                 <Gear className="w-5 h-5" />
               </button>
@@ -105,14 +166,14 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
           {/* Group Profile Section */}
           <div className="flex flex-col items-center text-center space-y-4 pb-6 border-b border-border">
             <Avatar size="lg" className="w-24 h-24 text-4xl shadow-lg border-4 border-surface">
-              {groupInfo.avatar && <Avatar.Image src={groupInfo.avatar} alt={groupInfo.name} />}
+              {activeChat.avatar && <Avatar.Image src={activeChat.avatar} alt={activeChat.name} />}
               <Avatar.Fallback className="bg-gradient-to-br from-accent to-accent-surface text-accent-foreground">
-                {groupInfo.name.slice(0, 1).toUpperCase()}
+                {activeChat.name.slice(0, 1).toUpperCase()}
               </Avatar.Fallback>
             </Avatar>
             <div className="space-y-1">
-              <h2 className="text-2xl font-bold text-accent">{groupInfo.name}</h2>
-              <p className="text-sm text-muted line-clamp-3">{groupInfo.description || 'No description provided'}</p>
+              <h2 className="text-2xl font-bold text-accent">{activeChat.name}</h2>
+              <p className="text-sm text-muted line-clamp-3">{activeChat.description || 'No description provided'}</p>
             </div>
             <div className="flex w-full gap-2">
               <button className="flex-1 px-3 py-2 bg-on-surface rounded-xl text-sm font-medium text-muted hover:bg-neutral-800 transition">
@@ -130,7 +191,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
               <div className="flex items-center gap-3">
                 <Picture className="w-5 h-5 text-muted" />
                 <span className="text-sm font-medium text-accent">Photos</span>
-                <span className="text-sm text-muted">• {photosCount}</span>
+                {mediaLoading ? <Spinner size="sm" /> : <span className="text-sm text-muted">• {photosCount}</span>}
               </div>
               <button
                 onClick={() => toggleSection('photos')}
@@ -145,7 +206,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
             {expandedSections.photos && (
               photosCount > 0 ? (
                 <div className="grid grid-cols-4 gap-2 animate-in fade-in duration-200">
-                  {groupInfo.photos.slice(0, 8).map((photo) => (
+                  {groupMedia?.photos.slice(0, 8).map((photo) => (
                     <div
                       key={photo.id}
                       title={photo.name}
@@ -168,7 +229,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
               <div className="flex items-center gap-3">
                 <MusicNote className="w-5 h-5 text-muted" />
                 <span className="text-sm font-medium text-accent">Audio</span>
-                <span className="text-sm text-muted">• {audioCount}</span>
+                {mediaLoading ? <Spinner size="sm" /> : <span className="text-sm text-muted">• {audioCount}</span>}
               </div>
               <button
                 onClick={() => toggleSection('audio')}
@@ -183,7 +244,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
             {expandedSections.audio && (
               audioCount > 0 ? (
                 <div className="space-y-2 animate-in fade-in duration-200">
-                  {groupInfo.audio.slice(0, 3).map(a => (
+                  {groupMedia?.audio.slice(0, 3).map(a => (
                     <div key={a.id} className="text-xs text-accent truncate px-2 py-1 bg-on-surface rounded">{a.name}</div>
                   ))}
                 </div>
@@ -199,7 +260,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
               <div className="flex items-center gap-3">
                 <Video className="w-5 h-5 text-muted" />
                 <span className="text-sm font-medium text-accent">Videos</span>
-                <span className="text-sm text-muted">• {videosCount}</span>
+                {mediaLoading ? <Spinner size="sm" /> : <span className="text-sm text-muted">• {videosCount}</span>}
               </div>
               <button
                 onClick={() => toggleSection('videos')}
@@ -214,7 +275,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
             {expandedSections.videos && (
               videosCount > 0 ? (
                 <div className="grid grid-cols-2 gap-2 animate-in fade-in duration-200">
-                  {groupInfo.videos.slice(0, 2).map(v => (
+                  {groupMedia?.videos.slice(0, 2).map(v => (
                     <div key={v.id} className="aspect-video bg-neutral-800 rounded-lg flex items-center justify-center">
                       <Video className="w-6 h-6 text-neutral-600" />
                     </div>
@@ -232,7 +293,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
               <div className="flex items-center gap-3">
                 <FileText className="w-5 h-5 text-muted" />
                 <span className="text-sm font-medium text-accent">Documents</span>
-                <span className="text-sm text-muted">• {documentsCount}</span>
+                {mediaLoading ? <Spinner size="sm" /> : <span className="text-sm text-muted">• {documentsCount}</span>}
               </div>
               <button
                 onClick={() => toggleSection('documents')}
@@ -247,7 +308,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
             {expandedSections.documents && (
               documentsCount > 0 ? (
                 <div className="space-y-2 animate-in fade-in duration-200">
-                  {groupInfo.documents.slice(0, 5).map(doc => (
+                  {groupMedia?.documents.slice(0, 5).map(doc => (
                     <div key={doc.id} className="flex items-center gap-2 p-2 rounded hover:bg-on-surface">
                       <FileText className="w-4 h-4 text-muted" />
                       <span className="text-xs text-accent-surface truncate">{doc.name}</span>
@@ -279,7 +340,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
             </div>
             {expandedSections.members && (
               <div className="space-y-3 animate-in fade-in duration-200">
-                {groupInfo.members.map((member) => (
+                {memberList.map((member) => (
                   <div
                     key={member.id}
                     className="flex items-center gap-3"

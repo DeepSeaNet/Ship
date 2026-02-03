@@ -9,6 +9,16 @@ export interface Permissions {
   manage_admins: boolean;
 }
 
+export interface ContactInfo {
+  user_id: number;
+  username: string;
+  avatar: string;
+  status: string;
+  last_seen: number;
+  created_at: number;
+  trust_level: number;
+}
+
 export interface GroupConfig {
   id: number;
   name: string;
@@ -30,6 +40,12 @@ export interface GroupConfig {
   banner?: string;
   pinned_message_id?: number;
   slow_mode_delay?: number;
+  allow_stickers?: boolean;
+  allow_gifs?: boolean;
+  allow_voice_messages?: boolean;
+  allow_video_messages?: boolean;
+  allow_links?: boolean;
+  allow_messages?: boolean;
 }
 
 // Basic Chat interface that can be a single user or a group
@@ -41,7 +57,6 @@ export interface Chat {
   avatar?: string;
   unreadCount: number;
   isGroup: boolean;
-  participants?: number[];
   description?: string;
   owner_id?: number;
   admins?: number[];
@@ -88,15 +103,29 @@ export interface MessengerContextType {
   uiState: UIState;
   messagesByChat: Record<string, Message[]>;
   users: Record<string, User>;
-  setActiveChatId: (id: string) => void;
+  chats: Chat[];
+  groups: Group[];
+  contacts: ContactInfo[];
+  isLoading: boolean;
+  currentUser: User | null;
+
+  // Actions
+  setActiveChatId: (id: string | null) => void;
   setActiveGroupId: (id: string | null) => void;
   toggleRightSidebar: () => void;
   setAnimatingIn: (animating: boolean) => void;
+
+  // Data Methods
   addMessage: (chatId: string, message: Message) => void;
   setMessagesForChat: (chatId: string, messages: Message[]) => void;
   updateMessageStatus: (chatId: string, messageId: string, status: Message['status']) => void;
   markChatAsLoaded: (chatId: string) => void;
   upsertUser: (user: User) => void;
+
+  // Fetchers
+  fetchChats: () => Promise<void>;
+  fetchGroups: () => Promise<void>;
+  fetchContacts: () => Promise<void>;
 }
 
 export interface User {
@@ -130,4 +159,11 @@ export interface GroupInfo {
   videos: MediaItem[];
   documents: MediaItem[];
   members: Member[];
+}
+
+export interface TypingStatus {
+  chatId: string;
+  userId: string;
+  isTyping: boolean;
+  timestamp: number;
 }

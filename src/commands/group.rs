@@ -815,7 +815,7 @@ pub async fn update_group_config(
         if let Some(allow_messages) = allow_messages {
             new_config.set_allow_messages(allow_messages);
         }
-
+        log::info!("Allow messages: {:?}", allow_messages);
         if let Some(avatar_path) = avatar {
             let avatar_data = {
                 let file_path = FilePath::from_str(&avatar_path).unwrap();
@@ -861,7 +861,6 @@ pub async fn update_group_config(
         let user_permissions = users_permisions
             .get(&user_id)
             .unwrap_or(default_permissions);
-
         let event_payload = serde_json::json!({
             "type": "group_config_updated",
             "data": {

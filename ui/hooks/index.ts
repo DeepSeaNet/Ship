@@ -2,7 +2,6 @@ export { useChats } from './useChats';
 export { useMessages } from './useMessages';
 export { useSendMessage } from './useSendMessage';
 export { useMessengerState, MessengerProvider } from './useMessengerState';
-export { useGroupInfo } from './useGroupInfo';
 export { useAccountList } from './useAccountList';
 export * from './useAccounts';
 export * from './useAuth';

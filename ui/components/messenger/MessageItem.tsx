@@ -40,7 +40,7 @@ export function MessageItem({ message }: MessageItemProps) {
 
         <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[80%]`}>
           {!isOwn && (
-            <p className="text-xs text-muted mb-1 px-1">{message.senderName || 'Anonymous'}</p>
+            <p className="text-xs text-muted mb-1 px-1">{message.senderName || 'User ' + message.senderId}</p>
           )}
 
           <div
