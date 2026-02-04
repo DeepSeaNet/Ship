@@ -125,479 +125,204 @@ export class MediasoupService {
         callback(data)
         return true
       } catch (error) {
-        this.addLog(
-          `Ошибка выполнения callback для ${action}: ${error}`,
-          'error',
-        )
+        this.addLog(`Callback execution error for ${action}: ${error}`, 'error')
       }
     }
     return false
   }
 
-  // Инициализация медиасуп устройства
-  public async initializeDevice(
-    routerRtpCapabilities: mediasoupTypes.RtpCapabilities,
-  ): Promise<void> {
+  public async initializeDevice(routerRtpCapabilities: mediasoupTypes.RtpCapabilities): Promise<void> {
     try {
-      this.addLog('Создание mediasoup Device...', 'info')
-      const device = new Device()
-      this.device = device
-      this.addLog('Device создан', 'success')
-
-      await device.load({ routerRtpCapabilities })
-      this.addLog('Device загружен с routerRtpCapabilities', 'success')
+      this.addLog('Creating mediasoup Device...', 'info')
+      this.device = new Device()
+      await this.device.load({ routerRtpCapabilities })
+      this.addLog('Device loaded with routerRtpCapabilities', 'success')
     } catch (error) {
-      this.addLog(`Ошибка инициализации Device: ${error}`, 'error')
+      this.addLog(`Device initialization error: ${error}`, 'error')
       throw error
     }
   }
 
-  // Создание транспортов отправки и получения
   public createTransports(
     producerTransportOptions: mediasoupTypes.TransportOptions,
     consumerTransportOptions: mediasoupTypes.TransportOptions,
     sendMessage: (message: WebSocketMessage) => void | Promise<void>,
   ): void {
     if (!this.device) {
-      this.addLog(
-        'Невозможно создать транспорты: Device не инициализирован',
-        'error',
-      )
+      this.addLog('Cannot create transports: Device not initialized', 'error')
       return
     }
 
-    // Создание Send Transport
-    this.addLog('Создание Producer Transport...', 'info')
-    const transport_options = { ...producerTransportOptions }
-    if (this.transformApi === 'encodedStreams') {
-      transport_options.additionalSettings = {
-        encodedInsertableStreams: true,
-      }
-    }
+    const isEncoded = this.transformApi === 'encodedStreams'
+    const additionalSettings = isEncoded ? { encodedInsertableStreams: true } : {}
 
-    const sendTransport = this.device.createSendTransport(transport_options)
-    this.sendTransport = sendTransport
-
-    sendTransport.on(
-      'connect',
-      (
-        { dtlsParameters }: { dtlsParameters: DtlsParameters },
-        callback: () => void,
-      ) => {
-        this.addLog('SendTransport событие: connect', 'info')
-        const result = sendMessage({ action: 'ConnectProducerTransport', dtlsParameters })
-        if (result instanceof Promise) {
-          result.catch((error) => {
-            this.addLog(`Ошибка подключения Producer Transport: ${error}`, 'error')
-          })
-        }
-        this.setResponseCallback(
-          'ConnectedProducerTransport',
-          (response: CallbackResponse) => {
-            console.log(response)
-            this.addLog('SendTransport успешно подключен к серверу', 'success')
-            callback()
-          },
-        )
-      },
-    )
-
-    sendTransport.on(
-      'produce',
-      async (
-        {
-          kind,
-          rtpParameters,
-          appData,
-        }: { kind: MediaKind; rtpParameters: RtpParameters; appData: any },
-        callback: (response: ServerProduced) => void,
-      ) => {
-        this.addLog(`SendTransport событие: produce (kind: ${kind})`, 'info')
-        const result = sendMessage({ action: 'Produce', kind, rtpParameters, appData })
-        if (result instanceof Promise) {
-          result.catch((error) => {
-            this.addLog(`Ошибка создания Producer: ${error}`, 'error')
-          })
-        }
-        this.setResponseCallback('Produced', (response: CallbackResponse) => {
-          this.addLog(
-            `Producer ${(response as ServerProduced).id} (kind: ${kind}) успешно создан на сервере`,
-            'success',
-          )
-          callback(response as ServerProduced)
-        })
-      },
-    )
-
-    sendTransport.on('connectionstatechange', (state: string) => {
-      this.addLog(
-        `SendTransport состояние ICE изменено: ${state}`,
-        state === 'connected'
-          ? 'success'
-          : state === 'failed' || state === 'disconnected'
-            ? 'error'
-            : 'info',
-      )
-      if (
-        state === 'failed' ||
-        state === 'disconnected' ||
-        state === 'closed'
-      ) {
-        this.addLog(
-          `SendTransport ICE соединение ${state}, возможна проблема`,
-          'warning',
-        )
-      }
+    // 1. Create Send Transport
+    this.addLog('Creating Producer Transport...', 'info')
+    this.sendTransport = this.device.createSendTransport({
+      ...producerTransportOptions,
+      additionalSettings
     })
 
-    // Создание Receive Transport
-    this.addLog('Создание Consumer Transport...', 'info')
-    let recvTransport: Transport
-    if (this.transformApi === 'encodedStreams') {
-      recvTransport = this.device.createRecvTransport({
-        ...consumerTransportOptions,
-        additionalSettings: {
-          encodedInsertableStreams: true,
-        },
+    this.sendTransport.on('connect', ({ dtlsParameters }, callback) => {
+      this.addLog('SendTransport event: connect', 'info')
+      sendMessage({ action: 'ConnectProducerTransport', dtlsParameters })
+      this.setResponseCallback('ConnectedProducerTransport', () => {
+        this.addLog('SendTransport connected to server', 'success')
+        callback()
       })
-    } else {
-      recvTransport = this.device.createRecvTransport(consumerTransportOptions)
-    }
-    this.recvTransport = recvTransport
+    })
 
-    recvTransport.on(
-      'connect',
-      (
-        { dtlsParameters }: { dtlsParameters: DtlsParameters },
-        callback: () => void,
-      ) => {
-        this.addLog('RecvTransport событие: connect', 'info')
-        const result = sendMessage({ action: 'ConnectConsumerTransport', dtlsParameters })
-        if (result instanceof Promise) {
-          result.catch((error) => {
-            this.addLog(`Ошибка подключения Consumer Transport: ${error}`, 'error')
-          })
-        }
-        this.setResponseCallback(
-          'ConnectedConsumerTransport',
-          (response: CallbackResponse) => {
-            console.log(response)
-            this.addLog('RecvTransport успешно подключен к серверу', 'success')
-            callback()
-          },
-        )
-      },
-    )
+    this.sendTransport.on('produce', async ({ kind, rtpParameters, appData }, callback) => {
+      this.addLog(`SendTransport event: produce (${kind})`, 'info')
+      sendMessage({ action: 'Produce', kind, rtpParameters, appData })
+      this.setResponseCallback('Produced', (response) => {
+        const serverRes = response as ServerProduced
+        this.addLog(`Producer ${serverRes.id} (${kind}) created on server`, 'success')
+        callback(serverRes)
+      })
+    })
 
-    recvTransport.on('connectionstatechange', (state: string) => {
-      this.addLog(
-        `RecvTransport состояние ICE изменено: ${state}`,
-        state === 'connected'
-          ? 'success'
-          : state === 'failed' || state === 'disconnected'
-            ? 'error'
-            : 'info',
-      )
-      if (
-        state === 'failed' ||
-        state === 'disconnected' ||
-        state === 'closed'
-      ) {
-        this.addLog(
-          `RecvTransport ICE соединение ${state}, возможна проблема`,
-          'warning',
-        )
-      }
+    this.sendTransport.on('connectionstatechange', (state) => {
+      this.addLog(`SendTransport ICE state: ${state}`, state === 'connected' ? 'success' : (state === 'failed' ? 'error' : 'info'))
+    })
+
+    // 2. Create Receive Transport
+    this.addLog('Creating Consumer Transport...', 'info')
+    this.recvTransport = this.device.createRecvTransport({
+      ...consumerTransportOptions,
+      additionalSettings
+    })
+
+    this.recvTransport.on('connect', ({ dtlsParameters }, callback) => {
+      this.addLog('RecvTransport event: connect', 'info')
+      sendMessage({ action: 'ConnectConsumerTransport', dtlsParameters })
+      this.setResponseCallback('ConnectedConsumerTransport', () => {
+        this.addLog('RecvTransport connected to server', 'success')
+        callback()
+      })
+    })
+
+    this.recvTransport.on('connectionstatechange', (state) => {
+      this.addLog(`RecvTransport ICE state: ${state}`, state === 'connected' ? 'success' : (state === 'failed' ? 'error' : 'info'))
     })
 
     this.initialized = true
-    if (this.onTransportsInitialized) {
-      this.onTransportsInitialized()
-    }
+    if (this.onTransportsInitialized) this.onTransportsInitialized()
   }
 
-  // Создание продюсера для аудио или видео
-  public async createProducer(
-    track: MediaStreamTrack,
-    sourceType: string,
-  ): Promise<Producer | null> {
-    if (!this.sendTransport) {
-      this.addLog(
-        'Невозможно создать Producer: SendTransport не инициализирован',
-        'error',
-      )
-      return null
-    }
+  public async createProducer(track: MediaStreamTrack, sourceType: string): Promise<Producer | null> {
+    if (!this.sendTransport) return null
 
     try {
       const producer = await this.sendTransport.produce({
         track,
         appData: { sourceType, mediaType: track.kind, shared: true },
       })
-      console.log(producer)
       this.producers.set(track.kind, producer)
-      this.addLog(
-        `Producer ${producer.id} создан (Track: ${track.id})`,
-        'success',
-      )
+      this.addLog(`Producer ${producer.id} created (${track.kind})`, 'success')
 
-      // Применяем шифрование к producer.rtpSender
+      // Apply Transformation/Encryption
       await this.applyEncryptionToProducer(producer)
 
-      producer.on('transportclose', () => {
-        this.addLog(`Transport закрыт для Producer ${producer.id}`, 'warning')
-        this.producers.delete(track.kind)
-      })
-
-      producer.on('trackended', () => {
-        this.addLog(`Трек завершен для Producer ${producer.id}`, 'warning')
-        this.producers.delete(track.kind)
-      })
+      producer.on('transportclose', () => this.producers.delete(track.kind))
+      producer.on('trackended', () => this.producers.delete(track.kind))
       return producer
     } catch (error) {
-      this.addLog(`Ошибка создания Producer: ${error}`, 'error')
+      this.addLog(`Producer creation error: ${error}`, 'error')
       return null
     }
   }
 
-  // Применение шифрования к продюсеру
   private async applyEncryptionToProducer(producer: Producer): Promise<void> {
-    if (!producer.rtpSender) {
-      this.addLog(`Не найден rtpSender для Producer ${producer.id}`, 'warning')
-      return
-    }
+    if (!producer.rtpSender) return
 
-    const kind = producer.kind
-
-    if (this.transformApi === 'script' && this.encryptionWorker) {
-      this.addLog(
-        `Применение SCRIPT шифрования к ${kind} Producer ${producer.id}`,
-        'info',
-      )
-      try {
-        const transform = new RTCRtpScriptTransform(this.encryptionWorker, {})
-        producer.rtpSender.transform = transform
-        this.addLog(
-          `SCRIPT шифрование ${kind} успешно применено к Producer ${producer.id}`,
-          'success',
-        )
-      } catch (e: unknown) {
-        this.addLog(
-          `Ошибка SCRIPT шифрования для ${kind} Producer ${producer.id}: ${e}`,
-          'error',
-        )
-      }
-    } else if (this.transformApi === 'encodedStreams') {
-      this.addLog(
-        `Применение ENCODED STREAMS шифрования к ${kind} Producer ${producer.id}`,
-        'info',
-      )
+    if (this.transformApi === 'encodedStreams') {
+      this.addLog(`Applying Encoded Transform encryption to ${producer.kind} Producer`, 'info')
       try {
         await applyEncryptionToSender(producer.rtpSender, this.sessionId)
-        this.addLog(
-          `ENCODED STREAMS шифрование ${kind} успешно применено к Producer ${producer.id}`,
-          'success',
-        )
-      } catch (e: unknown) {
-        this.addLog(
-          `Ошибка ENCODED STREAMS шифрования для ${kind} Producer ${producer.id}: ${e}`,
-          'error',
-        )
+        this.addLog(`Encryption applied to Producer ${producer.id}`, 'success')
+      } catch (e) {
+        this.addLog(`Encryption error for Producer ${producer.id}: ${e}`, 'error')
       }
     } else {
-      this.addLog(
-        `${kind} шифрование не применено к Producer ${producer.id}: API не поддерживается (${this.transformApi})`,
-        'warning',
-      )
+      this.addLog(`No encryption applied (API: ${this.transformApi})`, 'warning')
     }
   }
 
-  // Создание консюмера для удаленного трека
   public async createConsumer(
     consumedMessage: ServerConsumed,
-    onTrackAdded: (
-      track: MediaStreamTrack,
-      consumerId: ConsumerId,
-      producerId: string,
-    ) => void,
+    onTrackAdded: (track: MediaStreamTrack, consumerId: ConsumerId, producerId: string) => void,
     sendMessage: (message: WebSocketMessage) => void,
   ): Promise<Consumer | null> {
-    if (!this.recvTransport) {
-      this.addLog(
-        `Невозможно создать Consumer ${consumedMessage.id}: RecvTransport не существует.`,
-        'error',
-      )
-      return null
-    }
+    if (!this.recvTransport) return null
 
     try {
-      this.addLog(
-        `Получены параметры для Consumer ${consumedMessage.id}, создаем...`,
-        'info',
-      )
-      const consumer: Consumer = await this.recvTransport.consume({
+      this.addLog(`Consuming Producer ${consumedMessage.producerId}...`, 'info')
+      const consumer = await this.recvTransport.consume({
         id: consumedMessage.id,
         producerId: consumedMessage.producerId,
         kind: consumedMessage.kind,
         rtpParameters: consumedMessage.rtpParameters,
       })
 
-      this.addLog(
-        `Consumer ${consumer.id} (kind: ${consumer.kind}) создан для Producer ${consumer.producerId}`,
-        'success',
-      )
       this.consumers.set(consumer.id, consumer)
 
-      // Применяем дешифрование к consumer.rtpReceiver
+      // Apply Transformation/Decryption
       await this.applyDecryptionToConsumer(consumer)
 
-      // Добавляем трек в UI через колбэк
       onTrackAdded(consumer.track, consumer.id, consumer.producerId)
-
-      // Возобновляем consumer на сервере
-      this.addLog(
-        `Отправка запроса на возобновление Consumer ${consumer.id}`,
-        'info',
-      )
       sendMessage({ action: 'ConsumerResume', id: consumer.id })
 
-      // Обработка закрытия consumer
-      consumer.on('transportclose', () => {
-        this.addLog(`Transport закрыт для Consumer ${consumer.id}`, 'warning')
-        this.removeConsumer(consumer.id)
-      })
-
-      consumer.on('trackended', () => {
-        this.addLog(`Трек завершен для Consumer ${consumer.id}`, 'warning')
-        this.removeConsumer(consumer.id)
-      })
+      consumer.on('transportclose', () => this.removeConsumer(consumer.id))
+      consumer.on('trackended', () => this.removeConsumer(consumer.id))
 
       return consumer
     } catch (error) {
-      this.addLog(
-        `Ошибка создания Consumer для Producer ${consumedMessage.producerId}: ${error}`,
-        'error',
-      )
+      this.addLog(`Consumer creation error: ${error}`, 'error')
       return null
     }
   }
 
-  // Применение дешифрования к консюмеру
   private async applyDecryptionToConsumer(consumer: Consumer): Promise<void> {
-    if (!consumer.rtpReceiver) {
-      this.addLog(
-        `Не найден rtpReceiver для Consumer ${consumer.id}`,
-        'warning',
-      )
-      return
-    }
+    if (!consumer.rtpReceiver) return
 
-    if (this.transformApi === 'script' && this.decryptionWorker) {
-      this.addLog(
-        `Применение SCRIPT дешифрования к Consumer ${consumer.id}`,
-        'info',
-      )
-      try {
-        const transform = new RTCRtpScriptTransform(this.decryptionWorker, {})
-        consumer.rtpReceiver.transform = transform
-        this.addLog(
-          `SCRIPT дешифрование успешно применено к Consumer ${consumer.id}`,
-          'success',
-        )
-      } catch (e: unknown) {
-        this.addLog(
-          `Ошибка SCRIPT дешифрования для Consumer ${consumer.id}: ${e}`,
-          'error',
-        )
-      }
-    } else if (this.transformApi === 'encodedStreams') {
-      this.addLog(
-        `Применение ENCODED STREAMS дешифрования к Consumer ${consumer.id}`,
-        'info',
-      )
+    if (this.transformApi === 'encodedStreams') {
+      this.addLog(`Applying Encoded Transform decryption to ${consumer.kind} Consumer`, 'info')
       try {
         await applyDecryptionToReceiver(consumer.rtpReceiver, this.sessionId)
-        this.addLog(
-          `ENCODED STREAMS дешифрование успешно применено к Consumer ${consumer.id}`,
-          'success',
-        )
-      } catch (e: unknown) {
-        this.addLog(
-          `Ошибка ENCODED STREAMS дешифрования для Consumer ${consumer.id}: ${e}`,
-          'error',
-        )
+        this.addLog(`Decryption applied to Consumer ${consumer.id}`, 'success')
+      } catch (e) {
+        this.addLog(`Decryption error for Consumer ${consumer.id}: ${e}`, 'error')
       }
-    } else {
-      this.addLog(
-        `Дешифрование не применено к Consumer ${consumer.id}: API не поддерживается (${this.transformApi})`,
-        'warning',
-      )
     }
   }
 
-  // Удаление консюмера
-  public removeConsumer(
-    consumerId: ConsumerId,
-    onTrackRemoved?: (trackId: string) => void,
-  ): void {
+  public removeConsumer(consumerId: ConsumerId, onTrackRemoved?: (trackId: string) => void): void {
     const consumer = this.consumers.get(consumerId)
     if (consumer) {
-      this.addLog(
-        `Удаление Consumer ${consumer.id} (Producer: ${consumer.producerId}, Kind: ${consumer.kind})`,
-        'info',
-      )
+      if (consumer.track && onTrackRemoved) onTrackRemoved(consumer.track.id)
       consumer.close()
       this.consumers.delete(consumerId)
-
-      // Уведомляем о необходимости удалить медиа элемент
-      if (consumer.track && onTrackRemoved) {
-        onTrackRemoved(consumer.track.id)
-      }
-    } else {
-      this.addLog(
-        `Попытка удалить несуществующий Consumer ${consumerId}`,
-        'warning',
-      )
     }
   }
 
-  // Очистка всех ресурсов
   public cleanup(): void {
-    // Закрываем все consumers
-    this.addLog('Закрытие Consumers...', 'info')
-    this.consumers.forEach((consumer) => {
-      consumer.close()
-    })
+    this.addLog('Cleaning up Mediasoup resources...', 'info')
+    this.consumers.forEach(c => c.close())
     this.consumers.clear()
-
-    // Закрываем все producers
-    this.addLog('Закрытие Producers...', 'info')
-    this.producers.forEach((producer) => {
-      producer.close()
-    })
+    this.producers.forEach(p => p.close())
     this.producers.clear()
 
-    // Закрываем транспорты
-    if (this.sendTransport) {
-      this.addLog('Закрытие SendTransport...', 'info')
-      this.sendTransport.close()
-      this.sendTransport = null
-    }
-    if (this.recvTransport) {
-      this.addLog('Закрытие RecvTransport...', 'info')
-      this.recvTransport.close()
-      this.recvTransport = null
-    }
+    if (this.sendTransport) this.sendTransport.close()
+    if (this.recvTransport) this.recvTransport.close()
 
-    // Terminate encoded stream worker if it was initialized
     if (this.transformApi === 'encodedStreams') {
-      this.addLog('Terminating encoded stream worker...', 'info')
       terminateEncodedStreamWorker()
-      this.encodedStreamWorker = null
     }
 
     this.device = null
     this.initialized = false
     this.responseCallbacks.clear()
+    this.addLog('Cleanup complete', 'success')
   }
 }

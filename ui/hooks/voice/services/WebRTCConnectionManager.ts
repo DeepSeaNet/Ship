@@ -78,10 +78,10 @@ export class WebRTCConnectionManager {
     try {
       // Подключаемся через gRPC
       await this.grpcAdapter.connect()
-      
+
       // Присоединяемся к сессии
       await invoke('join_session', { sessionId: this.sessionId })
-      
+
       this.addLog('gRPC SignalingStream соединение установлено', 'success')
     } catch (error) {
       this.addLog(`Ошибка gRPC соединения: ${error}`, 'error')

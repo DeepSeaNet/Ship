@@ -67,7 +67,7 @@ export const initEncodedStreamWorker = (): Worker => {
   if (encodedStreamWorker === null) {
     // 1. Create the Worker
     encodedStreamWorker = new Worker(
-      new URL('../workers/encodedStreamWorker.worker.js', import.meta.url),
+      new URL('../worker.js', import.meta.url),
       { type: 'module' },
     )
 

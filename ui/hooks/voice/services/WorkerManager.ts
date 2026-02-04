@@ -16,13 +16,9 @@ export interface WorkerManagerOptions {
 
 export class WorkerManager {
   private sessionId: string
-  private encryptionWorker: Worker | null = null
-  private decryptionWorker: Worker | null = null
-  private encryptionPort: MessagePort | null = null
-  private decryptionPort: MessagePort | null = null
   private addLog: LoggerFunction
 
-  // Channels for encoded streams
+  // Unified channel for WebRTC Encoded Transforms
   private encodedStreamWorker: Worker | null = null
   private encodedStreamPort: MessagePort | null = null
 
@@ -32,261 +28,117 @@ export class WorkerManager {
   }
 
   /**
-   * Получить Worker для шифрования
-   */
-  public getEncryptionWorker(): Worker | null {
-    return this.encryptionWorker
-  }
-
-  /**
-   * Получить Worker для дешифрования
-   */
-  public getDecryptionWorker(): Worker | null {
-    return this.decryptionWorker
-  }
-
-  /**
-   * Get the encoded stream worker
+   * Get the unified encoded stream worker instance
    */
   public getEncodedStreamWorker(): Worker | null {
     return this.encodedStreamWorker
   }
 
   /**
-   * Initialize encoded stream worker
+   * Initializes the unified worker and sets up the message bridge to Tauri
    */
   public initializeEncodedStreamWorker(): void {
-    this.addLog('Initializing encoded stream worker...', 'info')
+    this.addLog('Initializing unified encoded stream worker...', 'info')
 
     try {
-      // Initialize or get the worker
+      // 1. Get or create the worker instance
       this.encodedStreamWorker = getEncodedStreamWorker()
 
-      // Create a message channel for communication
+      // 2. Setup bidirectional communication channel
       const channel = new MessageChannel()
       this.encodedStreamPort = channel.port1
 
-      // Start the port
+      // 3. Setup the bridge handler
+      this.encodedStreamPort.onmessage = this.handleBridgeMessages.bind(this)
       this.encodedStreamPort.start()
 
-      // Set up message handler for the port
-      this.encodedStreamPort.onmessage =
-        this.handleEncodedStreamMessages.bind(this)
-
-      // Send initialization message with the port
+      // 4. Initialize worker state
       this.encodedStreamWorker.postMessage({ type: 'init' }, [channel.port2])
 
-      // Send the session ID to the worker
       this.encodedStreamWorker.postMessage({
         type: 'setSessionId',
         sessionId: this.sessionId,
       })
 
-      // Send codec mapping to the worker
-      this.sendCodecMappingToWorker(this.encodedStreamWorker)
+      this.updateCodecMapping()
 
-      this.addLog('Encoded stream worker initialized successfully', 'success')
+      this.addLog('Unified worker initialized successfully', 'success')
     } catch (error) {
       this.addLog(
-        `Failed to initialize encoded stream worker: ${error}`,
+        `Failed to initialize unified worker: ${error}`,
         'error',
       )
     }
   }
 
   /**
-   * Handle messages from the encoded stream worker
+   * Bridge: Receives transform requests from the Worker, 
+   * invokes Tauri/Rust logic, and returns processed buffers.
    */
-  private async handleEncodedStreamMessages(
-    event: MessageEvent,
-  ): Promise<void> {
-    const { type, id, data, codecType, sessionId } = event.data
+  private async handleBridgeMessages(event: MessageEvent): Promise<void> {
+    const { type, id, data, codecType } = event.data
 
-    if (!this.encodedStreamPort) {
-      console.error('Encoded stream port not available for handling message')
-      return
-    }
+    if (!this.encodedStreamPort) return
 
-    if (type === 'encrypt') {
-      try {
-        const encryptedData: Array<Uint8Array> = await invoke('encrypt_voice', {
-          bytes: data,
-          codecType: codecType,
-        })
+    // Map internal types to Tauri commands
+    const tauriCommand = type === 'encrypt' ? 'encrypt_voice' : 'decrypt_voice'
 
-        this.encodedStreamPort.postMessage({ id, encryptedData })
-      } catch (error: unknown) {
-        this.addLog(
-          `Encryption error (EncodedStream) for request ${id}: ${error}`,
-          'error',
-        )
-        this.encodedStreamPort.postMessage({ id, error: String(error) })
-      }
-    } else if (type === 'decrypt') {
-      try {
-        const decryptedData: Array<Uint8Array> = await invoke('decrypt_voice', {
-          bytes: data,
-          codecType: codecType,
-        })
+    try {
+      // Convert buffer to format expected by Tauri (usually number[])
+      const bytesArg = Array.from(new Uint8Array(data))
 
-        this.encodedStreamPort.postMessage({ id, decryptedData })
-      } catch (error: unknown) {
-        this.addLog(
-          `Decryption error (EncodedStream) for request ${id}: ${error}`,
-          'error',
-        )
-        this.encodedStreamPort.postMessage({ id, error: String(error) })
-      }
+      const resultBytes: number[] = await invoke(tauriCommand, {
+        voiceId: this.sessionId,
+        bytes: bytesArg,
+        codecType: codecType,
+      })
+
+      const processedBuffer = new Uint8Array(resultBytes).buffer
+
+      // Return the result to the Worker
+      this.encodedStreamPort.postMessage({
+        id,
+        processedData: processedBuffer
+      }, [processedBuffer])
+
+    } catch (error: unknown) {
+      this.addLog(
+        `Worker Bridge Error [${type}] for request ${id}: ${error}`,
+        'error'
+      )
+      this.encodedStreamPort.postMessage({ id, error: String(error) })
     }
   }
 
   /**
-   * Инициализация Worker'ов
-   */
-  public initializeWorkers(): void {
-    this.addLog('Инициализация воркеров для RTCRtpScriptTransform...', 'info')
-
-    // --- Encryption Worker ---
-    const encWorker = new Worker(
-      new URL('../workers/encryptionWorker.worker.js', import.meta.url),
-      { type: 'module' },
-    )
-    const encChannel = new MessageChannel()
-    this.encryptionWorker = encWorker
-    this.encryptionPort = encChannel.port1
-
-    encWorker.postMessage({ type: 'init' }, [encChannel.port2])
-    this.addLog('Порт для шифрования отправлен воркеру', 'info')
-
-    // Отправляем текущее сопоставление кодеков в воркер шифрования
-    this.sendCodecMappingToWorker(encWorker)
-
-    encChannel.port1.onmessage = async (event) => {
-      const { type, id, data, codecType } = event.data
-      if (type === 'encrypt') {
-        try {
-          const encryptedData: Array<Uint8Array> = await invoke(
-            'encrypt_voice',
-            {
-              bytes: data,
-              codecType: codecType,
-            },
-          )
-          this.encryptionPort?.postMessage({ id, encryptedData })
-        } catch (error: unknown) {
-          this.addLog(
-            `Ошибка шифрования (Worker) для запроса ${id}: ${error}`,
-            'error',
-          )
-          this.encryptionPort?.postMessage({ id, error: String(error) })
-        }
-      }
-    }
-    encChannel.port1.start()
-
-    // --- Decryption Worker ---
-    const decWorker = new Worker(
-      new URL('../workers/decryptionWorker.worker.js', import.meta.url),
-      { type: 'module' },
-    )
-    const decChannel = new MessageChannel()
-    this.decryptionWorker = decWorker
-    this.decryptionPort = decChannel.port1
-
-    decWorker.postMessage({ type: 'init' }, [decChannel.port2])
-    this.addLog('Порт для дешифрования отправлен воркеру', 'info')
-
-    // Отправляем текущее сопоставление кодеков в воркер дешифрования
-    this.sendCodecMappingToWorker(decWorker)
-
-    decChannel.port1.onmessage = async (event) => {
-      const { type, id, data, codecType } = event.data
-      if (type === 'decrypt') {
-        try {
-          const decryptedData: Array<Uint8Array> = await invoke(
-            'decrypt_voice',
-            {
-              bytes: data,
-              codecType: codecType,
-            },
-          )
-          this.decryptionPort?.postMessage({ id, decryptedData })
-        } catch (error: unknown) {
-          this.addLog(
-            `Ошибка дешифрования (Worker) для запроса ${id}: ${error}`,
-            'error',
-          )
-          this.decryptionPort?.postMessage({ id, error: String(error) })
-        }
-      }
-    }
-    decChannel.port1.start()
-  }
-
-  /**
-   * Обновить данные сопоставления кодеков
+   * Synchronize codec payload type mappings with the Worker
    */
   public updateCodecMapping(): void {
-    if (this.encryptionWorker) {
-      this.sendCodecMappingToWorker(this.encryptionWorker)
-    }
-    if (this.decryptionWorker) {
-      this.sendCodecMappingToWorker(this.decryptionWorker)
-    }
-    if (this.encodedStreamWorker) {
-      this.sendCodecMappingToWorker(this.encodedStreamWorker)
-    }
-  }
-
-  /**
-   * Отправить сопоставление типов кодеков в воркер
-   */
-  private sendCodecMappingToWorker(worker: Worker | null): void {
-    if (!worker) return
+    if (!this.encodedStreamWorker) return
 
     try {
       const mapping = getPayloadTypeMapping()
-      worker.postMessage({
+      this.encodedStreamWorker.postMessage({
         type: 'updateCodecMapping',
         codecMapping: mapping,
       })
       this.addLog(
-        `Отправлено сопоставление кодеков в воркер: ${getPayloadTypeMappingString()}`,
+        `Codec mapping synced with worker: ${getPayloadTypeMappingString()}`,
         'info',
       )
     } catch (error) {
       this.addLog(
-        `Ошибка отправки сопоставления кодеков в воркер: ${error}`,
+        `Error syncing codec mapping: ${error}`,
         'error',
       )
     }
   }
 
   /**
-   * Очистка ресурсов
+   * Clean up worker resources and close communication ports
    */
   public cleanup(): void {
-    this.addLog('Очистка воркеров и портов...', 'info')
-
-    if (this.encryptionPort) {
-      this.encryptionPort.close()
-      this.encryptionPort = null
-    }
-
-    if (this.decryptionPort) {
-      this.decryptionPort.close()
-      this.decryptionPort = null
-    }
-
-    if (this.encryptionWorker) {
-      this.encryptionWorker.terminate()
-      this.encryptionWorker = null
-    }
-
-    if (this.decryptionWorker) {
-      this.decryptionWorker.terminate()
-      this.decryptionWorker = null
-    }
+    this.addLog('Cleaning up worker resources...', 'info')
 
     if (this.encodedStreamPort) {
       this.encodedStreamPort.close()
@@ -298,6 +150,6 @@ export class WorkerManager {
       this.encodedStreamWorker = null
     }
 
-    this.addLog('Очистка воркеров завершена', 'info')
+    this.addLog('Worker cleanup completed', 'info')
   }
 }
