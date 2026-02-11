@@ -53,6 +53,7 @@ export function useVoiceChat(): UseVoiceChatReturn {
     const mediaManagerRef = useRef<MediaManager | null>(null);
     const workerManagerRef = useRef<WorkerManager | null>(null);
     const consumedProducers = useRef<Set<string>>(new Set());
+    const startingRef = useRef(false);
 
     const addLog: LoggerFunction = useCallback((message: string, type: LogEntryType = 'info') => {
         const entry: LogEntry = {
@@ -86,6 +87,13 @@ export function useVoiceChat(): UseVoiceChatReturn {
         setIsAudioEnabled(false);
         setIsScreenShareEnabled(false);
     }, []);
+ 
+    // Auto-cleanup on unmount
+    useEffect(() => {
+        return () => {
+            cleanup();
+        };
+    }, [cleanup]);
 
     const handleTrackAdded = useCallback((track: MediaStreamTrack, consumerId: string, producerId: string, participantId?: string, appData?: any) => {
         setRemoteTracks(prev => {
@@ -110,6 +118,9 @@ export function useVoiceChat(): UseVoiceChatReturn {
 
     const startCall = useCallback(async (manualSessionId?: string) => {
         if (status !== 'idle' && status !== 'ended' && status !== 'error') return;
+        if (startingRef.current) return;
+ 
+        startingRef.current = true;
 
         // Use manual session ID or generate random (UUID v4)
         const newSessionId = manualSessionId || crypto.randomUUID();
@@ -119,7 +130,7 @@ export function useVoiceChat(): UseVoiceChatReturn {
 
         try {
             addLog(`Starting call initialization... SessionID: ${newSessionId}`, 'info');
-            invoke('join_session', { sessionId: newSessionId });
+            await invoke('join_session', { sessionId: newSessionId });
             // 1. Initialize Signaling
             const signaling = new GrpcSignalingAdapter({
                 sessionId: newSessionId,
@@ -234,6 +245,8 @@ export function useVoiceChat(): UseVoiceChatReturn {
         } catch (err: any) {
             addLog(`Failed to start call: ${err.message}`, 'error');
             setStatus('error');
+        } finally {
+            startingRef.current = false;
         }
     }, [status, addLog, handleTrackAdded, handleTrackRemoved]); // dependencies
 

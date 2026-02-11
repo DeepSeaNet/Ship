@@ -42,7 +42,7 @@ pub async fn join_session(
     log::info!("join_session: session_id={}", session_id);
 
     let voice_user = state.read().await;
-    //voice_user.initialize().await.map_err(|e| e.to_string())?;
+    voice_user.initialize().await.map_err(|e| e.to_string())?;
     if voice_user.is_joined().await {
         log::error!("Already joined session");
         return Err(format!("Already joined session"));
@@ -88,18 +88,12 @@ pub async fn init_webrtc_signaling(
     rtp_capabilities: Option<String>,
     state: State<'_, SafeVoiceUser>,
 ) -> Result<(), String> {
-    log::info!("init_webrtc_signaling: session_id={}", session_id);
-
     let voice_user = state.read().await;
-    voice_user.initialize().await.map_err(|e| e.to_string())?;
-
-    // Initialize signaling stream with RTP capabilities
     voice_user
         .init_signaling_stream(session_id, rtp_capabilities)
         .await
         .map_err(|e| e.to_string())?;
 
-    log::info!("WebRTC signaling stream initialized successfully");
     Ok(())
 }
 
@@ -109,8 +103,6 @@ pub async fn send_webrtc_message(
     message_json: String,
     state: State<'_, SafeVoiceUser>,
 ) -> Result<(), String> {
-    log::info!("send_webrtc_message: {}", message_json);
-
     // Parse JSON to ClientMessage
     let client_message: ClientMessage = serde_json::from_str(&message_json)
         .map_err(|e| format!("Failed to parse message JSON: {}", e))?;
@@ -121,6 +113,5 @@ pub async fn send_webrtc_message(
         .await
         .map_err(|e| e.to_string())?;
 
-    log::info!("WebRTC message sent successfully");
     Ok(())
 }

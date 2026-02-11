@@ -434,7 +434,6 @@ impl VoiceUser {
         self.backend
             .init_signaling_stream(room_id, rtp_capabilities)
             .await?;
-        log::info!("Signaling stream initialized successfully");
         Ok(())
     }
 

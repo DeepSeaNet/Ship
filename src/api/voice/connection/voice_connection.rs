@@ -103,7 +103,7 @@ impl Backend {
         let mut client_guard = self.client.lock().await;
         let client = client_guard
             .as_mut()
-            .ok_or_else(|| anyhow!("gRPC клиент не инициализирован"))?;
+            .ok_or_else(|| anyhow!("gRPC client not initialized"))?;
 
         let request = tonic::Request::new(TryGetRoomRequest { session_id });
         let response = client.try_get_room(request).await?.into_inner();
@@ -462,7 +462,7 @@ impl Backend {
                                     continue;
                                 }
                                 _ => {
-                                    log::debug!("Received signaling message: {:?}", server_message);
+                                    //log::debug!("Received signaling message: {:?}", server_message);
                                 }
                             }
                         }
