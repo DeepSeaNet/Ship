@@ -2,15 +2,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    unsafe {
-        std::env::set_var("RUST_LOG", "debug");
-        #[cfg(target_os = "linux")]
-        {
-            // Prevent craching on nvidia
-            std::env::set_var("__NV_DISABLE_EXPLICIT_SYNC", "1");
-        }
+    #[cfg(target_os = "linux")]
+    {
+        // Prevent craching on nvidia
+        std::env::set_var("__NV_DISABLE_EXPLICIT_SYNC", "1");
     }
-    env_logger::init();
+    env_logger::Builder::from_env(
+        env_logger::Env::default()
+            .default_filter_or("debug,h2=off,h2::codec=warn,quinn=warn")
+    ).init();
 
     ship_lib::run()
 }

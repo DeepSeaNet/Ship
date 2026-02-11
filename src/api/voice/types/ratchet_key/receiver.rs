@@ -185,9 +185,26 @@ impl ReceiverRatchet {
     /// Add a method to update epoch secrets
     pub fn add_epoch_secret(&mut self, epoch: u32, secret: [u8; AES_KEY_SIZE]) {
         self.epoch_secrets.insert(epoch, secret);
-        // Check if we need to derive keys for this epoch immediately
-        // Or maybe it's better to derive them lazily in decrypt/derive_message_key
-        // For now, just store the secret.
+    }
+
+    /// Returns the sender ID
+    pub fn sender_id(&self) -> u64 {
+        self.sender_id
+    }
+
+    /// Returns the current epoch
+    pub fn current_epoch(&self) -> u32 {
+        self.current_epoch
+    }
+
+    /// Returns the sender public key
+    pub fn sender_public_key(&self) -> &[u8] {
+        &self.sender_public_key
+    }
+
+    /// Returns all epoch secrets (for export to TS crypto)
+    pub fn epoch_secrets(&self) -> &HashMap<u32, [u8; AES_KEY_SIZE]> {
+        &self.epoch_secrets
     }
 
     /// Дешифрует сообщение

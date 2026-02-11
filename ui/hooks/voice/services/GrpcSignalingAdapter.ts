@@ -363,7 +363,7 @@ export class GrpcSignalingAdapter {
   private handleMessage(serverMessage: any): void {
     // Определяем тип сообщения для логирования
     const messageType = serverMessage.message ? Object.keys(serverMessage.message)[0] : 'unknown'
-    this.addLog(`Получено gRPC сообщение: ${messageType}`, 'info')
+    console.log(serverMessage)
 
     // Конвертируем proto message в mediasoup format
     const message = this.convertProtoToMediasoup(serverMessage)
@@ -376,7 +376,6 @@ export class GrpcSignalingAdapter {
     // Если есть внешний обработчик сообщений, передаем ему
     if (this.onMessage) {
       this.onMessage(message)
-      return
     }
 
     // Обработка сообщений сервера (fallback)
@@ -384,7 +383,7 @@ export class GrpcSignalingAdapter {
       case 'Init':
         this.handleInitMessage(message as ServerInit)
         break
-      case 'ProducerAdded':
+      case 'producerAdded':
         const producerAddedMsg = message as ServerProducerAdded
         this.addLog(
           `Сервер сообщил о новом продюсере [${producerAddedMsg.producerId}] от участника ${producerAddedMsg.participantId}`,
@@ -396,7 +395,7 @@ export class GrpcSignalingAdapter {
           producerAddedMsg.appData,
         )
         break
-      case 'ProducerRemoved':
+      case 'producerRemoved':
         const producerRemovedMsg = message as ServerProducerRemoved
         this.addLog(
           `Сервер сообщил об удалении продюсера [${producerRemovedMsg.producerId}] от участника ${producerRemovedMsg.participantId}`,
@@ -435,6 +434,10 @@ export class GrpcSignalingAdapter {
         )
         break
       default:
+        // Check if it's a specific consumed action
+        if (message.action.startsWith('consumed:')) {
+          return;
+        }
         this.addLog(
           `Получено необработанное gRPC сообщение: ${message.action}`,
           'info',
@@ -464,7 +467,7 @@ export class GrpcSignalingAdapter {
     if (message.producerAdded || message.producer_added) {
       const data = message.producerAdded || message.producer_added
       return {
-        action: 'ProducerAdded',
+        action: 'producerAdded',
         producerId: data.producerId || data.producer_id,
         participantId: data.participantId || data.participant_id,
         appData: JSON.parse(data.appData || data.app_data || '{}'),
@@ -474,17 +477,18 @@ export class GrpcSignalingAdapter {
     if (message.producerRemoved || message.producer_removed) {
       const data = message.producerRemoved || message.producer_removed
       return {
-        action: 'ProducerRemoved',
+        action: 'producerRemoved',
         producerId: data.producerId || data.producer_id,
         participantId: data.participantId || data.participant_id,
       } as ServerProducerRemoved
     }
 
     if (message.consumed) {
+      const producerId = message.consumed.producerId || message.consumed.producer_id;
       return {
-        action: 'Consumed',
+        action: `consumed:${producerId}`,
         id: message.consumed.consumerId || message.consumed.consumer_id,
-        producerId: message.consumed.producerId || message.consumed.producer_id,
+        producerId: producerId,
         kind: this.convertMediaKind(message.consumed.kind),
         rtpParameters: this.parseRtpParameters(message.consumed.rtpParameters || message.consumed.rtp_parameters),
       } as ServerConsumed
@@ -752,6 +756,7 @@ export class GrpcSignalingAdapter {
           message: {
             consume: {
               producerId: message.producerId,
+              rtpCapabilities: JSON.stringify(message.rtpCapabilities || {}),
             },
           },
         }

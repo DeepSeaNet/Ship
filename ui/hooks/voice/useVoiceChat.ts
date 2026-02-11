@@ -3,7 +3,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { GrpcSignalingAdapter } from './services/GrpcSignalingAdapter';
 import { MediasoupService } from './services/MediasoupService';
 import { MediaManager } from './services/MediaManager';
-import { LoggerFunction, LogEntry, LogEntryType } from './types/mediasoup';
+import { WorkerManager } from './services/WorkerManager';
+import { LoggerFunction, LogEntry, LogEntryType, MediaTrackInfo } from './types/mediasoup';
 
 export type CallStatus = 'idle' | 'calling' | 'connected' | 'error' | 'ended';
 
@@ -14,7 +15,7 @@ interface UseVoiceChatReturn {
     isVideoEnabled: boolean;
     isAudioEnabled: boolean;
     isScreenShareEnabled: boolean;
-    startCall: () => Promise<void>;
+    startCall: (sessionId?: string) => Promise<void>;
     endCall: () => void;
     toggleVideo: () => Promise<void>;
     toggleAudio: () => Promise<void>;
@@ -22,7 +23,7 @@ interface UseVoiceChatReturn {
     localVideoStream: MediaStream | null;
     localAudioStream: MediaStream | null;
     screenShareStream: MediaStream | null;
-    remoteTracks: Map<string, MediaStreamTrack>;
+    remoteTracks: MediaTrackInfo[];
 }
 
 export function useVoiceChat(): UseVoiceChatReturn {
@@ -37,7 +38,7 @@ export function useVoiceChat(): UseVoiceChatReturn {
     const [localVideoStream, setLocalVideoStream] = useState<MediaStream | null>(null);
     const [localAudioStream, setLocalAudioStream] = useState<MediaStream | null>(null);
     const [screenShareStream, setScreenShareStream] = useState<MediaStream | null>(null);
-    const [remoteTracks, setRemoteTracks] = useState<Map<string, MediaStreamTrack>>(new Map());
+    const [remoteTracks, setRemoteTracks] = useState<MediaTrackInfo[]>([]);
 
     const statusRef = useRef<CallStatus>('idle');
 
@@ -50,6 +51,8 @@ export function useVoiceChat(): UseVoiceChatReturn {
     const signalingRef = useRef<GrpcSignalingAdapter | null>(null);
     const mediasoupServiceRef = useRef<MediasoupService | null>(null);
     const mediaManagerRef = useRef<MediaManager | null>(null);
+    const workerManagerRef = useRef<WorkerManager | null>(null);
+    const consumedProducers = useRef<Set<string>>(new Set());
 
     const addLog: LoggerFunction = useCallback((message: string, type: LogEntryType = 'info') => {
         const entry: LogEntry = {
@@ -64,53 +67,52 @@ export function useVoiceChat(): UseVoiceChatReturn {
     const cleanup = useCallback(() => {
         mediaManagerRef.current?.stopAllMedia();
         mediasoupServiceRef.current?.cleanup();
+        workerManagerRef.current?.cleanup();
         signalingRef.current?.closeConnection();
 
         signalingRef.current = null;
         mediasoupServiceRef.current = null;
         mediaManagerRef.current = null;
+        workerManagerRef.current = null;
 
         setStatus('idle');
         setSessionId(null);
         setLocalVideoStream(null);
         setLocalAudioStream(null);
         setScreenShareStream(null);
-        setRemoteTracks(new Map());
+        setRemoteTracks([]);
+        consumedProducers.current.clear();
         setIsVideoEnabled(false);
         setIsAudioEnabled(false);
         setIsScreenShareEnabled(false);
     }, []);
 
-    const handleTrackAdded = useCallback((track: MediaStreamTrack, consumerId: string, producerId: string) => {
+    const handleTrackAdded = useCallback((track: MediaStreamTrack, consumerId: string, producerId: string, participantId?: string, appData?: any) => {
         setRemoteTracks(prev => {
-            const newMap = new Map(prev);
-            newMap.set(consumerId, track);
-            return newMap;
+            if (prev.some(t => t.id === track.id)) return prev;
+            const trackType = track.kind === 'video' ? 'video' : 'audio';
+            const mediaTrackInfo: MediaTrackInfo = {
+                id: track.id,
+                type: trackType,
+                producerId,
+                consumerId,
+                participantId,
+                mediaStreamTrack: track,
+                sourceType: appData?.sourceType || 'unknown',
+            };
+            return [...prev, mediaTrackInfo];
         });
     }, []);
 
     const handleTrackRemoved = useCallback((trackId: string) => {
-        setRemoteTracks(prev => {
-            const newMap = new Map();
-            // remoteTracks keys are consumerIds, not trackIds usually, but let's check values
-            // Actually MediasoupService calls onTrackRemoved with trackId if available? 
-            // Let's rely on MediasoupService ConsumerId usually.
-            // The service passes track ID? Let's check service code in a moment.
-            // Assuming specific logic:
-            for (const [key, value] of prev.entries()) {
-                if (value.id !== trackId) {
-                    newMap.set(key, value);
-                }
-            }
-            return newMap;
-        });
+        setRemoteTracks(prev => prev.filter(t => t.id !== trackId));
     }, []);
 
-    const startCall = useCallback(async () => {
+    const startCall = useCallback(async (manualSessionId?: string) => {
         if (status !== 'idle' && status !== 'ended' && status !== 'error') return;
 
-        // Generate random session ID (UUID v4)
-        const newSessionId = crypto.randomUUID();
+        // Use manual session ID or generate random (UUID v4)
+        const newSessionId = manualSessionId || crypto.randomUUID();
         setSessionId(newSessionId);
         setStatus('calling');
         setLogs([]); // Clear previous logs
@@ -123,26 +125,31 @@ export function useVoiceChat(): UseVoiceChatReturn {
                 sessionId: newSessionId,
                 addLog,
                 onProducerAdded: async (producerId, participantId, appData) => {
-                    // Signal received that a producer was added
-                    // Need to consume it
-                    // Typically we handle this by asking MediasoupService to create consumer
-                    // We need to implement consume logic here involving signaling 
-                    // But for this simplified demo, we assume Mediasoup flow:
-                    // 1. Server notifies Client A about Client B's producer
-                    // 2. Client A sends "Consume" request via signaling
-                    // 3. Server replies with consumer parameters
-                    // 4. Client A calls recvTransport.consume()
+                    if (consumedProducers.current.has(producerId)) return;
+                    consumedProducers.current.add(producerId);
 
-                    // NOTE: The current Service/Manager structure assumes some automations or we need to wire it manually.
-                    // Referencing `GrpcSignalingAdapter` logic... it just calls callback.
-                    // We'll need to call `mediasoupService.createConsumer` when appropriate.
-                    // But `createConsumer` needs `ServerConsumed` message which comes from server response to "Consume".
+                    if (mediasoupServiceRef.current?.getDevice()) {
+                        addLog(`Запрос потребления producer ${producerId} от участника ${participantId}`, 'info');
+                        await signaling.sendMessage({
+                            action: 'Consume',
+                            producerId: producerId,
+                            rtpCapabilities: mediasoupServiceRef.current.getDevice()!.rtpCapabilities,
+                        });
 
-                    // So: Send "Consume" message to server
-                    await signaling.sendMessage({
-                        action: 'Consume',
-                        producerId,
-                    });
+                        mediasoupServiceRef.current.setResponseCallback(
+                            `consumed:${producerId}`,
+                            async (data: any) => {
+                                const consumedMessage = data as any;
+                                await mediasoupServiceRef.current?.createConsumer(
+                                    consumedMessage,
+                                    (track, consumerId, newProducerId) => {
+                                        handleTrackAdded(track, consumerId, newProducerId, participantId, appData);
+                                    },
+                                    (m: any) => signaling.sendMessage(m as any)
+                                );
+                            }
+                        );
+                    }
                 },
                 onProducerRemoved: (producerId, participantId) => {
                     // Handle removal logic
@@ -161,6 +168,11 @@ export function useVoiceChat(): UseVoiceChatReturn {
                     }
                 },
                 onMessage: async (msg) => {
+                    // Always try to handle via mediasoup callbacks first (Produced, Connected, etc)
+                    if (mediasoupServiceRef.current?.handleCallback(msg.action, msg as any)) {
+                        return;
+                    }
+
                     if (msg.action === 'Init') {
                         const initMsg = msg as any;
 
@@ -182,14 +194,6 @@ export function useVoiceChat(): UseVoiceChatReturn {
                             addLog(`Initialization Error: ${error.message}`, 'error');
                             setStatus('error');
                         }
-                    } else if (msg.action === 'Consumed') {
-                        // Response to our Consume request
-                        const consumedMsg = msg as any;
-                        await mediasoupServiceRef.current?.createConsumer(
-                            consumedMsg,
-                            handleTrackAdded,
-                            (m: any) => signaling.sendMessage(m as any)
-                        );
                     } else if (msg.action === 'Produced') {
                         // Confirmation of our produce
                         mediasoupServiceRef.current?.handleCallback('Produced', msg as any);
@@ -202,14 +206,23 @@ export function useVoiceChat(): UseVoiceChatReturn {
             });
             signalingRef.current = signaling;
 
-            // 2. Initialize Mediasoup Service (Wait for Init message to fully init device)
+            // 2. Initialize Worker Manager
+            const workerManager = new WorkerManager({
+                sessionId: newSessionId,
+                addLog
+            });
+            workerManager.initializeEncodedStreamWorker();
+            workerManagerRef.current = workerManager;
+
+            // 3. Initialize Mediasoup Service
             mediasoupServiceRef.current = new MediasoupService({
                 sessionId: newSessionId,
                 addLog,
-                transformApi: 'encodedStreams', // or 'script'/'encodedStreams' if supported
+                transformApi: 'encodedStreams',
+                workerManager: workerManager
             });
 
-            // 3. Initialize Media Manager
+            // 4. Initialize Media Manager
             mediaManagerRef.current = new MediaManager({
                 mediasoupService: mediasoupServiceRef.current,
                 addLog
@@ -224,8 +237,9 @@ export function useVoiceChat(): UseVoiceChatReturn {
         }
     }, [status, addLog, handleTrackAdded, handleTrackRemoved]); // dependencies
 
-    const endCall = useCallback(() => {
+    const endCall = useCallback(async () => {
         addLog('Ending call...', 'info');
+        await invoke('leave_session')
         cleanup();
     }, [addLog, cleanup]);
 

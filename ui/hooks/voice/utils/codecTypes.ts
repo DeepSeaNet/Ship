@@ -170,3 +170,10 @@ function getCodecNameByType(codecType: CodecType): string {
       return 'UNKNOWN'
   }
 }
+
+function getVp8EncryptionOffset(data: Uint8Array): number {
+  if (!data || data.length === 0) return 0;
+  const pFlag = data[0] & 0x01;
+  // P=0 → key frame (10 bytes), P=1 → inter frame (1 byte)
+  return pFlag === 0 ? Math.min(10, data.length) : Math.min(1, data.length);
+}

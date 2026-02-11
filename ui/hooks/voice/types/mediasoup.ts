@@ -37,6 +37,11 @@ export interface BaseMessage {
 
 export interface ClientMessage extends BaseMessage {
   [key: string]: unknown
+  dtlsParameters?: any
+  rtpCapabilities?: any
+  kind?: string
+  appData?: any
+  producerId?: string
 }
 
 export interface ServerMessage extends BaseMessage {
@@ -63,7 +68,7 @@ export interface ServerConnectedConsumerTransport extends ServerMessage {
 }
 
 export interface ServerConsumed extends ServerMessage {
-  action: 'Consumed'
+  action: string
   id: string
   producerId: string
   kind: MediaTrackType
@@ -81,14 +86,14 @@ export type AppData = {
 }
 
 export interface ServerProducerAdded extends ServerMessage {
-  action: 'ProducerAdded'
+  action: 'producerAdded'
   producerId: string
   participantId: string
   appData: AppData
 }
 
 export interface ServerProducerRemoved extends ServerMessage {
-  action: 'ProducerRemoved'
+  action: 'producerRemoved'
   producerId: string
   participantId: string
 }

@@ -18,6 +18,7 @@ import {
   initEncodedStreamWorker,
   terminateEncodedStreamWorker,
 } from '../utils/encodedStreamsTransform'
+import { WorkerManager } from './WorkerManager'
 
 // Type definitions for callback responses
 interface CallbackResponse {
@@ -34,8 +35,7 @@ export interface MediasoupServiceOptions {
   addLog: LoggerFunction
   onTransportsInitialized?: () => void
   transformApi: TransformApi
-  encryptionWorker?: Worker | null
-  decryptionWorker?: Worker | null
+  workerManager: WorkerManager
 }
 
 export class MediasoupService {
@@ -52,39 +52,17 @@ export class MediasoupService {
   private onTransportsInitialized?: () => void
   private transformApi: TransformApi
   private sessionId: string
-  private encryptionWorker: Worker | null
-  private decryptionWorker: Worker | null
-  private encodedStreamWorker: Worker | null = null
+  private workerManager: WorkerManager
 
   constructor(options: MediasoupServiceOptions) {
     this.addLog = options.addLog
     this.sessionId = options.sessionId
     this.transformApi = options.transformApi
     this.onTransportsInitialized = options.onTransportsInitialized
-    this.encryptionWorker = options.encryptionWorker || null
-    this.decryptionWorker = options.decryptionWorker || null
-
-    // Initialize encoded stream worker if using that API
-    if (this.transformApi === 'encodedStreams') {
-      this.initEncodedStreamWorker()
-    }
+    this.workerManager = options.workerManager
   }
 
-  /**
-   * Initialize encoded stream worker
-   */
-  private initEncodedStreamWorker(): void {
-    try {
-      this.addLog('Initializing encoded stream worker...', 'info')
-      this.encodedStreamWorker = initEncodedStreamWorker()
-      this.addLog('Encoded stream worker initialized successfully', 'success')
-    } catch (error) {
-      this.addLog(
-        `Failed to initialize encoded stream worker: ${error}`,
-        'error',
-      )
-    }
-  }
+
 
   public getDevice(): Device | null {
     return this.device
@@ -160,7 +138,7 @@ export class MediasoupService {
     this.addLog('Creating Producer Transport...', 'info')
     this.sendTransport = this.device.createSendTransport({
       ...producerTransportOptions,
-      additionalSettings
+      additionalSettings: additionalSettings as any
     })
 
     this.sendTransport.on('connect', ({ dtlsParameters }, callback) => {
@@ -190,7 +168,7 @@ export class MediasoupService {
     this.addLog('Creating Consumer Transport...', 'info')
     this.recvTransport = this.device.createRecvTransport({
       ...consumerTransportOptions,
-      additionalSettings
+      additionalSettings: additionalSettings as any
     })
 
     this.recvTransport.on('connect', ({ dtlsParameters }, callback) => {
@@ -239,6 +217,8 @@ export class MediasoupService {
     if (this.transformApi === 'encodedStreams') {
       this.addLog(`Applying Encoded Transform encryption to ${producer.kind} Producer`, 'info')
       try {
+        const worker = this.workerManager.getEncodedStreamWorker()
+        if (!worker) throw new Error('Worker not available')
         await applyEncryptionToSender(producer.rtpSender, this.sessionId)
         this.addLog(`Encryption applied to Producer ${producer.id}`, 'success')
       } catch (e) {
@@ -289,6 +269,8 @@ export class MediasoupService {
     if (this.transformApi === 'encodedStreams') {
       this.addLog(`Applying Encoded Transform decryption to ${consumer.kind} Consumer`, 'info')
       try {
+        const worker = this.workerManager.getEncodedStreamWorker()
+        if (!worker) throw new Error('Worker not available')
         await applyDecryptionToReceiver(consumer.rtpReceiver, this.sessionId)
         this.addLog(`Decryption applied to Consumer ${consumer.id}`, 'success')
       } catch (e) {
@@ -315,10 +297,6 @@ export class MediasoupService {
 
     if (this.sendTransport) this.sendTransport.close()
     if (this.recvTransport) this.recvTransport.close()
-
-    if (this.transformApi === 'encodedStreams') {
-      terminateEncodedStreamWorker()
-    }
 
     this.device = null
     this.initialized = false

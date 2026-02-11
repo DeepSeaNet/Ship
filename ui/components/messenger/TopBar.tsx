@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@heroui/react';
-import { Handset, Video, Ellipsis, CircleInfo } from '@gravity-ui/icons';
+import { Handset, Video, Ellipsis, CircleInfo, Keyboard } from '@gravity-ui/icons';
 import { useMessengerState } from '@/hooks/useMessengerState';
 import { useChats } from '@/hooks/useChats';
 import { useState } from 'react';
@@ -15,7 +15,23 @@ export function TopBar({ onInfoClick }: TopBarProps) {
   const { uiState } = useMessengerState();
   const { getChatById } = useChats();
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [isJoinMode, setIsJoinMode] = useState(false);
   const activeChat = uiState.activeChatId ? getChatById(uiState.activeChatId) : null;
+
+  const handleOpenJoin = () => {
+    setIsJoinMode(true);
+    setIsVoiceModalOpen(true);
+  };
+
+  const handleOpenCall = () => {
+    setIsJoinMode(false);
+    setIsVoiceModalOpen(true);
+  };
+
+  const handleClose = () => {
+    setIsVoiceModalOpen(false);
+    setIsJoinMode(false);
+  };
 
   return (
     <div className="h-16 border-b border-border flex items-center px-6 justify-between bg-surface">
@@ -43,7 +59,10 @@ export function TopBar({ onInfoClick }: TopBarProps) {
       )}
 
       <div className="flex items-center gap-1">
-        <Button isIconOnly variant="ghost" size="sm" onPress={() => setIsVoiceModalOpen(true)} className="hover:bg-on-surface text-muted">
+        <Button isIconOnly variant="ghost" size="sm" onPress={handleOpenJoin} className="hover:bg-on-surface text-muted">
+          <Keyboard className="w-5 h-5" />
+        </Button>
+        <Button isIconOnly variant="ghost" size="sm" onPress={handleOpenCall} className="hover:bg-on-surface text-muted">
           <Handset className="w-5 h-5" />
         </Button>
         <Button isIconOnly variant="ghost" size="sm" className="hover:bg-on-surface text-muted">
@@ -57,12 +76,12 @@ export function TopBar({ onInfoClick }: TopBarProps) {
         </Button>
       </div>
 
-      {activeChat && isVoiceModalOpen && (
+      {isVoiceModalOpen && (
         <VoiceCallModal
           isOpen={isVoiceModalOpen}
-          onClose={() => setIsVoiceModalOpen(false)}
-          chatName={activeChat.name}
-          chatAvatar={activeChat.avatar}
+          onClose={handleClose}
+          chatName={!isJoinMode && activeChat ? activeChat.name : undefined}
+          chatAvatar={!isJoinMode && activeChat ? activeChat.avatar : undefined}
         />
       )}
     </div>

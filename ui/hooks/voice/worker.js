@@ -1,114 +1,116 @@
 /**
  * WebRTC Encoded Transform Worker
- * Handles off-main-thread processing for Encoded Frames.
- * Serves as a bridge between the WebRTC pipeline and the Main Thread (likely for Tauri/Rust processing).
+ * Handles encryption & decryption of encoded frames using SubtleCrypto.
+ * * This version uses the imported GroupCryptoManager for state and logic.
  */
 
-let mainPort = null;
-const pendingRequests = new Map(); // Map<requestId, { resolve, reject }>
-let requestIdCounter = 0;
+import { GroupCryptoManager } from './crypto/groupCryptoManager';
+
+// ==================== Constants & Configuration ====================
+const cryptoManager = new GroupCryptoManager();
 let codecMapping = {};
 
-// --- Communication with Main Thread ---
-
-self.onmessage = (event) => {
-    const { type, codecMapping: newMapping } = event.data;
-
-    if (type === 'init') {
-        mainPort = event.ports[0];
-        mainPort.onmessage = handleMainThreadResponse;
-        console.log('[Worker] Initialized with communication port.');
-    } else if (type === 'updateCodecMapping') {
-        codecMapping = newMapping || {};
-        console.log('[Worker] Codec mapping updated:', codecMapping);
-    }
-};
-
+// ==================== VP8 Offset Helper ====================
 /**
- * Handles responses coming back from the Main Thread (Tauri/Rust).
+ * VP8 frames should not be fully encrypted to allow SFUs to read 
+ * the payload header if necessary.
  */
-function handleMainThreadResponse(event) {
-    const { id, processedData, error } = event.data;
-
-    const request = pendingRequests.get(id);
-
-    if (request) {
-        if (error) {
-            console.error(`[Worker] Processing failed for request ${id}:`, error);
-            request.reject(error);
-        } else {
-            // Expecting processedData to be an ArrayBuffer or convertable to one
-            const buffer = new Uint8Array(processedData).buffer;
-            request.resolve(buffer);
-        }
-        pendingRequests.delete(id);
-    } else {
-        console.warn(`[Worker] Received response for unknown Request ID: ${id}`);
-    }
+function getVp8EncryptionOffset(data) {
+    if (!data || data.length === 0) return 0;
+    const pFlag = data[0] & 0x01;
+    // P=0 -> key frame (10 bytes unencrypted), P=1 -> inter frame (1 byte)
+    return pFlag === 0 ? Math.min(10, data.length) : Math.min(1, data.length);
 }
 
-// --- Transform Logic ---
+function isVp8Frame(chunk, metadata) {
+    if (metadata && metadata.mimeType) {
+        return metadata.mimeType.toLowerCase().includes('vp8');
+    }
+    const pt = chunk.payloadType !== undefined ? chunk.payloadType : metadata?.payloadType;
+    // Assume 1 maps to VP8 in our mapping
+    return pt !== undefined && codecMapping[pt] === 1;
+}
+
+// ==================== Transform Logic ====================
 
 /**
- * Generic transform function that handles the async round-trip to the main thread.
- * @param {RTCEncodedVideoFrame | RTCEncodedAudioFrame} chunk
- * @param {TransformStreamDefaultController} controller
- * @param {'encrypt' | 'decrypt'} operationMode
+ * Processes a single chunk through the GroupCryptoManager.
  */
 async function processChunk(chunk, controller, operationMode) {
-    if (!mainPort) {
-        console.error('[Worker] Port not initialized. Dropping frame.');
-        // Option: controller.enqueue(chunk) to pass through untouched, or return to drop.
+    if (!cryptoManager.isInitialized()) {
+        // Pass through untouched if keys not yet loaded to avoid freezing the stream
+        controller.enqueue(chunk);
         return;
     }
 
-    const originalData = chunk.data; // ArrayBuffer
-    const requestId = requestIdCounter++;
-
-    // Determine codec type based on frame metadata
-    // 1 = Video (Key or Delta), -1 = Unknown/Audio
-    let codecType = -1;
-    if (chunk.type === 'key' || chunk.type === 'delta') {
-        codecType = 1;
-    }
-
-    // Create a promise to pause the stream until the main thread returns data
-    const responsePromise = new Promise((resolve, reject) => {
-        pendingRequests.set(requestId, { resolve, reject });
-    });
-
-    // Send to Main Thread
-    // Note: We are transferring the data. If Tauri requires a standard array (number[]),
-    // you might need Array.from(new Uint8Array(originalData)), but that is performance heavy.
-    mainPort.postMessage({
-        type: operationMode, // 'encrypt' or 'decrypt'
-        id: requestId,
-        data: originalData,
-        codecType: codecType,
-        isKeyFrame: chunk.type === 'key'
-    }, [originalData]);
+    const originalData = new Uint8Array(chunk.data);
+    const metadata = chunk.getMetadata();
+    const isVp8 = isVp8Frame(chunk, metadata);
 
     try {
-        const processedBuffer = await responsePromise;
-        chunk.data = processedBuffer;
+        let processedBuffer;
+        const offset = isVp8 ? getVp8EncryptionOffset(originalData) : 0;
+
+        if (offset > 0 && offset < originalData.length) {
+            // Partial encryption/decryption for VP8
+            const header = originalData.slice(0, offset);
+            const payload = originalData.slice(offset);
+            
+            const result = (operationMode === 'encrypt') 
+                ? await cryptoManager.encrypt(payload) 
+                : await cryptoManager.decrypt(payload);
+
+            processedBuffer = new Uint8Array(header.length + result.length);
+            processedBuffer.set(header, 0);
+            processedBuffer.set(result, header.length);
+        } else {
+            // Full encryption/decryption
+            processedBuffer = (operationMode === 'encrypt') 
+                ? await cryptoManager.encrypt(originalData) 
+                : await cryptoManager.decrypt(originalData);
+        }
+
+        chunk.data = processedBuffer.buffer;
         controller.enqueue(chunk);
     } catch (error) {
-        console.error(`[Worker] ${operationMode} transformation failed:`, error);
-        // Decision: Drop the frame on error to prevent corrupt stream
+        console.error(`[Worker] ${operationMode} failed:`, error.message);
+        // We drop the frame on error to prevent sending corrupt "half-encrypted" noise
     }
 }
 
-// --- WebRTC Pipeline Integration ---
+// ==================== Communication & Lifecycle ====================
+
+self.onmessage = async (event) => {
+    const { type, keys, codecMapping: newMapping } = event.data;
+
+    switch (type) {
+        case 'updateKeys':
+            try {
+                await cryptoManager.updateKeys(keys);
+                console.log('[Worker] Keys updated successfully.');
+            } catch (e) {
+                console.error('[Worker] Failed to update keys:', e);
+            }
+            break;
+
+        case 'updateCodecMapping':
+            codecMapping = newMapping || {};
+            console.log('[Worker] Codec mapping updated:', codecMapping);
+            break;
+
+        case 'init':
+            console.log('[Worker] Initialized.');
+            break;
+    }
+};
 
 if (self.RTCTransformEvent) {
     self.onrtctransform = (event) => {
         const transformer = event.transformer;
         const { readable, writable, options } = transformer;
 
-        // Determine mode based on the options passed from the main thread
-        // Defaulting to "senderTransform" -> encrypt, "receiverTransform" -> decrypt
+        // Identify if this is a sender (encrypt) or receiver (decrypt) transform
         const mode = options.name === 'senderTransform' ? 'encrypt' : 'decrypt';
-
         console.log(`[Worker] Attached to ${mode} pipeline.`);
 
         const transformStream = new TransformStream({
@@ -119,16 +121,9 @@ if (self.RTCTransformEvent) {
             .pipeThrough(transformStream)
             .pipeTo(writable)
             .catch((e) => {
-                console.error(`[Worker] ${mode} pipe error:`, e);
-                // Clean up streams on fatal error
-                readable.cancel(e);
-                writable.abort(e);
+                console.error(`[Worker] ${mode} pipeline error:`, e);
             });
     };
 } else {
-    console.error('[Worker] RTCRtpScriptTransform is not supported in this browser.');
+    console.error('[Worker] RTCRtpScriptTransform not supported.');
 }
-
-console.log('[Worker] Script loaded successfully.');
-
-export default {};
