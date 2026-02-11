@@ -59,6 +59,9 @@ tauri-plugin-fs = "2.4.5"
 tauri-plugin-dialog = "2.6.0"
 moka = { version = "0.12.13", features = ["future"] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = "2.0.2"
+
 [build-dependencies]
 tonic-prost-build = "0.14.3"
 tauri-build = { version = "2.5.4", features = [] }
