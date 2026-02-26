@@ -38,56 +38,32 @@ function groupRemoteParticipants(tracks: MediaTrackInfo[]) {
 }
 
 export function ParticipantGrid({ localUser, remoteTracks }: ParticipantGridProps) {
-    const localVideoRef = useRef<HTMLVideoElement>(null);
-
-    // Attach local video stream
-    useEffect(() => {
-        if (localVideoRef.current && localUser.localVideoStream) {
-            localVideoRef.current.srcObject = localUser.localVideoStream;
-        }
-    }, [localUser.localVideoStream]);
-
     const remoteParticipants = groupRemoteParticipants(remoteTracks);
     const totalCount = 1 + remoteParticipants.size;
     const colsClass = gridColsClass(totalCount);
 
+    const localVideoTrack: MediaTrackInfo | undefined = localUser.isVideoEnabled && localUser.localVideoStream
+        ? {
+            id: 'local-video',
+            type: 'video',
+            participantId: localUser.id,
+            mediaStreamTrack: localUser.localVideoStream.getVideoTracks()[0],
+            sourceType: 'camera',
+        }
+        : undefined;
+
     return (
         <div className={`grid ${colsClass} gap-2 w-full h-full p-2 auto-rows-fr`}>
             {/* ── Local tile ── */}
-            {localUser.isVideoEnabled && localUser.localVideoStream ? (
-                <div
-                    className="relative rounded-2xl overflow-hidden"
-                    style={{ aspectRatio: '16/9' }}
-                >
-                    <video
-                        ref={localVideoRef}
-                        autoPlay
-                        muted
-                        playsInline
-                        className="w-full h-full object-cover"
-                        style={{ transform: 'scaleX(-1)' }}
-                    />
-                    <div className="absolute bottom-2.5 left-2.5 z-10">
-                        {localUser.isMuted && (
-                            <span className="flex items-center justify-center bg-red-500/90 rounded-md p-1 mr-1.5 inline-flex">
-                                <span className="text-white text-[10px]">🔇</span>
-                            </span>
-                        )}
-                        <span className="bg-black/55 backdrop-blur-md text-white text-[11px] font-semibold px-2.5 py-1 rounded-lg border border-white/10">
-                            {localUser.name} (You)
-                        </span>
-                    </div>
-                </div>
-            ) : (
-                <ParticipantTile
-                    participantId={localUser.id}
-                    name={localUser.name}
-                    avatar={localUser.avatar}
-                    isLocal
-                    isMuted={localUser.isMuted}
-                    hasVideo={false}
-                />
-            )}
+            <ParticipantTile
+                participantId={localUser.id}
+                name={localUser.name}
+                avatar={localUser.avatar}
+                isLocal
+                isMuted={localUser.isMuted}
+                hasVideo={!!localVideoTrack}
+                videoTrack={localVideoTrack}
+            />
 
             {/* ── Remote tiles ── */}
             {[...remoteParticipants.entries()].map(([pid, { videoTrack }]) => (

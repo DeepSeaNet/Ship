@@ -20,8 +20,10 @@ export function VoiceCallModal({ isOpen, onClose, chatName, chatAvatar }: VoiceC
         endCall,
         toggleAudio,
         toggleVideo,
+        toggleScreenShare,
         isAudioEnabled,
         isVideoEnabled,
+        isScreenSharing,
         localVideoStream,
         remoteTracks,
     } = useVoiceChat();
@@ -113,14 +115,16 @@ export function VoiceCallModal({ isOpen, onClose, chatName, chatAvatar }: VoiceC
                             )}
                         </div>
 
-                        {/* ── Control bar ──────────────────────────────────────── */}
+                        {/* ── Control bar (Floating-look but positioned below) ── */}
                         {!showJoinOrCreate && (
                             <VoiceControlBar
                                 isAudioEnabled={isAudioEnabled}
                                 isVideoEnabled={isVideoEnabled}
+                                isScreenSharing={isScreenSharing}
                                 isInfoOpen={isInfoOpen}
                                 onToggleAudio={toggleAudio}
                                 onToggleVideo={toggleVideo}
+                                onToggleScreenShare={toggleScreenShare}
                                 onToggleInfo={() => setIsInfoOpen(v => !v)}
                                 onHangUp={handleHangUp}
                             />

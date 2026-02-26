@@ -2,7 +2,7 @@ import { Button, Chip, Tooltip } from '@heroui/react';
 import { MdClose, MdContentCopy, MdCheck } from 'react-icons/md';
 import { HiMiniVideoCamera, HiMiniMicrophone } from 'react-icons/hi2';
 import { useState } from 'react';
-import { MediaTrackInfo } from './types';
+import { MediaTrackInfo } from '../../../hooks/voice/types/mediasoup';
 
 interface InfoPanelProps {
     sessionId: string | null;
@@ -56,7 +56,7 @@ export function InfoPanel({ sessionId, status, localUserId, remoteTracks, onClos
                 <section>
                     <p className="text-neutral-500 text-[10px] uppercase tracking-widest mb-2 font-semibold">Voice ID</p>
                     {sessionId ? (
-                        <Tooltip content={copied ? 'Copied!' : 'Click to copy'}>
+                        <Tooltip delay={0}>
                             <button
                                 onClick={copySessionId}
                                 className="w-full flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-3 py-2.5 transition-colors group text-left"
@@ -68,6 +68,9 @@ export function InfoPanel({ sessionId, status, localUserId, remoteTracks, onClos
                                     {copied ? <MdCheck size={14} className="text-green-400" /> : <MdContentCopy size={14} />}
                                 </span>
                             </button>
+                            <Tooltip.Content>
+                                {copied ? 'Copied!' : 'Click to copy'}
+                            </Tooltip.Content>
                         </Tooltip>
                     ) : (
                         <p className="text-neutral-600 text-xs">Not connected</p>

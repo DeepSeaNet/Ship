@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { Avatar, Chip } from '@heroui/react';
+import { Avatar, Chip, Card } from '@heroui/react';
 import { MdMicOff, MdVideocamOff, MdScreenShare } from 'react-icons/md';
-import { MediaTrackInfo, getTileColor } from './types';
+import { MediaTrackInfo } from '../../../hooks/voice/types/mediasoup';
+import { getTileColor } from './types';
 
 interface ParticipantTileProps {
     /** Stable unique id (participantId or 'local') */
@@ -39,8 +40,9 @@ export function ParticipantTile({
     const displayName = name.length > 18 ? name.slice(0, 16) + '…' : name;
 
     return (
-        <div
-            className="relative rounded-2xl overflow-hidden flex items-center justify-center w-full h-full"
+        <Card
+            variant="tertiary"
+            className="w-full h-full border-none shadow-lg relative flex items-center justify-center p-0"
             style={{ backgroundColor: bgColor, aspectRatio: '16/9' }}
         >
             {/* ── Video layer ── */}
@@ -50,23 +52,24 @@ export function ParticipantTile({
                     autoPlay
                     muted={isLocal}
                     playsInline
-                    className="absolute inset-0 w-full h-full object-cover"
+                    className="absolute inset-0 w-full h-full object-cover rounded-[inherit]"
                     style={isLocal ? { transform: 'scaleX(-1)' } : undefined}
                 />
             ) : (
                 /* No video → centered avatar placeholder */
                 <div className="flex flex-col items-center justify-center gap-3 w-full h-full">
-                    <Avatar
-                        src={avatar}
-                        name={name}
-                        className="w-20 h-20 text-2xl font-bold ring-4 ring-white/20 shadow-2xl"
-                    />
+                    <Avatar className="w-20 h-20 text-2xl font-bold ring-4 ring-white/20 shadow-2xl">
+                        {avatar && <Avatar.Image src={avatar} alt={name} />}
+                        <Avatar.Fallback>
+                            {name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                        </Avatar.Fallback>
+                    </Avatar>
                 </div>
             )}
 
             {/* ── Screen-share "Watch Stream" overlay ── */}
             {isScreenShare && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/40 backdrop-blur-sm">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/40 backdrop-blur-sm z-20">
                     <MdScreenShare className="text-white text-4xl" />
                     <Chip className="bg-black/60 text-white border border-white/20 font-semibold px-4 h-9 cursor-pointer hover:bg-black/80 transition-colors">
                         Watch Stream
@@ -75,7 +78,7 @@ export function ParticipantTile({
             )}
 
             {/* ── Bottom-left: name badge ── */}
-            <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 z-10">
+            <div className="absolute bottom-3 left-3 flex items-center gap-1.5 z-30">
                 {isMuted && (
                     <span className="flex items-center justify-center bg-red-500/90 rounded-md p-1">
                         <MdMicOff className="text-white text-xs" />
@@ -88,12 +91,12 @@ export function ParticipantTile({
 
             {/* ── Top-right: video-off indicator ── */}
             {!hasVideo && !isLocal && (
-                <div className="absolute top-2.5 right-2.5 z-10">
+                <div className="absolute top-3 right-3 z-30">
                     <span className="flex items-center justify-center bg-black/50 border border-white/10 rounded-md p-1">
                         <MdVideocamOff className="text-white/60 text-xs" />
                     </span>
                 </div>
             )}
-        </div>
+        </Card>
     );
 }
