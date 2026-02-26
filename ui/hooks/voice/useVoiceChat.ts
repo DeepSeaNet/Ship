@@ -55,15 +55,35 @@ export function useVoiceChat(): UseVoiceChatReturn {
     const consumedProducers = useRef<Set<string>>(new Set());
     const startingRef = useRef(false);
 
-    const addLog: LoggerFunction = useCallback((message: string, type: LogEntryType = 'info') => {
+    const addLog: LoggerFunction = useCallback(
+    (message: string, type: LogEntryType = 'info') => {
+        const stack = new Error().stack;
+        let callerInfo = 'unknown';
+
+        if (stack) {
+        const lines = stack.split('\n');
+        // 0 = Error
+        // 1 = this function
+        // 2 = caller
+        if (lines.length >= 3) {
+            callerInfo = lines[2].trim();
+        }
+        }
+
         const entry: LogEntry = {
-            timestamp: new Date(),
-            message,
-            type
+        timestamp: new Date(),
+        message,
+        type,
         };
+
         setLogs(prev => [...prev, entry]);
-        console.log(`[VoiceChat] [${type.toUpperCase()}] ${message}`);
-    }, []);
+
+        console.log(
+        `[VoiceChat] [${type.toUpperCase()}] [${callerInfo}] ${message}`
+        );
+    },
+    []
+    );
 
     const cleanup = useCallback(() => {
         mediaManagerRef.current?.stopAllMedia();
@@ -119,7 +139,6 @@ export function useVoiceChat(): UseVoiceChatReturn {
     const startCall = useCallback(async (manualSessionId?: string) => {
         if (status !== 'idle' && status !== 'ended' && status !== 'error') return;
         if (startingRef.current) return;
- 
         startingRef.current = true;
 
         // Use manual session ID or generate random (UUID v4)
@@ -127,10 +146,10 @@ export function useVoiceChat(): UseVoiceChatReturn {
         setSessionId(newSessionId);
         setStatus('calling');
         setLogs([]); // Clear previous logs
-
         try {
             addLog(`Starting call initialization... SessionID: ${newSessionId}`, 'info');
             await invoke('join_session', { sessionId: newSessionId });
+            console.log('Joined session')
             // 1. Initialize Signaling
             const signaling = new GrpcSignalingAdapter({
                 sessionId: newSessionId,

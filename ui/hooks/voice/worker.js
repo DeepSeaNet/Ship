@@ -42,7 +42,6 @@ async function processChunk(chunk, controller, operationMode) {
         controller.enqueue(chunk);
         return;
     }
-
     const originalData = new Uint8Array(chunk.data);
     const metadata = chunk.getMetadata();
     const isVp8 = isVp8Frame(chunk, metadata);

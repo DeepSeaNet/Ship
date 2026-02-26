@@ -28,12 +28,13 @@ pub fn run() {
         .setup(|app| {
             app.webview_windows().values().for_each(|webview_window| {
                 if let Err(e) = webview_window.with_webview(|webview| {
-                    if let Some(settings) = webview.inner().settings() {
-                        #[cfg(target_os = "linux")]
-                        enable_web_features(&settings);
+                    #[cfg(target_os = "linux")]
+                    {
+                        if let Some(settings) = webview.inner().settings() {
+                            enable_web_features(&settings);
 
-                        #[cfg(target_os = "linux")]
-                        allow_all_permissions(&webview.inner());
+                            allow_all_permissions(&webview.inner());
+                        }
                     }
                 }) {
                     eprintln!("Error configuring webview: {:?}", e);
