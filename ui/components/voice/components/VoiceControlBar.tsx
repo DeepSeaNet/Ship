@@ -71,7 +71,7 @@ export function VoiceControlBar({
     return (
         <div className="flex items-center justify-center gap-4 py-1 px-4 z-50 shrink-0">
             {/* ── Group 1: Audio & Video ── */}
-            <Card className="flex flex-row items-center gap-2 p-1.5 bg-neutral-900/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl">
+            <Card className="flex flex-row items-center gap-2 p-1.5 bg-surface backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl">
                 <ControlButton
                     tooltip={isAudioEnabled ? 'Mute' : 'Unmute'}
                     onClick={onToggleAudio}
@@ -92,7 +92,7 @@ export function VoiceControlBar({
             </Card>
 
             {/* ── Group 2: Screen & Info ── */}
-            <Card className="flex flex-row items-center gap-2 p-1.5 bg-neutral-900/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl">
+            <Card className="flex flex-row items-center gap-2 p-1.5 bg-surface backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl">
                 {onToggleScreenShare && (
                     <ControlButton
                         tooltip={isScreenSharing ? 'Stop sharing' : 'Share screen'}

@@ -38,10 +38,10 @@ export function InfoPanel({ sessionId, status, localUserId, remoteTracks, onClos
     };
 
     return (
-        <div className="flex flex-col h-full bg-neutral-900 border-l border-white/10 text-sm overflow-hidden">
+        <div className="flex flex-col h-full bg-surface border-l border-white/10 text-sm overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 shrink-0">
-                <span className="text-white font-semibold text-base tracking-tight">Call Info</span>
+                <span className="text-foreground font-semibold text-base tracking-tight">Call Info</span>
                 <Button
                     isIconOnly size="sm" variant="ghost"
                     className="text-neutral-500 hover:text-white w-8 h-8 min-w-0 rounded-lg"
@@ -61,7 +61,7 @@ export function InfoPanel({ sessionId, status, localUserId, remoteTracks, onClos
                                 onClick={copySessionId}
                                 className="w-full flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-3 py-2.5 transition-colors group text-left"
                             >
-                                <span className="text-white font-mono text-[11px] truncate flex-1 leading-relaxed">
+                                <span className="text-accent font-mono text-[11px] truncate flex-1 leading-relaxed">
                                     {sessionId}
                                 </span>
                                 <span className="text-neutral-500 group-hover:text-white transition-colors shrink-0">
@@ -105,7 +105,7 @@ export function InfoPanel({ sessionId, status, localUserId, remoteTracks, onClos
                                 >
                                     <div className="flex items-center gap-2 min-w-0">
                                         <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
-                                        <span className="text-white text-[11px] font-mono truncate">
+                                        <span className="text-accent text-[11px] font-mono truncate">
                                             {isLocal ? `${pid.slice(0, 8)}… (You)` : `${pid.slice(0, 8)}…`}
                                         </span>
                                     </div>

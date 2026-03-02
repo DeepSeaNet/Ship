@@ -306,9 +306,40 @@ export function useVoiceChat(): UseVoiceChatReturn {
     }, [isAudioEnabled]);
 
     const toggleScreenShare = useCallback(async () => {
-        // Placeholder for future impl
-        addLog('Screen share toggled (logic pending)', 'info');
-    }, [addLog]);
+        if (!mediaManagerRef.current) return;
+
+        if (isScreenShareEnabled) {
+            mediaManagerRef.current.stopScreenShare();
+            setScreenShareStream(null);
+            setIsScreenShareEnabled(false);
+            addLog('Screen share stopped', 'info');
+        } else {
+            try {
+                addLog('Requesting screen share...', 'info');
+                const stream = await mediaManagerRef.current.startScreenShare();
+                if (stream) {
+                    await mediaManagerRef.current.publishScreenShare();
+                    setScreenShareStream(stream);
+                    setIsScreenShareEnabled(true);
+                    addLog('Screen share started', 'success');
+
+                    // If user clicks "Stop Sharing" in browser native UI
+                    const videoTrack = stream.getVideoTracks()[0];
+                    if (videoTrack) {
+                        videoTrack.onended = () => {
+                            setScreenShareStream(null);
+                            setIsScreenShareEnabled(false);
+                            addLog('Screen share ended', 'info');
+                        };
+                    }
+                }
+            } catch (err: any) {
+                addLog(`Screen share error: ${err.message || err}`, 'error');
+                setIsScreenShareEnabled(false);
+                setScreenShareStream(null);
+            }
+        }
+    }, [isScreenShareEnabled, addLog]);
 
     return {
         status,

@@ -23,7 +23,6 @@ export function VoiceCallModal({ isOpen, onClose, chatName, chatAvatar }: VoiceC
         toggleScreenShare,
         isAudioEnabled,
         isVideoEnabled,
-        isScreenSharing,
         localVideoStream,
         remoteTracks,
     } = useVoiceChat();
@@ -60,13 +59,13 @@ export function VoiceCallModal({ isOpen, onClose, chatName, chatAvatar }: VoiceC
             isOpen={isOpen}
             onOpenChange={open => !open && handleHangUp()}
         >
-            <Modal.Backdrop className="bg-black/85 backdrop-blur-md">
+            <Modal.Backdrop>
                 <Modal.Container>
                     {/*
                      * Full-screen style dialog — we use max-w / max-h to keep it
                      * responsive without any custom CSS classes.
                      */}
-                    <Modal.Dialog className="w-screen h-screen max-w-none max-h-none bg-neutral-900 rounded-none overflow-hidden focus:outline-none flex flex-col">
+                    <Modal.Dialog className="w-screen h-screen max-w-none max-h-none bg-background rounded-none overflow-hidden focus:outline-none flex flex-col">
 
                         {/* ── Main area ────────────────────────────────────────── */}
                         <div className="flex flex-1 overflow-hidden relative">
@@ -120,7 +119,6 @@ export function VoiceCallModal({ isOpen, onClose, chatName, chatAvatar }: VoiceC
                             <VoiceControlBar
                                 isAudioEnabled={isAudioEnabled}
                                 isVideoEnabled={isVideoEnabled}
-                                isScreenSharing={isScreenSharing}
                                 isInfoOpen={isInfoOpen}
                                 onToggleAudio={toggleAudio}
                                 onToggleVideo={toggleVideo}
