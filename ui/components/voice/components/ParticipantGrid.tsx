@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { ParticipantTile } from './ParticipantTile';
 import { MediaTrackInfo } from '../../../hooks/voice/types/mediasoup';
+import { useMessengerState } from '../../../hooks/useMessengerState';
 
 export interface LocalUser {
     id: string;
@@ -14,6 +15,7 @@ export interface LocalUser {
 interface ParticipantGridProps {
     localUser: LocalUser;
     remoteTracks: MediaTrackInfo[];
+    participants: Record<string, string>;
 }
 
 /** Returns the right Tailwind grid-cols class for N participants */
@@ -37,7 +39,8 @@ function groupRemoteParticipants(tracks: MediaTrackInfo[]) {
     return map;
 }
 
-export function ParticipantGrid({ localUser, remoteTracks }: ParticipantGridProps) {
+export function ParticipantGrid({ localUser, remoteTracks, participants = {} }: ParticipantGridProps) {
+    const { users } = useMessengerState();
     const remoteParticipants = groupRemoteParticipants(remoteTracks);
     const totalCount = 1 + remoteParticipants.size;
     const colsClass = gridColsClass(totalCount);
@@ -66,15 +69,23 @@ export function ParticipantGrid({ localUser, remoteTracks }: ParticipantGridProp
             />
 
             {/* ── Remote tiles ── */}
-            {[...remoteParticipants.entries()].map(([pid, { videoTrack }]) => (
-                <ParticipantTile
-                    key={pid}
-                    participantId={pid}
-                    name={`User ${pid.slice(0, 6)}`}
-                    hasVideo={!!videoTrack?.mediaStreamTrack}
-                    videoTrack={videoTrack}
-                />
-            ))}
+            {[...remoteParticipants.entries()].map(([pid, { videoTrack }]) => {
+                const userId = participants[pid];
+                const user = userId ? users[userId] : null;
+                const name = user?.name || `User ${pid.slice(0, 6)}`;
+                const avatar = user?.avatar;
+
+                return (
+                    <ParticipantTile
+                        key={pid}
+                        participantId={pid}
+                        name={name}
+                        avatar={avatar}
+                        hasVideo={!!videoTrack?.mediaStreamTrack}
+                        videoTrack={videoTrack}
+                    />
+                );
+            })}
         </div>
     );
 }

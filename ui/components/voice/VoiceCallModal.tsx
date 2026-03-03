@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Modal } from '@heroui/react';
 import { useVoiceChat } from '../../hooks/voice/useVoiceChat';
+import { useMessengerState } from '../../hooks/useMessengerState';
 import { VoiceCallModalProps } from './components/types';
 
 import { JoinOrCreateView } from './components/JoinOrCreateView';
@@ -9,10 +10,10 @@ import { VoiceControlBar } from './components/VoiceControlBar';
 import { InfoPanel } from './components/InfoPanel';
 import { CallStatusBadge } from './components/CallStatusBadge';
 
-// ─── A stable "local user id" so the grid colour doesn't flicker ──────────────
-const LOCAL_USER_ID = 'local-' + Math.random().toString(36).slice(2, 8);
-
 export function VoiceCallModal({ isOpen, onClose, chatName, chatAvatar }: VoiceCallModalProps) {
+    const { currentUser } = useMessengerState();
+    const currentUserId = currentUser?.id || 'unknown';
+
     const {
         status,
         sessionId,
@@ -25,6 +26,7 @@ export function VoiceCallModal({ isOpen, onClose, chatName, chatAvatar }: VoiceC
         isVideoEnabled,
         localVideoStream,
         remoteTracks,
+        participants
     } = useVoiceChat();
     const [isInfoOpen, setIsInfoOpen] = useState(false);
     const [showJoinOrCreate, setShowJoinOrCreate] = useState(true);
@@ -81,14 +83,15 @@ export function VoiceCallModal({ isOpen, onClose, chatName, chatAvatar }: VoiceC
                                 ) : (
                                     <ParticipantGrid
                                         localUser={{
-                                            id: LOCAL_USER_ID,
+                                            id: currentUserId,
                                             name: 'You',
-                                            avatar: chatAvatar,
+                                            avatar: currentUser?.avatar || chatAvatar,
                                             isMuted: !isAudioEnabled,
                                             isVideoEnabled,
                                             localVideoStream,
                                         }}
                                         remoteTracks={remoteTracks}
+                                        participants={participants}
                                     />
                                 )}
                             </div>
@@ -99,8 +102,9 @@ export function VoiceCallModal({ isOpen, onClose, chatName, chatAvatar }: VoiceC
                                     <InfoPanel
                                         sessionId={sessionId}
                                         status={status}
-                                        localUserId={LOCAL_USER_ID}
+                                        localUserId={currentUserId}
                                         remoteTracks={remoteTracks}
+                                        participants={participants}
                                         onClose={() => setIsInfoOpen(false)}
                                     />
                                 </div>

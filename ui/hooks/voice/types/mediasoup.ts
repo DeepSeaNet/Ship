@@ -21,6 +21,7 @@ export interface MediaTrackInfo {
   producerId?: string
   consumerId?: string
   participantId?: string
+  userId?: string
   mediaStreamTrack?: MediaStreamTrack
   sourceType: string
 }
@@ -83,6 +84,7 @@ export type AppData = {
   sourceType: string
   mediaType: string
   shared: boolean
+  userId?: string
 }
 
 export interface ServerProducerAdded extends ServerMessage {

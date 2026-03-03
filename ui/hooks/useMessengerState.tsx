@@ -15,7 +15,7 @@ const createMediaUrl = (avatarData: string | undefined): string | undefined => {
   return `data:image/png;base64,${avatarData}`;
 };
 
-const formatChatTime = (isoString?: string) => {
+export const formatChatTime = (isoString?: string) => {
   if (!isoString) return '';
   const date = new Date(isoString);
   const now = new Date();
@@ -272,16 +272,26 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
           case 'new_message': {
             const data = payload.data;
             const chatId = data.group_id || data.chat_id;
+            const senderId = data.sender_id?.toString() || '0';
+            const sender = users[senderId];
+
+            // If sender name is missing, we'll need to fetch it (handled below)
+            const senderName = data.sender_name || sender?.name || 'User ' + senderId;
             const message: Message = {
               id: data.message_id,
               chatId: chatId,
-              senderId: data.sender_id,
+              senderId,
+              senderName,
               content: data.text,
               timestamp: formatChatTime(new Date(data.timestamp * 1000).toISOString()),
               isOwn: data.sender_id === currentUser?.id,
               status: 'sent',
               media: data.media,
-              media_name: data.media_name
+              media_name: data.media_name,
+              reply_to: data.reply_to,
+              edited: !!data.edit_date,
+              expires: data.expires,
+              is_file: data.is_file,
             };
             addMessage(chatId, message);
             break;

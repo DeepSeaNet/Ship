@@ -5,6 +5,7 @@ import { MediasoupService } from './services/MediasoupService';
 import { MediaManager } from './services/MediaManager';
 import { WorkerManager } from './services/WorkerManager';
 import { LoggerFunction, LogEntry, LogEntryType, MediaTrackInfo } from './types/mediasoup';
+import { useMessengerState } from '../useMessengerState';
 
 export type CallStatus = 'idle' | 'calling' | 'connected' | 'error' | 'ended';
 
@@ -24,6 +25,7 @@ interface UseVoiceChatReturn {
     localAudioStream: MediaStream | null;
     screenShareStream: MediaStream | null;
     remoteTracks: MediaTrackInfo[];
+    participants: Record<string, string>;
 }
 
 export function useVoiceChat(): UseVoiceChatReturn {
@@ -39,6 +41,10 @@ export function useVoiceChat(): UseVoiceChatReturn {
     const [localAudioStream, setLocalAudioStream] = useState<MediaStream | null>(null);
     const [screenShareStream, setScreenShareStream] = useState<MediaStream | null>(null);
     const [remoteTracks, setRemoteTracks] = useState<MediaTrackInfo[]>([]);
+    const [participants, setParticipants] = useState<Record<string, string>>({});
+
+    const { currentUser } = useMessengerState();
+    const userId = currentUser?.id;
 
     const statusRef = useRef<CallStatus>('idle');
 
@@ -102,6 +108,7 @@ export function useVoiceChat(): UseVoiceChatReturn {
         setLocalAudioStream(null);
         setScreenShareStream(null);
         setRemoteTracks([]);
+        setParticipants({});
         consumedProducers.current.clear();
         setIsVideoEnabled(false);
         setIsAudioEnabled(false);
@@ -125,6 +132,7 @@ export function useVoiceChat(): UseVoiceChatReturn {
                 producerId,
                 consumerId,
                 participantId,
+                userId: appData?.userId,
                 mediaStreamTrack: track,
                 sourceType: appData?.sourceType || 'unknown',
             };
@@ -155,6 +163,10 @@ export function useVoiceChat(): UseVoiceChatReturn {
                 sessionId: newSessionId,
                 addLog,
                 onProducerAdded: async (producerId, participantId, appData) => {
+                    if (appData?.userId) {
+                        setParticipants(prev => ({ ...prev, [participantId]: appData.userId }));
+                    }
+
                     if (consumedProducers.current.has(producerId)) return;
                     consumedProducers.current.add(producerId);
 
@@ -247,6 +259,7 @@ export function useVoiceChat(): UseVoiceChatReturn {
             // 3. Initialize Mediasoup Service
             mediasoupServiceRef.current = new MediasoupService({
                 sessionId: newSessionId,
+                userId: userId || undefined,
                 addLog,
                 transformApi: 'encodedStreams',
                 workerManager: workerManager
@@ -267,7 +280,7 @@ export function useVoiceChat(): UseVoiceChatReturn {
         } finally {
             startingRef.current = false;
         }
-    }, [status, addLog, handleTrackAdded, handleTrackRemoved]); // dependencies
+    }, [status, addLog, handleTrackAdded, handleTrackRemoved, userId]); // dependencies
 
     const endCall = useCallback(async () => {
         addLog('Ending call...', 'info');
@@ -356,6 +369,7 @@ export function useVoiceChat(): UseVoiceChatReturn {
         localVideoStream,
         localAudioStream,
         screenShareStream,
-        remoteTracks
+        remoteTracks,
+        participants
     };
 }

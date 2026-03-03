@@ -3,16 +3,20 @@ import { MdClose, MdContentCopy, MdCheck } from 'react-icons/md';
 import { HiMiniVideoCamera, HiMiniMicrophone } from 'react-icons/hi2';
 import { useState } from 'react';
 import { MediaTrackInfo } from '../../../hooks/voice/types/mediasoup';
+import { useMessengerState } from '../../../hooks/useMessengerState';
+import { Avatar } from '@heroui/react';
 
 interface InfoPanelProps {
     sessionId: string | null;
     status: string;
     localUserId: string;
     remoteTracks: MediaTrackInfo[];
+    participants: Record<string, string>;
     onClose: () => void;
 }
 
-export function InfoPanel({ sessionId, status, localUserId, remoteTracks, onClose }: InfoPanelProps) {
+export function InfoPanel({ sessionId, status, localUserId, remoteTracks, participants = {}, onClose }: InfoPanelProps) {
+    const { users } = useMessengerState();
     const [copied, setCopied] = useState(false);
 
     const copySessionId = () => {
@@ -96,29 +100,51 @@ export function InfoPanel({ sessionId, status, localUserId, remoteTracks, onClos
                     <div className="space-y-1.5">
                         {allParticipants.map(pid => {
                             const isLocal = pid === localUserId;
+                            const userId = isLocal ? pid : participants[pid];
+                            const user = userId ? users[userId] : null;
                             const hasVid = videoTracks.some(t => t.participantId === pid);
                             const hasAud = isLocal || audioTracks.some(t => t.participantId === pid);
+                            
                             return (
                                 <div
                                     key={pid}
                                     className="flex items-center justify-between bg-white/5 hover:bg-white/8 border border-white/5 rounded-xl px-3 py-2 transition-colors"
                                 >
                                     <div className="flex items-center gap-2 min-w-0">
-                                        <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
-                                        <span className="text-accent text-[11px] font-mono truncate">
-                                            {isLocal ? `${pid.slice(0, 8)}… (You)` : `${pid.slice(0, 8)}…`}
-                                        </span>
+                                        <div className="relative shrink-0">
+                                            <Avatar className="w-5 h-5 rounded-lg text-[10px]">
+                                                {user?.avatar && <Avatar.Image src={user.avatar} />}
+                                                <Avatar.Fallback>
+                                                    {user?.name ? user.name.slice(0, 2).toUpperCase() : pid.slice(0, 2).toUpperCase()}
+                                                </Avatar.Fallback>
+                                            </Avatar>
+                                            <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-[#1a1a1b] bg-green-500" />
+                                        </div>
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="text-white text-[11px] font-medium truncate">
+                                                {isLocal ? `${user?.name || 'You'} (Me)` : (user?.name || `Peer ${pid.slice(0, 4)}…`)}
+                                            </span>
+                                            <span className="text-neutral-500 text-[9px] font-mono leading-none">
+                                                {pid.slice(0, 8)}…
+                                            </span>
+                                        </div>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
                                         {hasVid && (
-                                            <span title="Video" className="bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded px-1.5 py-0.5 text-[9px] font-semibold flex items-center gap-0.5">
-                                                <HiMiniVideoCamera size={9} /> VID
-                                            </span>
+                                            <Tooltip delay={0}>
+                                                <span className="w-6 h-6 flex items-center justify-center bg-blue-500/10 text-blue-400 rounded-lg">
+                                                    <HiMiniVideoCamera size={13} />
+                                                </span>
+                                                <Tooltip.Content>Video active</Tooltip.Content>
+                                            </Tooltip>
                                         )}
                                         {hasAud && (
-                                            <span title="Audio" className="bg-green-500/20 text-green-400 border border-green-500/20 rounded px-1.5 py-0.5 text-[9px] font-semibold flex items-center gap-0.5">
-                                                <HiMiniMicrophone size={9} /> AUD
-                                            </span>
+                                            <Tooltip delay={0}>
+                                                <span className="w-6 h-6 flex items-center justify-center bg-green-500/10 text-green-400 rounded-lg">
+                                                    <HiMiniMicrophone size={13} />
+                                                </span>
+                                                <Tooltip.Content>Audio active</Tooltip.Content>
+                                            </Tooltip>
                                         )}
                                     </div>
                                 </div>

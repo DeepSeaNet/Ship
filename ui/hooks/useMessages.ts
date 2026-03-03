@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Message } from './messengerTypes';
-import { useMessengerState } from './useMessengerState';
+import { formatChatTime, useMessengerState } from './useMessengerState';
 import { invoke } from '@tauri-apps/api/core';
 
 // Helper for media URLs
@@ -47,9 +47,7 @@ export function useMessages(chatId: string | null) {
           senderId,
           senderName,
           content: msg.text || msg.content || '',
-          timestamp: msg.timestamp
-            ? new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: formatChatTime(new Date(msg.timestamp * 1000).toISOString()),
           isOwn: senderId === localStorage.getItem('userId'),
           status: 'sent',
           media_name: msg.media_name,

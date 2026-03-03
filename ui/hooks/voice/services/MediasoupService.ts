@@ -32,6 +32,7 @@ interface WebSocketMessage {
 
 export interface MediasoupServiceOptions {
   sessionId: string
+  userId?: string
   addLog: LoggerFunction
   onTransportsInitialized?: () => void
   transformApi: TransformApi
@@ -52,11 +53,13 @@ export class MediasoupService {
   private onTransportsInitialized?: () => void
   private transformApi: TransformApi
   private sessionId: string
+  private userId?: string
   private workerManager: WorkerManager
 
   constructor(options: MediasoupServiceOptions) {
     this.addLog = options.addLog
     this.sessionId = options.sessionId
+    this.userId = options.userId
     this.transformApi = options.transformApi
     this.onTransportsInitialized = options.onTransportsInitialized
     this.workerManager = options.workerManager
@@ -194,7 +197,7 @@ export class MediasoupService {
     try {
       const producer = await this.sendTransport.produce({
         track,
-        appData: { sourceType, mediaType: track.kind, shared: true },
+        appData: { sourceType, mediaType: track.kind, shared: true, userId: this.userId },
       })
       this.producers.set(track.kind, producer)
       this.addLog(`Producer ${producer.id} created (${track.kind})`, 'success')
