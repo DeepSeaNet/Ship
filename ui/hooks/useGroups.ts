@@ -50,8 +50,6 @@ export function useGroups() {
                 clientId: userId,
                 groupName: groupId,
             });
-
-            toast('User invited successfully', { variant: 'success' });
             return true;
         } catch (err) {
             console.error('Error inviting user:', err);
