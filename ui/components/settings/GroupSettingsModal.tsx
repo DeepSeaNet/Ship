@@ -14,17 +14,11 @@ import {
     toast,
 } from '@heroui/react';
 import {
-    Person,
     Shield,
     Xmark,
     TrashBin,
     Gear,
-    Copy,
-    ChevronDown,
-    PersonPlus,
-    Lock,
-    Globe,
-    Magnifier,
+    PersonPlus
 } from '@gravity-ui/icons';
 import { useState, useEffect, useCallback } from 'react';
 import { useGroups } from '@/hooks/useGroups';

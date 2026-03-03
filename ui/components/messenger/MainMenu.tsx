@@ -28,7 +28,7 @@ function MessengerContent() {
     <div className="flex h-screen bg-background overflow-hidden gap-4 p-4">
       {/* Navigation Sidebar - Minimal icons only */}
       <div className="w-16 rounded-2xl border border-border flex flex-col items-center py-4 gap-4">
-        <button className="w-12 h-12 rounded-xl bg-on-surface text-accent-foreground flex items-center justify-center font-bold hover:bg-on-surface-hover transition">M</button>
+        <button className="w-12 h-12 rounded-xl bg-on-surface text-accent flex items-center justify-center font-bold hover:bg-on-surface-hover transition">M</button>
         <div className="flex flex-col gap-3 mt-2">
           <button className="w-10 h-10 rounded-lg hover:bg-on-surface flex items-center justify-center transition text-muted">
             <SquareFill className="w-5 h-5" />

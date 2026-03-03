@@ -296,9 +296,19 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
             addMessage(chatId, message);
             break;
           }
+          case 'leave_group':
           case 'join_group':
           case 'create_group':
             fetchChats();
+            if (payload.type === 'leave_group') {
+              const leftGroupId = payload.data.group_id;
+              setUIState(prev => {
+                if (prev.activeChatId === leftGroupId || prev.activeGroupId === leftGroupId) {
+                  return { ...prev, activeChatId: null, activeGroupId: null };
+                }
+                return prev;
+              });
+            }
             break;
           case 'group_config_updated': {
             const groupData = payload.data;
@@ -334,6 +344,15 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
                   description: groupData.description ?? c.description,
                   avatar: createMediaUrl(groupData.avatar) ?? c.avatar,
                   members: groupData.members ?? c.members,
+                  owner_id: groupData.owner_id ?? c.owner_id,
+                  admins: groupData.admins ?? c.admins,
+                  user_permissions: groupData.user_permissions ?? c.user_permissions,
+                  users_permissions: groupData.users_permisions ?? c.users_permissions,
+                  default_permissions: groupData.default_permissions ?? c.default_permissions,
+                  group_config: {
+                    ...c.group_config,
+                    ...groupData,
+                  } as any,
                 };
               }
               return c;

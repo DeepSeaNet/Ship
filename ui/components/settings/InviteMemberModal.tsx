@@ -10,7 +10,6 @@ import {
     toast,
 } from '@heroui/react';
 import {
-    Xmark,
     Magnifier,
     PersonPlus,
 } from '@gravity-ui/icons';
