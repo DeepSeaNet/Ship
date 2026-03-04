@@ -56,6 +56,16 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
+  const uiStateRef = useRef(uiState);
+  useEffect(() => {
+    uiStateRef.current = uiState;
+  }, [uiState]);
+
+  const chatsRef = useRef<Chat[]>(chats);
+  useEffect(() => {
+    chatsRef.current = chats;
+  }, [chats]);
+
   // --- Fetchers ---
 
   const fetchChats = useCallback(async () => {
@@ -141,19 +151,17 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
   // --- Actions ---
 
   const setActiveChatId = (id: string | null) => {
+    const isGroup = chatsRef.current.find(c => c.id === id)?.isGroup || false;
+    console.log('Setting active chat to:', id, 'isGroup:', isGroup);
     setUIState((prev) => ({
       ...prev,
       activeChatId: id,
-      activeGroupId: null,
+      activeGroupId: isGroup ? id : null,
     }));
   };
 
   const setActiveGroupId = (id: string | null) => {
-    setUIState((prev) => ({
-      ...prev,
-      activeGroupId: id,
-      activeChatId: null,
-    }));
+    setActiveChatId(id);
   };
 
   const toggleRightSidebar = () => {
@@ -272,6 +280,7 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
           case 'new_message': {
             const data = payload.data;
             const chatId = data.group_id || data.chat_id;
+            const chat = chats.find(chat => chat.id === chatId);
             const senderId = data.sender_id?.toString() || '0';
             const sender = users[senderId];
 
@@ -294,6 +303,22 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
               is_file: data.is_file,
             };
             addMessage(chatId, message);
+            const currentUI = uiStateRef.current;
+            const isCurrentlyActive = currentUI.activeChatId === chatId || currentUI.activeGroupId === chatId;
+
+            if (!isCurrentlyActive && !message.isOwn) {
+              toast(`From ${senderName || senderId}`, {
+                description: `In "${chat?.name || 'Unknown'}": ${message.content}`,
+                variant: "accent",
+                actionProps: {
+                  children: "Open",
+                  onPress: () => {
+                    console.log('Toast Open button clicked for chatId:', chatId);
+                    setActiveChatId(chatId);
+                  },
+                },
+              });
+            }
             break;
           }
           case 'leave_group':

@@ -14,7 +14,7 @@ import './messenger.css';
 function MessengerContent() {
   const { setAnimatingIn } = useMessengerState();
   const [showMessages, setShowMessages] = useState(true);
-  const [showGroupInfo, setShowGroupInfo] = useState(true);
+  const [showGroupInfo, setShowGroupInfo] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {

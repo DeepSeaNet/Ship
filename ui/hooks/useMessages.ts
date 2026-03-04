@@ -39,23 +39,22 @@ export function useMessages(chatId: string | null) {
         const sender = users[senderId];
 
         // If sender name is missing, we'll need to fetch it (handled below)
-        const senderName = msg.sender_name || sender?.name || 'User ' + senderId;
+        const senderName = sender?.name || 'User ' + senderId;
 
         return {
-          id: msg.message_id?.toString() || '',
+          id: msg.id?.toString() || '',
           chatId: msg.chat_id || chatId,
           senderId,
           senderName,
-          content: msg.text || msg.content || '',
+          content: msg.content || '',
           timestamp: formatChatTime(new Date(msg.timestamp * 1000).toISOString()),
           isOwn: senderId === localStorage.getItem('userId'),
           status: 'sent',
           media_name: msg.media_name,
           //media: createMediaUrl(msg.media_data),
-          reply_to: msg.reply_message_id,
+          reply_to: msg.reply_to,
           edited: !!msg.edit_date,
           expires: msg.expires,
-          is_file: msg.is_file,
         };
       });
 

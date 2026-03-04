@@ -4,11 +4,14 @@ import { Button, TextField, InputGroup, Spinner } from '@heroui/react';
 import { Plus, FaceSmile, Microphone, PaperPlane } from '@gravity-ui/icons';
 import { useMessengerState } from '@/hooks/useMessengerState';
 import { useSendMessage } from '@/hooks/useSendMessage';
+import { useChats } from '@/hooks';
 
 export function InputBar() {
   const { uiState } = useMessengerState();
   const { sendMessage, sending } = useSendMessage();
   const [messageContent, setMessageContent] = useState('');
+  const { getChatById } = useChats();
+  const activeChat = uiState.activeChatId ? getChatById(uiState.activeChatId) : null;
 
   const handleSend = () => {
     if (!uiState.activeChatId || !messageContent.trim() || sending) return;
@@ -54,7 +57,7 @@ export function InputBar() {
             value={messageContent}
             onChange={(e) => setMessageContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={!uiState.activeChatId}
+            disabled={!uiState.activeChatId || !activeChat?.user_permissions?.send_messages}
             rows={1}
             className="w-full resize-none px-4 py-2.5 bg-transparent text-field-foreground placeholder:text-field-placeholder text-base max-h-32 leading-relaxed min-h-[44px] disabled:opacity-50"
           />
