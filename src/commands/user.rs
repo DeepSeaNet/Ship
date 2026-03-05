@@ -154,10 +154,14 @@ pub async fn send_typing_status(
 #[tauri::command]
 pub async fn subscribe_to_users(
     user_status: tauri::State<'_, SafeUserStatus>,
+    account: tauri::State<'_, SafeAccount>,
     user_ids: Vec<i64>,
 ) -> Result<(), String> {
     log::debug!("Subscribe to users called");
-
+    let user_ids = user_ids
+        .into_iter()
+        .filter(|&id| id != account.user_id as i64)
+        .collect();
     let mut user_status = user_status.write().await;
 
     if let Some(user_status) = user_status.as_mut() {

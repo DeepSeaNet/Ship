@@ -8,6 +8,7 @@ import { useChats } from '@/hooks/useChats';
 import { GroupSettingsModal } from '../settings/GroupSettingsModal';
 import { invoke } from '@tauri-apps/api/core';
 import { MediaItem } from '@/hooks/messengerTypes';
+import { getStatusColor } from '@/hooks/useContacts';
 
 interface RightSidebarProps {
   onClose?: () => void;
@@ -127,18 +128,6 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
     const role = activeChat.owner_id === id ? 'owner' : (activeChat.admins?.includes(id) ? 'admin' : 'member');
     return { ...user, role };
   });
-
-  const getStatusColor = (status?: string) => {
-    console.log(status);
-    switch (status?.toLowerCase()) {
-      case 'online': return 'success' as const;
-      case 'away': return 'warning' as const;
-      case 'dnd':
-      case 'do not disturb': return 'danger' as const;
-      case 'offline': return 'default' as const;
-      default: return 'default' as const;
-    }
-  };
 
   return (
     <div className="w-96 bg-surface flex flex-col h-full border-l border-border">

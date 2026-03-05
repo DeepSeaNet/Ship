@@ -25,7 +25,7 @@ use tokio_stream::wrappers::ReceiverStream;
 /// Клиент для работы со статусами пользователя
 pub struct UserStatusClient {
     user_id: i64,
-    online_status: OnlineStatus,
+    online_status: Arc<RwLock<OnlineStatus>>,
     backend: Backend,
     // Кэш статусов пользователей
     status_cache: Arc<RwLock<HashMap<i64, UserStatus>>>,
@@ -60,7 +60,7 @@ impl UserStatusClient {
         // Создаем клиент
         let client = Self {
             user_id,
-            online_status: OnlineStatus::Online,
+            online_status: Arc::new(RwLock::new(OnlineStatus::Online)),
             status_cache,
             subscriptions: subscriptions.clone(),
             app_handler,
@@ -79,6 +79,8 @@ impl UserStatusClient {
         let status = OnlineStatus::from_str_name(&status).unwrap_or(OnlineStatus::Offline);
         self.backend.update_online_status(status).await?;
         self.backend.send_online_status(status).await?;
+        let mut online_status = self.online_status.write().await;
+        *online_status = status;
         Ok(())
     }
 
@@ -167,7 +169,9 @@ impl UserStatusClient {
         }
 
         // Отправляем обновленный список подписок в стрим
-        self.backend.send_online_status(self.online_status).await?;
+        self.backend
+            .send_online_status(*self.online_status.read().await)
+            .await?;
 
         Ok(())
     }
@@ -181,7 +185,9 @@ impl UserStatusClient {
         }
 
         // Отправляем обновленный список подписок в стрим
-        self.backend.send_online_status(self.online_status).await?;
+        self.backend
+            .send_online_status(*self.online_status.read().await)
+            .await?;
 
         Ok(())
     }
@@ -280,6 +286,7 @@ impl UserStatusClient {
 
         // Запускаем таймер для периодического обновления статуса
         let status_tx = self.backend.status_tx.clone();
+        let online_status = self.online_status.clone();
         tokio::spawn(async move {
             let mut interval = interval(Duration::from_secs(30));
 
@@ -297,7 +304,7 @@ impl UserStatusClient {
                 // Создаем обновление статуса
                 let online_request = OnlineStatusRequest {
                     user_id,
-                    status: OnlineStatus::Online as i32,
+                    status: *online_status.read().await as i32,
                     timestamp: Some(timestamp),
                     subscribe_to_users: Vec::new(), // Пустой список, т.к. это просто пинг
                 };

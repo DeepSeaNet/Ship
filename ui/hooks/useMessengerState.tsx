@@ -230,6 +230,20 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
     });
   };
 
+  const updateMessageId = (chatId: string, oldId: string, newId: string) => {
+    setMessagesByChat((prev) => {
+      const chatMessages = prev[chatId];
+      if (!chatMessages) return prev;
+
+      return {
+        ...prev,
+        [chatId]: chatMessages.map((msg) =>
+          msg.id === oldId ? { ...msg, id: newId } : msg
+        ),
+      };
+    });
+  };
+
   const editMessage = (chatId: string, messageId: string, newContent: string) => {
     setMessagesByChat((prev) => {
       const chatMessages = prev[chatId];
@@ -286,6 +300,8 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
       setChats,
       setUIState,
       editMessage,
+      updateMessageStatus,
+      updateMessageId,
       upsertUser,
     }
   });
@@ -306,6 +322,7 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
     addMessage,
     setMessagesForChat,
     updateMessageStatus,
+    updateMessageId,
     editMessage,
     markChatAsLoaded,
     upsertUser,

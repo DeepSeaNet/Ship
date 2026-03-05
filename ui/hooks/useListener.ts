@@ -52,8 +52,10 @@ export function useListener({ currentUser, uiStateRef, chatsRef, usersRef, actio
 
       // Current User Initialization
       const userId = localStorage.getItem('userId');
-      if (userId && isMounted) {
-        actions.setCurrentUser({ id: userId, name: 'You' });
+      const username = localStorage.getItem('username');
+      if (userId && username && isMounted) {
+        actions.setCurrentUser({ id: userId, name: username, status: 'Online' });
+        actions.upsertUser({ id: userId, name: username, status: 'Online' });
       }
 
       // Cleanup existing listener

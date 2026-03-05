@@ -7,11 +7,14 @@ import { LeftSidebar } from './LeftSidebar';
 import { ChatArea } from './ChatArea';
 import { RightSidebar } from './RightSidebar';
 import { SettingsModal } from './SettingsModal';
+import { Avatar, Badge, Dropdown, Label } from '@heroui/react';
 import { SquareFill, Persons, Comment, Gear } from '@gravity-ui/icons';
+import { invoke } from '@tauri-apps/api/core';
 import './messenger.css';
+import { getStatusColor, handleStatusChange } from '@/hooks/useContacts';
 
 function MessengerContent() {
-  const { setAnimatingIn } = useMessengerState();
+  const { setAnimatingIn, currentUser, upsertUser } = useMessengerState();
   const [showMessages, setShowMessages] = useState(true);
   const [showGroupInfo, setShowGroupInfo] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -27,7 +30,61 @@ function MessengerContent() {
     <div className="flex h-screen bg-background overflow-hidden gap-4 p-4">
       {/* Navigation Sidebar - Minimal icons only */}
       <div className="w-16 rounded-2xl border border-border flex flex-col items-center py-4 gap-4">
-        <button className="w-12 h-12 rounded-xl bg-on-surface text-accent flex items-center justify-center font-bold hover:bg-on-surface-hover transition">M</button>
+        <Dropdown>
+          <Dropdown.Trigger>
+            <div className="cursor-pointer">
+              <Badge.Anchor>
+                <Avatar size="md" className="shadow-lg border-2 border-surface">
+                  {currentUser?.avatar && <Avatar.Image src={currentUser.avatar} alt={currentUser.name} />}
+                  <Avatar.Fallback className="bg-gradient-to-br from-accent to-accent-surface text-accent-foreground font-bold">
+                    {currentUser?.name?.slice(0, 1).toUpperCase() || 'U'}
+                  </Avatar.Fallback>
+                </Avatar>
+                <Badge
+                  color={getStatusColor(currentUser?.status)}
+                  placement="bottom-right"
+                  size="sm"
+                  variant="primary"
+                  className="border-2 border-surface cursor-pointer hover:scale-110 transition-transform"
+                />
+              </Badge.Anchor>
+            </div>
+          </Dropdown.Trigger>
+          <Dropdown.Popover placement="right top" offset={12} className="min-w-[150px]">
+            <Dropdown.Menu
+              aria-label="Status Actions"
+              onAction={(key) => handleStatusChange(currentUser!, upsertUser, key.toString().toUpperCase())}
+            >
+              <Dropdown.Section>
+                <Dropdown.Item id="Online" textValue="Online">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-success" />
+                    <Label>Online</Label>
+                  </div>
+                </Dropdown.Item>
+                <Dropdown.Item id="Away" textValue="Away">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-warning" />
+                    <Label>Away</Label>
+                  </div>
+                </Dropdown.Item>
+                <Dropdown.Item id="Busy" textValue="Busy">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-danger" />
+                    <Label>Do Not Disturb</Label>
+                  </div>
+                </Dropdown.Item>
+                <Dropdown.Item id="Offline" textValue="Invisible">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-default" />
+                    <Label>Invisible</Label>
+                  </div>
+                </Dropdown.Item>
+              </Dropdown.Section>
+            </Dropdown.Menu>
+          </Dropdown.Popover>
+        </Dropdown>
+
         <div className="flex flex-col gap-3 mt-2">
           <button className="w-10 h-10 rounded-lg hover:bg-on-surface flex items-center justify-center transition text-muted">
             <SquareFill className="w-5 h-5" />

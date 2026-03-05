@@ -51,6 +51,7 @@ export function useSendMessage() {
     addMessage(chatId, newMessage);
 
     try {
+      console.log(newMessage)
       const messageId = await invoke<string>('send_group_message', {
         groupId: chatId,
         text: content.trim(),
@@ -59,6 +60,7 @@ export function useSendMessage() {
         editMessageId: options.editId || null,
         expires: options.expires || null,
       });
+      
 
       // Update message with real ID and status
       updateMessageStatus(chatId, tempId, 'sent');
