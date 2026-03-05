@@ -11,19 +11,20 @@ import {
     Switch,
     Label,
     Separator,
-    toast,
 } from '@heroui/react';
 import {
     Shield,
     Xmark,
     TrashBin,
     Gear,
-    PersonPlus
+    PersonPlus,
+    Bell
 } from '@gravity-ui/icons';
 import { useState, useEffect, useCallback } from 'react';
 import { useGroups } from '@/hooks/useGroups';
 import { Chat, Member, Permissions } from '@/hooks/messengerTypes';
 import { useMessengerState } from '@/hooks/useMessengerState';
+import { useNotificationSettings } from '@/hooks/useNotificationSettings';
 import { InviteMemberModal } from './InviteMemberModal';
 
 interface GroupSettingsModalProps {
@@ -41,6 +42,9 @@ export function GroupSettingsModal({ isOpen, onOpenChange, group }: GroupSetting
         updateMemberPermissions
     } = useGroups();
     const { users } = useMessengerState();
+    const { settings: globalNotifs, updateChatSetting } = useNotificationSettings();
+    
+    const chatSettings = globalNotifs.chatOverrides[group.id] || { muted: false, mentionsOnly: false };
 
     // State for general settings
     const [name, setName] = useState(group.name);
@@ -93,9 +97,6 @@ export function GroupSettingsModal({ isOpen, onOpenChange, group }: GroupSetting
             allowMessages: defaultPerms.send_messages,
         });
         setIsLoading(false);
-        if (success) {
-            toast('Group settings saved', { variant: 'success' });
-        }
     };
 
     const handleSavePermissions = async () => {
@@ -109,9 +110,6 @@ export function GroupSettingsModal({ isOpen, onOpenChange, group }: GroupSetting
             allowVideoMessages: defaultPerms.allow_video_messages,
         });
         setIsLoading(false);
-        if (success) {
-            toast('Default permissions saved', { variant: 'success' });
-        }
     };
 
     const isOwner = group.owner_id?.toString() === localStorage.getItem('userId');
@@ -166,6 +164,11 @@ export function GroupSettingsModal({ isOpen, onOpenChange, group }: GroupSetting
                                         <Tabs.Tab id="permissions" className="justify-start px-3 py-2 text-sm font-medium">
                                             <Shield className="w-4 h-4 mr-2" />
                                             Permissions
+                                            <Tabs.Indicator />
+                                        </Tabs.Tab>
+                                        <Tabs.Tab id="notifications" className="justify-start px-3 py-2 text-sm font-medium">
+                                            <Bell className="w-4 h-4 mr-2" />
+                                            Notifications
                                             <Tabs.Indicator />
                                         </Tabs.Tab>
                                     </Tabs.List>
@@ -330,7 +333,7 @@ export function GroupSettingsModal({ isOpen, onOpenChange, group }: GroupSetting
                                                     </div>
                                                     <Switch
                                                         isSelected={(defaultPerms as any)[key]}
-                                                        onChange={(val: boolean) => setDefaultPerms(prev => ({ ...prev, [key]: val }))}
+                                                        onChange={(val: boolean) => setDefaultPerms((prev: any) => ({ ...prev, [key]: val }))}
                                                         isDisabled={!isOwner}
                                                     >
                                                         <Switch.Control>
@@ -350,6 +353,45 @@ export function GroupSettingsModal({ isOpen, onOpenChange, group }: GroupSetting
                                             >
                                                 Save Permissions
                                             </Button>
+                                        </div>
+                                    </Tabs.Panel>
+
+                                    <Tabs.Panel id="notifications" className="space-y-6 max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                        <div>
+                                            <h3 className="text-2xl font-bold mb-1">Group Notifications</h3>
+                                            <p className="text-muted text-sm">Manage how you receive alerts for this group.</p>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between p-4 border border-border rounded-xl bg-surface/30">
+                                                <div className="space-y-0.5">
+                                                    <Label className="text-sm font-medium">Mute Notifications</Label>
+                                                    <p className="text-xs text-muted">Stop receiving all alerts from this group.</p>
+                                                </div>
+                                                <Switch
+                                                    isSelected={chatSettings.muted}
+                                                    onChange={(val: boolean) => updateChatSetting(group.id, 'muted', val)}
+                                                >
+                                                    <Switch.Control>
+                                                        <Switch.Thumb />
+                                                    </Switch.Control>
+                                                </Switch>
+                                            </div>
+
+                                            <div className={`flex items-center justify-between p-4 border border-border rounded-xl bg-surface/30 transition-opacity ${chatSettings.muted ? 'opacity-40 pointer-events-none' : ''}`}>
+                                                <div className="space-y-0.5">
+                                                    <Label className="text-sm font-medium">Mentions Only</Label>
+                                                    <p className="text-xs text-muted">Only notify when someone @mentions you.</p>
+                                                </div>
+                                                <Switch
+                                                    isSelected={chatSettings.mentionsOnly}
+                                                    onChange={(val: boolean) => updateChatSetting(group.id, 'mentionsOnly', val)}
+                                                >
+                                                    <Switch.Control>
+                                                        <Switch.Thumb />
+                                                    </Switch.Control>
+                                                </Switch>
+                                            </div>
                                         </div>
                                     </Tabs.Panel>
                                 </div>

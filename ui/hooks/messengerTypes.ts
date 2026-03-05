@@ -119,6 +119,7 @@ export interface MessengerContextType {
   addMessage: (chatId: string, message: Message) => void;
   setMessagesForChat: (chatId: string, messages: Message[]) => void;
   updateMessageStatus: (chatId: string, messageId: string, status: Message['status']) => void;
+  editMessage: (chatId: string, messageId: string, newContent: string) => void;
   markChatAsLoaded: (chatId: string) => void;
   upsertUser: (user: User) => void;
 

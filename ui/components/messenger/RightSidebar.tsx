@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ScrollShadow, Avatar, Spinner } from '@heroui/react';
+import { ScrollShadow, Avatar, Spinner, Badge } from '@heroui/react';
 import { Picture, MusicNote, Video, FileText, PersonPlus, ChevronDown, ChevronRight, Xmark, Gear } from '@gravity-ui/icons';
 import { useMessengerState } from '@/hooks/useMessengerState';
 import { useChats } from '@/hooks/useChats';
@@ -127,6 +127,18 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
     const role = activeChat.owner_id === id ? 'owner' : (activeChat.admins?.includes(id) ? 'admin' : 'member');
     return { ...user, role };
   });
+
+  const getStatusColor = (status?: string) => {
+    console.log(status);
+    switch (status?.toLowerCase()) {
+      case 'online': return 'success' as const;
+      case 'away': return 'warning' as const;
+      case 'dnd':
+      case 'do not disturb': return 'danger' as const;
+      case 'offline': return 'default' as const;
+      default: return 'default' as const;
+    }
+  };
 
   return (
     <div className="w-96 bg-surface flex flex-col h-full border-l border-border">
@@ -346,10 +358,19 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
                     className="flex items-center gap-3"
                   >
                     <div className="relative">
-                      <Avatar size="md">
-                        {member.avatar && <Avatar.Image src={member.avatar} alt={member.name} />}
-                        <Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
-                      </Avatar>
+                      <Badge.Anchor>
+                        <Avatar size="md">
+                          {member.avatar && <Avatar.Image src={member.avatar} alt={member.name} />}
+                          <Avatar.Fallback>{member.name.slice(0, 1).toUpperCase()}</Avatar.Fallback>
+                        </Avatar>
+                        <Badge
+                          color={getStatusColor(member.status)}
+                          placement="bottom-right"
+                          size="sm"
+                          variant="primary"
+                          className="border-2 border-surface"
+                        />
+                      </Badge.Anchor>
                       {member.role === 'owner' && <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full border-2 border-surface z-10" title="Owner" />}
                       {member.role === 'admin' && <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-surface z-10" title="Admin" />}
                     </div>

@@ -5,7 +5,6 @@ import { useMessengerState, MessengerProvider } from '@/hooks/useMessengerState'
 import { TopBar } from './TopBar';
 import { LeftSidebar } from './LeftSidebar';
 import { ChatArea } from './ChatArea';
-import { InputBar } from './InputBar';
 import { RightSidebar } from './RightSidebar';
 import { SettingsModal } from './SettingsModal';
 import { SquareFill, Persons, Comment, Gear } from '@gravity-ui/icons';
@@ -66,7 +65,6 @@ function MessengerContent() {
       <div className="flex-1 bg-background rounded-2xl flex flex-col overflow-hidden">
         <TopBar onInfoClick={() => setShowGroupInfo(!showGroupInfo)} />
         <ChatArea />
-        <InputBar />
       </div>
 
       {/* Right Panel - Group Info Sidebar (Wider with Animation) */}

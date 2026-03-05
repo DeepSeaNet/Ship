@@ -5,6 +5,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { toast } from '@heroui/react';
 import { UIState, MessengerContextType, Message, User, Chat, Group } from './messengerTypes';
+import { useListener } from './useListener';
 
 // --- Helper Functions ---
 
@@ -67,6 +68,11 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
   useEffect(() => {
     chatsRef.current = chats;
   }, [chats]);
+
+  const usersRef = useRef<Record<string, User>>(users);
+  useEffect(() => {
+    usersRef.current = users;
+  }, [users]);
 
   // --- Fetchers ---
 
@@ -224,6 +230,19 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
     });
   };
 
+  const editMessage = (chatId: string, messageId: string, newContent: string) => {
+    setMessagesByChat((prev) => {
+      const chatMessages = prev[chatId];
+      if (!chatMessages) return prev;
+      return {
+        ...prev,
+        [chatId]: chatMessages.map((msg) =>
+          msg.id === messageId ? { ...msg, content: newContent, edited: true } : msg
+        ),
+      };
+    });
+  };
+
   const markChatAsLoaded = (chatId: string) => {
     setUIState((prev) => {
       if (prev.loadedChatIds.includes(chatId)) return prev;
@@ -239,175 +258,37 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
       ...prev,
       [user.id]: { ...(prev[user.id] || {}), ...user },
     }));
+
+    // Also update contact status if exists
+    setContacts((prev) =>
+      prev.map((c) =>
+        String(c.user_id) === user.id
+          ? { ...c, status: user.status || c.status }
+          : c
+      )
+    );
   };
 
   // --- Event Listener ---
-  const unlistenRef = useRef<(() => void) | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const setupListener = async () => {
-      // Initial Fetch
-      setIsLoading(true);
-      await Promise.all([
-        fetchChats(),
-        fetchContacts()
-      ]);
-      if (!isMounted) return;
-      setIsLoading(false);
-
-      // Fetch current user
-      const userId = localStorage.getItem('userId');
-      if (userId && isMounted) {
-        setCurrentUser({ id: userId, name: 'You' });
-      }
-
-      // Cleanup existing listener before creating a new one
-      if (unlistenRef.current) {
-        unlistenRef.current();
-        unlistenRef.current = null;
-      }
-
-      const unlisten = await listen<any>('server-event', (event) => {
-        if (!isMounted) return;
-
-        const payload = event.payload;
-        console.log('Received server event:', payload);
-
-        if (!payload || !payload.type) return;
-
-        switch (payload.type) {
-          case 'new_group_message':
-          case 'new_message': {
-            const data = payload.data;
-            const chatId = data.group_id || data.chat_id;
-            const chat = chats.find(chat => chat.id === chatId);
-            const senderId = data.sender_id?.toString() || '0';
-            const sender = users[senderId];
-
-            // If sender name is missing, we'll need to fetch it (handled below)
-            const senderName = data.sender_name || sender?.name || 'User ' + senderId;
-            const message: Message = {
-              id: data.message_id,
-              chatId: chatId,
-              senderId,
-              senderName,
-              content: data.text,
-              timestamp: new Date(data.timestamp * 1000).toISOString(),
-              isOwn: data.sender_id === currentUser?.id,
-              status: 'sent',
-              media: data.media,
-              media_name: data.media_name,
-              reply_to: data.reply_to,
-              edited: !!data.edit_date,
-              expires: data.expires,
-              is_file: data.is_file,
-            };
-            addMessage(chatId, message);
-            const currentUI = uiStateRef.current;
-            const isCurrentlyActive = currentUI.activeChatId === chatId || currentUI.activeGroupId === chatId;
-
-            if (!isCurrentlyActive && !message.isOwn) {
-              toast(`From ${senderName || senderId}`, {
-                description: `In "${chat?.name || 'Unknown'}": ${message.content}`,
-                variant: "accent",
-                actionProps: {
-                  children: "Open",
-                  onPress: () => {
-                    console.log('Toast Open button clicked for chatId:', chatId);
-                    setActiveChatId(chatId);
-                  },
-                },
-              });
-            }
-            break;
-          }
-          case 'leave_group':
-          case 'join_group':
-          case 'create_group':
-            fetchChats();
-            if (payload.type === 'leave_group') {
-              const leftGroupId = payload.data.group_id;
-              setUIState(prev => {
-                if (prev.activeChatId === leftGroupId || prev.activeGroupId === leftGroupId) {
-                  return { ...prev, activeChatId: null, activeGroupId: null };
-                }
-                return prev;
-              });
-            }
-            break;
-          case 'group_config_updated': {
-            const groupData = payload.data;
-            const groupId = groupData.group_id;
-
-            setGroups(prevGroups => prevGroups.map(g => {
-              if (String(g.id) === String(groupId)) {
-                return {
-                  ...g,
-                  name: groupData.group_name ?? g.name,
-                  description: groupData.description ?? g.description,
-                  avatar: createMediaUrl(groupData.avatar) ?? g.avatar,
-                  owner_id: groupData.owner_id ?? g.owner_id,
-                  admins: groupData.admins ?? g.admins,
-                  members: groupData.members ?? g.members,
-                  group_config: {
-                    ...g.group_config,
-                    ...groupData,
-                  } as any,
-                  user_permissions: groupData.user_permissions ?? g.user_permissions,
-                  users_permissions: groupData.users_permisions ?? g.users_permissions,
-                  default_permissions: groupData.default_permissions ?? g.default_permissions,
-                };
-              }
-              return g;
-            }));
-
-            setChats(prevChats => prevChats.map(c => {
-              if (c.isGroup && String(c.id) === String(groupId)) {
-                return {
-                  ...c,
-                  name: groupData.group_name ?? c.name,
-                  description: groupData.description ?? c.description,
-                  avatar: createMediaUrl(groupData.avatar) ?? c.avatar,
-                  members: groupData.members ?? c.members,
-                  owner_id: groupData.owner_id ?? c.owner_id,
-                  admins: groupData.admins ?? c.admins,
-                  user_permissions: groupData.user_permissions ?? c.user_permissions,
-                  users_permissions: groupData.users_permisions ?? c.users_permissions,
-                  default_permissions: groupData.default_permissions ?? c.default_permissions,
-                  group_config: {
-                    ...c.group_config,
-                    ...groupData,
-                  } as any,
-                };
-              }
-              return c;
-            }));
-            break;
-          }
-          default:
-            console.log('Unhandled event type:', payload.type);
-        }
-      });
-
-      if (!isMounted) {
-        unlisten();
-      } else {
-        unlistenRef.current = unlisten;
-      }
-    };
-
-    setupListener();
-
-    return () => {
-      isMounted = false;
-      if (unlistenRef.current) {
-        unlistenRef.current();
-        unlistenRef.current = null;
-      }
-    };
-  }, [fetchChats, currentUser?.id]);
+  useListener({
+    currentUser,
+    uiStateRef,
+    chatsRef,
+    usersRef,
+    actions: {
+      addMessage,
+      setActiveChatId,
+      fetchChats,
+      fetchContacts,
+      setIsLoading,
+      setCurrentUser,
+      setGroups,
+      setChats,
+      setUIState,
+      editMessage,
+      upsertUser,
+    }
+  });
   // Re-run if methods change, though useCallback handles stability
 
   const value: MessengerContextType = {
@@ -425,6 +306,7 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
     addMessage,
     setMessagesForChat,
     updateMessageStatus,
+    editMessage,
     markChatAsLoaded,
     upsertUser,
     fetchChats,

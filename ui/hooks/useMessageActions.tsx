@@ -1,22 +1,36 @@
 'use client';
 import { ReactNode } from 'react';
 import { Message } from './messengerTypes';
-import { TrashBin, Copy, ArrowLeft } from '@gravity-ui/icons';
+import { TrashBin, Copy, ArrowLeft, Pencil } from '@gravity-ui/icons';
 
 export interface MessageAction {
     id: string;
     label: string;
     icon: ReactNode;
-    // Using 'color' name in my interface but will map to 'variant' or 'color' in component as needed
     intent?: "danger" | "default";
     shortcut?: string;
 }
 
-export function useMessageActions(message: Message) {
+interface UseMessageActionsOptions {
+    onReply?: (msg: Message) => void;
+    onEdit?: (msg: Message) => void;
+    onDelete?: (msg: Message) => void;
+}
+
+export function useMessageActions(
+    message: Message,
+    { onReply, onEdit, onDelete }: UseMessageActionsOptions = {}
+) {
     const handleAction = (key: string | number) => {
         if (key === 'copy') {
             navigator.clipboard.writeText(message.content)
                 .catch(err => console.error('Failed to copy', err));
+        } else if (key === 'reply') {
+            onReply?.(message);
+        } else if (key === 'edit') {
+            onEdit?.(message);
+        } else if (key === 'delete') {
+            onDelete?.(message);
         }
     };
 
@@ -36,6 +50,12 @@ export function useMessageActions(message: Message) {
     ];
 
     if (message.isOwn) {
+        actions.push({
+            id: 'edit',
+            label: 'Edit Message',
+            icon: <Pencil className="size-4 shrink-0 text-muted" />,
+            shortcut: 'E'
+        });
         actions.push({
             id: 'delete',
             label: 'Delete Message',

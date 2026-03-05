@@ -1,14 +1,17 @@
 import { useRef, useEffect } from 'react';
-import { ScrollShadow, Spinner, Avatar } from '@heroui/react';
+import { ScrollShadow, Spinner } from '@heroui/react';
 import { useMessengerState } from '@/hooks/useMessengerState';
 import { useChats } from '@/hooks/useChats';
 import { useMessages } from '@/hooks/useMessages';
+import { useComposeState } from '@/hooks/useComposeState';
 import { MessageItem } from './MessageItem';
+import { InputBar } from './InputBar';
 
 export function ChatArea() {
-  const { uiState } = useMessengerState();
+  const { uiState, editMessage } = useMessengerState();
   const { getChatById } = useChats();
   const { messages, loading, loadMore, hasMore } = useMessages(uiState.activeChatId);
+  const { replyTo, editTarget, setReplyTo, setEditTarget, clearReply, clearEdit } = useComposeState();
   const scrollRef = useRef<HTMLDivElement>(null);
   const lastScrollHeight = useRef<number>(0);
   const isInitialLoad = useRef<boolean>(true);
@@ -27,12 +30,10 @@ export function ChatArea() {
       });
       isInitialLoad.current = false;
     } else if (lastScrollHeight.current > 0) {
-      // Maintain scroll position after loading more
       const heightDiff = scrollContainer.scrollHeight - lastScrollHeight.current;
       scrollContainer.scrollTop = heightDiff;
       lastScrollHeight.current = 0;
     } else {
-      // Scroll to bottom on new messages
       const isNearBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 100;
       if (isNearBottom) {
         scrollContainer.scrollTo({
@@ -53,6 +54,8 @@ export function ChatArea() {
 
   useEffect(() => {
     isInitialLoad.current = true;
+    clearReply();
+    clearEdit();
   }, [uiState.activeChatId]);
 
   if (!activeChat) {
@@ -89,11 +92,24 @@ export function ChatArea() {
         ) : (
           <div className="space-y-1 flex flex-col transition-all duration-500">
             {messages.map((msg) => (
-              <MessageItem key={msg.id} message={msg} />
+              <MessageItem
+                key={msg.id}
+                message={msg}
+                onReply={setReplyTo}
+                onEdit={(m) => { setEditTarget(m); }}
+              />
             ))}
           </div>
         )}
       </ScrollShadow>
+
+      {/* Input Bar */}
+      <InputBar
+        replyTo={replyTo}
+        editTarget={editTarget}
+        onClearReply={clearReply}
+        onClearEdit={clearEdit}
+      />
     </div>
   );
 }

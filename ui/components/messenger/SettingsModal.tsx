@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useNotificationSettings } from '@/hooks/useNotificationSettings';
 
 import {
     Modal,
@@ -44,6 +45,7 @@ interface SettingsModalProps {
 
 export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const { settings: notifSettings, updateSetting: updateNotif, resetSettings: resetNotif } = useNotificationSettings();
 
     return (
 
@@ -405,7 +407,11 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
                                                             <span className="text-sm font-medium">Glassmorphism</span>
                                                             <p className="text-xs text-muted">Apply frozen glass effects to panels and menus.</p>
                                                         </div>
-                                                        <Switch defaultSelected />
+                                                        <Switch defaultSelected>
+                                                            <Switch.Control>
+                                                                <Switch.Thumb />
+                                                            </Switch.Control>
+                                                        </Switch>
                                                     </div>
                                                 </Card>
                                                 <Card className="bg-surface/30 border border-border/50 p-4">
@@ -414,7 +420,11 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
                                                             <span className="text-sm font-medium">Smooth Transitions</span>
                                                             <p className="text-xs text-muted">Enable fluid animations across the app.</p>
                                                         </div>
-                                                        <Switch defaultSelected />
+                                                        <Switch defaultSelected>
+                                                            <Switch.Control>
+                                                                <Switch.Thumb />
+                                                            </Switch.Control>
+                                                        </Switch>
                                                     </div>
                                                 </Card>
                                             </div>
@@ -433,7 +443,11 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
                                                     <span className="font-medium">Two-factor Authentication</span>
                                                     <p className="text-xs text-muted">Add an extra layer of security.</p>
                                                 </div>
-                                                <Switch />
+                                                <Switch>
+                                                    <Switch.Control>
+                                                        <Switch.Thumb />
+                                                    </Switch.Control>
+                                                </Switch>
                                             </div>
 
                                             <div className="space-y-4 pt-4">
@@ -454,33 +468,140 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
                                     <Tabs.Panel id="notifications" className="space-y-6 max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-300">
                                         <div>
                                             <h3 className="text-2xl font-bold mb-1">Notifications</h3>
-                                            <p className="text-muted">Manage how you receive alerts.</p>
+                                            <p className="text-muted text-sm">Control exactly when and how you are alerted.</p>
                                         </div>
 
-                                        <div className="space-y-6">
-                                            <div className="space-y-4">
-                                                <h4 className="font-medium border-b border-border pb-2">Messages</h4>
-                                                <div className="flex items-center justify-between">
-                                                    <Label>Direct Messages</Label>
-                                                    <Switch defaultSelected />
+                                        {/* Do Not Disturb — master toggle */}
+                                        <Card className={`border p-4 transition-colors ${notifSettings.doNotDisturb ? 'border-danger/40 bg-danger/5' : 'border-border/50 bg-surface/30'}`}>
+                                            <div className="flex items-center justify-between gap-4">
+                                                <div className="space-y-0.5">
+                                                    <span className="text-sm font-semibold flex items-center gap-2">
+                                                        <Bell className="size-4" />
+                                                        Do Not Disturb
+                                                    </span>
+                                                    <p className="text-xs text-muted">Silence all notifications until you turn this off.</p>
                                                 </div>
-                                                <div className="flex items-center justify-between">
-                                                    <Label>Group Mentions</Label>
-                                                    <Switch defaultSelected />
-                                                </div>
+                                                <Switch
+                                                    isSelected={notifSettings.doNotDisturb}
+                                                    onChange={(checked) => updateNotif('doNotDisturb', checked)}
+                                                >
+                                                    <Switch.Control>
+                                                        <Switch.Thumb />
+                                                    </Switch.Control>
+                                                </Switch>
                                             </div>
+                                        </Card>
 
-                                            <div className="space-y-4">
-                                                <h4 className="font-medium border-b border-border pb-2">System</h4>
+                                        <Separator className="opacity-50" />
+
+                                        {/* Toast visibility */}
+                                        <div className={`space-y-4 transition-opacity ${notifSettings.doNotDisturb ? 'opacity-40 pointer-events-none' : ''}`}>
+                                            <h4 className="font-semibold text-sm flex items-center gap-2">
+                                                <Bell className="size-4" /> In-App Toasts
+                                            </h4>
+                                            <Card className="bg-surface/30 border border-border/50 p-4">
                                                 <div className="flex items-center justify-between">
-                                                    <Label>Security Alerts</Label>
-                                                    <Switch defaultSelected isDisabled />
+                                                    <div className="space-y-0.5">
+                                                        <span className="text-sm font-medium">Show popup toasts</span>
+                                                        <p className="text-xs text-muted">Display a banner in the corner for new messages.</p>
+                                                    </div>
+                                                    <Switch
+                                                        isSelected={notifSettings.enableToasts}
+                                                        onChange={(checked) => updateNotif('enableToasts', checked)}
+                                                    >
+                                                        <Switch.Control>
+                                                            <Switch.Thumb />
+                                                        </Switch.Control>
+                                                    </Switch>
                                                 </div>
+                                            </Card>
+                                            <Card className="bg-surface/30 border border-border/50 p-4">
                                                 <div className="flex items-center justify-between">
-                                                    <Label>Product Updates</Label>
-                                                    <Switch />
+                                                    <div className="space-y-0.5">
+                                                        <span className="text-sm font-medium">Sound</span>
+                                                        <p className="text-xs text-muted">Play an audio chime when a message arrives.</p>
+                                                    </div>
+                                                    <Switch
+                                                        isSelected={notifSettings.enableSound}
+                                                        onChange={(checked) => updateNotif('enableSound', checked)}
+                                                    >
+                                                        <Switch.Control>
+                                                            <Switch.Thumb />
+                                                        </Switch.Control>
+                                                    </Switch>
                                                 </div>
+                                            </Card>
+                                        </div>
+
+                                        <Separator className="opacity-50" />
+
+                                        {/* Per-channel toggles */}
+                                        <div className={`space-y-4 transition-opacity ${notifSettings.doNotDisturb || !notifSettings.enableToasts ? 'opacity-40 pointer-events-none' : ''}`}>
+                                            <h4 className="font-semibold text-sm border-b border-border pb-2">Message Types</h4>
+                                            <div className="flex items-center justify-between py-1">
+                                                <div className="space-y-0.5">
+                                                    <Label className="text-sm font-medium">Group messages</Label>
+                                                    <p className="text-xs text-muted">Toasts for messages posted in groups you belong to.</p>
+                                                </div>
+                                                <Switch
+                                                    isSelected={notifSettings.groupMessages}
+                                                    onChange={(checked) => updateNotif('groupMessages', checked)}
+                                                >
+                                                    <Switch.Control>
+                                                        <Switch.Thumb />
+                                                    </Switch.Control>
+                                                </Switch>
                                             </div>
+                                            <div className="flex items-center justify-between py-1">
+                                                <div className="space-y-0.5">
+                                                    <Label className="text-sm font-medium">Direct messages</Label>
+                                                    <p className="text-xs text-muted">Toasts for private one-on-one conversations.</p>
+                                                </div>
+                                                <Switch
+                                                    isSelected={notifSettings.directMessages}
+                                                    onChange={(checked) => updateNotif('directMessages', checked)}
+                                                >
+                                                    <Switch.Control>
+                                                        <Switch.Thumb />
+                                                    </Switch.Control>
+                                                </Switch>
+                                            </div>
+                                        </div>
+
+                                        <Separator className="opacity-50" />
+
+                                        {/* Mentions-only filter */}
+                                        <div className={`space-y-4 transition-opacity ${notifSettings.doNotDisturb || !notifSettings.enableToasts ? 'opacity-40 pointer-events-none' : ''}`}>
+                                            <h4 className="font-semibold text-sm border-b border-border pb-2">Filtering</h4>
+                                            <Card className="bg-surface/30 border border-border/50 p-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="space-y-0.5">
+                                                        <span className="text-sm font-medium">Mentions only</span>
+                                                        <p className="text-xs text-muted">Only notify when someone @mentions you in a group.</p>
+                                                    </div>
+                                                    <Switch
+                                                        isSelected={notifSettings.mentionsOnly}
+                                                        onChange={(checked) => updateNotif('mentionsOnly', checked)}
+                                                    >
+                                                        <Switch.Control>
+                                                            <Switch.Thumb />
+                                                        </Switch.Control>
+                                                    </Switch>
+                                                </div>
+                                            </Card>
+                                        </div>
+
+                                        <Separator className="opacity-50" />
+
+                                        <div className="flex justify-end pt-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-muted hover:text-danger"
+                                                onPress={resetNotif}
+                                            >
+                                                Reset to defaults
+                                            </Button>
                                         </div>
                                     </Tabs.Panel>
 
@@ -508,15 +629,27 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
                                                 <div className="space-y-3">
                                                     <div className="flex items-center justify-between">
                                                         <Label className="text-sm">Photos</Label>
-                                                        <Switch defaultSelected />
+                                                        <Switch defaultSelected>
+                                                            <Switch.Control>
+                                                                <Switch.Thumb />
+                                                            </Switch.Control>
+                                                        </Switch>
                                                     </div>
                                                     <div className="flex items-center justify-between">
                                                         <Label className="text-sm">Videos</Label>
-                                                        <Switch />
+                                                        <Switch>
+                                                            <Switch.Control>
+                                                                <Switch.Thumb />
+                                                            </Switch.Control>
+                                                        </Switch>
                                                     </div>
                                                     <div className="flex items-center justify-between">
                                                         <Label className="text-sm">Files</Label>
-                                                        <Switch />
+                                                        <Switch>
+                                                            <Switch.Control>
+                                                                <Switch.Thumb />
+                                                            </Switch.Control>
+                                                        </Switch>
                                                     </div>
                                                 </div>
                                             </div>
@@ -528,7 +661,11 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
                                                     <span className="font-medium">Save to Gallery</span>
                                                     <p className="text-xs text-muted">Automatically save incoming photos to system gallery.</p>
                                                 </div>
-                                                <Switch />
+                                                <Switch>
+                                                    <Switch.Control>
+                                                        <Switch.Thumb />
+                                                    </Switch.Control>
+                                                </Switch>
                                             </div>
                                         </div>
                                     </Tabs.Panel>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 
 export interface ContactInfo {
     user_id: number;
@@ -23,6 +24,7 @@ export function useContacts() {
         setError(null);
         try {
             const result = await invoke<ContactInfo[]>('get_contacts');
+            await invoke('subscribe_to_users', { userIds: result.map(c => c.user_id) });
             setContacts(result);
         } catch (err) {
             console.error('Failed to fetch contacts:', err);
