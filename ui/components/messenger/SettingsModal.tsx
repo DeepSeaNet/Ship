@@ -270,7 +270,6 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
                                                                     document.documentElement.classList.toggle('dark', theme.id === 'dark');
                                                                 }
                                                                 localStorage.setItem('theme', theme.id === 'terminal' ? 'terminal-green-dark' : theme.id);
-                                                                toast(`Switched to ${theme.name} theme`, { variant: 'success' });
                                                             }}
                                                             onKeyDown={(e) => {
                                                                 if (e.key === 'Enter' || e.key === ' ') {

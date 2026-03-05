@@ -2,6 +2,7 @@
 
 import { Button, Avatar, Chip } from '@heroui/react';
 import { Chat } from '@/hooks/messengerTypes';
+import { formatChatTime } from '@/hooks/useMessengerState';
 
 interface ChatListItemProps {
   chat: Chat;
@@ -48,7 +49,7 @@ export function ChatListItem({ chat, isActive, onSelect }: ChatListItemProps) {
 
         {/* Time */}
         <div className="text-xs opacity-50 flex-shrink-0">
-          {chat.lastMessageTime}
+          {formatChatTime(chat.lastMessageTime)}
         </div>
       </div>
     </Button>

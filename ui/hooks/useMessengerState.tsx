@@ -18,6 +18,8 @@ const createMediaUrl = (avatarData: string | undefined): string | undefined => {
 export const formatChatTime = (isoString?: string) => {
   if (!isoString) return '';
   const date = new Date(isoString);
+  if (isNaN(date.getTime())) return isoString; // Return original string if invalid date
+
   const now = new Date();
   const diff = now.getTime() - date.getTime();
   const dayMs = 24 * 60 * 60 * 1000;
@@ -88,9 +90,9 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
         users_permissions: group.users_permisions,
         default_permissions: group.default_permissions,
         lastMessage: group.last_message?.text || group.last_message?.content || '',
-        lastMessageTime: formatChatTime(group.last_message?.timestamp
+        lastMessageTime: group.last_message?.timestamp
           ? new Date(group.last_message.timestamp * 1000).toISOString()
-          : group.date ? new Date(group.date * 1000).toISOString() : undefined),
+          : group.date ? new Date(group.date * 1000).toISOString() : undefined,
         loaded: false,
       }));
 
@@ -105,7 +107,7 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
         unreadCount: chat.unread_count || 0,
         isGroup: false,
         lastMessage: chat.last_message?.text,
-        lastMessageTime: chat.last_message?.timestamp,
+        lastMessageTime: chat.last_message?.timestamp ? new Date(chat.last_message.timestamp * 1000).toISOString() : undefined,
       }));
 
       // Combine and sort
@@ -292,7 +294,7 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
               senderId,
               senderName,
               content: data.text,
-              timestamp: formatChatTime(new Date(data.timestamp * 1000).toISOString()),
+              timestamp: new Date(data.timestamp * 1000).toISOString(),
               isOwn: data.sender_id === currentUser?.id,
               status: 'sent',
               media: data.media,

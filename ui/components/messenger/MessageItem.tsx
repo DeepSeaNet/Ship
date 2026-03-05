@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { Card, Avatar, Dropdown, Kbd, Label } from '@heroui/react';
 import { CheckDouble, Clock, Check } from '@gravity-ui/icons';
 import { Message } from '@/hooks/messengerTypes';
+import { formatChatTime } from '@/hooks/useMessengerState';
 import { useMessageActions } from '@/hooks/useMessageActions';
 
 interface MessageItemProps {
@@ -59,7 +60,7 @@ export function MessageItem({ message }: MessageItemProps) {
                 </p>
                 <div className={`flex items-center gap-1 shrink-0 mb-[-2px] ${isOwn ? 'ml-auto' : ''}`}>
                   <span className="text-[10px] opacity-60 font-medium">
-                    {message.timestamp}
+                    {formatChatTime(message.timestamp)}
                   </span>
                   {isOwn && message.status && (
                     <div className="flex items-center opacity-60">

@@ -39,10 +39,7 @@ export function useSendMessage() {
       senderId: userId || '0',
       senderName: 'You',
       content: content.trim(),
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
+      timestamp: new Date().toISOString(),
       isOwn: true,
       status: 'sending',
       reply_to: options.replyTo,

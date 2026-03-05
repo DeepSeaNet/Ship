@@ -47,7 +47,7 @@ export function useMessages(chatId: string | null) {
           senderId,
           senderName,
           content: msg.content || '',
-          timestamp: formatChatTime(new Date(msg.timestamp * 1000).toISOString()),
+          timestamp: new Date(msg.timestamp * 1000).toISOString(),
           isOwn: senderId === localStorage.getItem('userId'),
           status: 'sent',
           media_name: msg.media_name,

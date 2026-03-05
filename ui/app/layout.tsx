@@ -19,8 +19,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const theme = localStorage.getItem('theme') || 'default';
   return (
-    <html lang="en" data-theme="default">
+    <html lang="en" data-theme={theme}>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
