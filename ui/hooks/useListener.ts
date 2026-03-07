@@ -29,6 +29,8 @@ interface ListenerProps {
     setChats: React.Dispatch<React.SetStateAction<Chat[]>>;
     setUIState: React.Dispatch<React.SetStateAction<UIState>>;
     editMessage: (chatId: string, messageId: string, newContent: string) => void;
+    updateMessageStatus: (chatId: string, messageId: string, status: Message['status']) => void;
+    updateMessageId: (chatId: string, oldId: string, newId: string) => void;
     upsertUser: (user: User) => void;
   };
 }
@@ -89,23 +91,27 @@ export function useListener({ currentUser, uiStateRef, chatsRef, usersRef, actio
             const senderName = data.sender_name || sender?.name || 'User ' + senderId;
 
             const message: Message = {
-              id: data.message_id,
+              id: data.message_id.toString(),
               chatId: chatId,
               senderId,
               senderName,
               content: data.text,
               timestamp: new Date(data.timestamp * 1000).toISOString(),
-              isOwn: data.sender_id === currentUser?.id,
+              isOwn: data.sender_id === currentUser?.id || data.sender_id?.toString() === currentUser?.id,
               status: 'sent',
               media: data.media,
               media_name: data.media_name,
-              reply_to: data.reply_to,
+              reply_to: (data.reply_message_id || data.reply_to)?.toString(),
               edited: !!data.edit_date,
               expires: data.expires,
               is_file: data.is_file,
             };
 
-            actions.addMessage(chatId, message);
+            if (data.is_edit || data.is_edit === 'true') {
+              actions.editMessage(chatId, data.message_id.toString(), data.text);
+            } else {
+              actions.addMessage(chatId, message);
+            }
 
             const currentUI = uiStateRef.current;
             const isCurrentlyActive = currentUI.activeChatId === chatId || currentUI.activeGroupId === chatId;
@@ -228,6 +234,16 @@ export function useListener({ currentUser, uiStateRef, chatsRef, usersRef, actio
                 status: data.status,
               });
             }
+            break;
+          }
+
+          case 'message_delivery': {
+            const { message_id, success } = payload.data;
+            // Iterate over all chats to find and update the message status
+            // This is a bit expensive but necessary since payload doesn't have chatId
+             uiStateRef.current.loadedChatIds.forEach(chatId => {
+               actions.updateMessageStatus(chatId, message_id.toString(), success ? 'sent' : 'error');
+             });
             break;
           }
 

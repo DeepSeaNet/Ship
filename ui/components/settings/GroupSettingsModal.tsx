@@ -11,6 +11,12 @@ import {
     Switch,
     Label,
     Separator,
+    RadioGroup,
+    Radio,
+    ListBox,
+    Surface,
+    Description,
+    type Selection,
 } from '@heroui/react';
 import {
     Shield,
@@ -33,7 +39,46 @@ interface GroupSettingsModalProps {
     group: Chat;
 }
 
-export function GroupSettingsModal({ isOpen, onOpenChange, group }: GroupSettingsModalProps) {
+const ROLE_DEFAULTS: Record<string, Permissions> = {
+    Admin: {
+        send_messages: true,
+        manage_members: true,
+        pin_messages: true,
+        delete_messages: true,
+        rename_group: true,
+        manage_permissions: true,
+        manage_admins: true,
+    },
+    Moderator: {
+        send_messages: true,
+        manage_members: true,
+        pin_messages: true,
+        delete_messages: true,
+        rename_group: false,
+        manage_permissions: false,
+        manage_admins: false,
+    },
+    Member: {
+        send_messages: true,
+        manage_members: false,
+        pin_messages: false,
+        delete_messages: false,
+        rename_group: false,
+        manage_permissions: false,
+        manage_admins: false,
+    },
+    Reader: {
+        send_messages: false,
+        manage_members: false,
+        pin_messages: false,
+        delete_messages: false,
+        rename_group: false,
+        manage_permissions: false,
+        manage_admins: false,
+    },
+};
+
+export const GroupSettingsModal = ({ isOpen, onOpenChange, group }: GroupSettingsModalProps) => {
     const {
         updateGroupConfig,
         removeUserFromGroup,
@@ -75,6 +120,7 @@ export function GroupSettingsModal({ isOpen, onOpenChange, group }: GroupSetting
     // State for member management
     const [memberToEdit, setMemberToEdit] = useState<number | null>(null);
     const [memberPermissions, setMemberPermissions] = useState<Permissions | null>(null);
+    const [memberRole, setMemberRole] = useState<string>('Member');
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
     // Sync state if group changes
@@ -119,15 +165,46 @@ export function GroupSettingsModal({ isOpen, onOpenChange, group }: GroupSetting
 
     const openMemberPermissionEdit = (memberId: number) => {
         setMemberToEdit(memberId);
-        // Get current permissions for this member
         const currentPerms = group.users_permissions?.[memberId] || group.default_permissions || defaultPerms;
-        setMemberPermissions({ ...currentPerms });
+        setMemberPermissions(currentPerms);
+
+        const isAdmin = group.admins?.includes(memberId);
+        const isOwnerOfGroup = group.owner_id === memberId;
+        
+        if (isOwnerOfGroup) {
+            setMemberRole('Owner');
+        } else if (isAdmin) {
+            setMemberRole('Admin');
+        } else {
+            const isModerator = JSON.stringify(currentPerms) === JSON.stringify(ROLE_DEFAULTS.Moderator);
+            const isReader = JSON.stringify(currentPerms) === JSON.stringify(ROLE_DEFAULTS.Reader);
+            const isStandardMember = JSON.stringify(currentPerms) === JSON.stringify(ROLE_DEFAULTS.Member);
+            
+            if (isModerator) setMemberRole('Moderator');
+            else if (isReader) setMemberRole('Reader');
+            else if (isStandardMember) setMemberRole('Member');
+            else setMemberRole('Custom');
+        }
+    };
+
+    const handleRoleChange = (role: string) => {
+        setMemberRole(role);
+        if (role !== 'Custom' && role !== 'Owner' && ROLE_DEFAULTS[role]) {
+            setMemberPermissions({ ...ROLE_DEFAULTS[role] });
+        }
     };
 
     const handleSaveMemberPermissions = async () => {
         if (memberToEdit === null || !memberPermissions) return;
         setIsLoading(true);
-        const success = await updateMemberPermissions(group.id, memberToEdit, memberPermissions);
+        // If role is set to Admin or Member, we pass it. 
+        // Note: Owner cannot be changed via this UI normally.
+        const success = await updateMemberPermissions(
+            group.id, 
+            memberToEdit, 
+            memberPermissions, 
+            memberRole !== 'Custom' && memberRole !== 'Owner' ? memberRole.toLowerCase() : undefined
+        );
         setIsLoading(false);
         if (success) {
             setMemberToEdit(null);
@@ -273,11 +350,21 @@ export function GroupSettingsModal({ isOpen, onOpenChange, group }: GroupSetting
                                                                 {member?.avatar && <Avatar.Image src={member.avatar} />}
                                                                 <Avatar.Fallback>{(member?.name || 'U').slice(0, 1).toUpperCase()}</Avatar.Fallback>
                                                             </Avatar>
-                                                            <div>
-                                                                <p className="text-sm font-medium">{member?.name || `User ${memberId}`} {isSelf && '(You)'}</p>
-                                                                <p className="text-xs text-muted">
-                                                                    {isOwnerOfGroup ? 'Owner' : isAdmin ? 'Admin' : 'Member'}
-                                                                </p>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-sm font-medium">{member.name} {isSelf && '(You)'}</span>
+                                                                <span className="text-xs text-muted">
+                                                                    {(() => {
+                                                                        const mId = Number(member.id);
+                                                                        if (group.owner_id === mId) return 'Owner';
+                                                                        if (group.admins?.includes(mId)) return 'Admin';
+                                                                        
+                                                                        const perms = group.users_permissions?.[mId] || group.default_permissions || defaultPerms;
+                                                                        if (JSON.stringify(perms) === JSON.stringify(ROLE_DEFAULTS.Moderator)) return 'Moderator';
+                                                                        if (JSON.stringify(perms) === JSON.stringify(ROLE_DEFAULTS.Reader)) return 'Reader';
+                                                                        if (JSON.stringify(perms) === JSON.stringify(ROLE_DEFAULTS.Member)) return 'Member';
+                                                                        return 'Custom';
+                                                                    })()}
+                                                                </span>
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center gap-2">
@@ -323,6 +410,8 @@ export function GroupSettingsModal({ isOpen, onOpenChange, group }: GroupSetting
                                                 { key: 'pin_messages', label: 'Pin Messages', desc: 'Allow members to pin important messages.' },
                                                 { key: 'delete_messages', label: 'Delete Messages', desc: 'Allow members to delete any message.' },
                                                 { key: 'rename_group', label: 'Rename Group', desc: 'Allow members to change group name and avatar.' },
+                                                { key: 'manage_permissions', label: 'Manage Permissions', desc: 'Allow members to change group permissions.' },
+                                                { key: 'manage_admins', label: 'Manage Admins', desc: 'Allow members to promote/demote admins.' },
                                                 { key: 'allow_stickers', label: 'Stickers', desc: 'Allow sending stickers.' },
                                                 { key: 'allow_gifs', label: 'GIFs', desc: 'Allow sending GIFs.' },
                                             ].map(({ key, label, desc }) => (
@@ -411,25 +500,83 @@ export function GroupSettingsModal({ isOpen, onOpenChange, group }: GroupSetting
                                 <Modal.Heading>Member Permissions</Modal.Heading>
                             </Modal.Header>
                             <Modal.Body className="space-y-4">
-                                {memberPermissions && [
-                                    { key: 'send_messages', label: 'Send Messages' },
-                                    { key: 'manage_members', label: 'Invite Users' },
-                                    { key: 'pin_messages', label: 'Pin Messages' },
-                                    { key: 'delete_messages', label: 'Delete Messages' },
-                                    { key: 'rename_group', label: 'Rename Group' },
-                                ].map(({ key, label }) => (
-                                    <div key={key} className="flex items-center justify-between">
-                                        <Label className="text-sm">{label}</Label>
-                                        <Switch
-                                            isSelected={(memberPermissions as any)[key]}
-                                            onChange={(val: boolean) => setMemberPermissions(prev => prev ? ({ ...prev, [key]: val }) : null)}
-                                        >
-                                            <Switch.Control>
-                                                <Switch.Thumb />
-                                            </Switch.Control>
-                                        </Switch>
+                                <div className="space-y-4 pt-2">
+                                    <div className="flex flex-col gap-2">
+                                        <Label className="text-sm font-medium">Role Preset</Label>
+                                        <Surface className="overflow-hidden border border-border rounded-xl">
+                                            <ListBox
+                                                aria-label="Member Role"
+                                                selectedKeys={new Set([memberRole])}
+                                                selectionMode="single"
+                                                onSelectionChange={(keys) => {
+                                                    const selected = Array.from(keys)[0] as string;
+                                                    if (selected) handleRoleChange(selected);
+                                                }}
+                                                className="w-full"
+                                            >
+                                                <ListBox.Item id="Member" textValue="Member">
+                                                    <div className="flex flex-col">
+                                                        <Label>Member</Label>
+                                                        <Description>Standard participant with basic permissions</Description>
+                                                    </div>
+                                                </ListBox.Item>
+                                                <ListBox.Item id="Moderator" textValue="Moderator">
+                                                    <div className="flex flex-col">
+                                                        <Label>Moderator</Label>
+                                                        <Description>Can delete messages and manage members</Description>
+                                                    </div>
+                                                </ListBox.Item>
+                                                <ListBox.Item id="Admin" textValue="Admin">
+                                                    <div className="flex flex-col">
+                                                        <Label>Admin</Label>
+                                                        <Description>Full control over group settings and users</Description>
+                                                    </div>
+                                                </ListBox.Item>
+                                                <ListBox.Item id="Reader" textValue="Reader">
+                                                    <div className="flex flex-col">
+                                                        <Label>Reader</Label>
+                                                        <Description>Can only read messages, cannot send anything</Description>
+                                                    </div>
+                                                </ListBox.Item>
+                                                <ListBox.Item id="Custom" textValue="Custom">
+                                                    <div className="flex flex-col">
+                                                        <Label>Custom</Label>
+                                                        <Description>Individually tailored permissions</Description>
+                                                    </div>
+                                                </ListBox.Item>
+                                            </ListBox>
+                                        </Surface>
                                     </div>
-                                ))}
+
+                                    <Separator className="my-4 opacity-50" />
+                                    
+                                    <p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">Detailed Permissions</p>
+                                    
+                                    {memberPermissions && [
+                                        { key: 'send_messages', label: 'Send Messages' },
+                                        { key: 'manage_members', label: 'Invite Users' },
+                                        { key: 'pin_messages', label: 'Pin Messages' },
+                                        { key: 'delete_messages', label: 'Delete Messages' },
+                                        { key: 'rename_group', label: 'Rename Group' },
+                                        { key: 'manage_permissions', label: 'Manage Permissions' },
+                                        { key: 'manage_admins', label: 'Manage Admins' },
+                                    ].map(({ key, label }) => (
+                                        <div key={key} className="flex items-center justify-between">
+                                            <Label className="text-sm">{label}</Label>
+                                            <Switch
+                                                isSelected={(memberPermissions as any)[key]}
+                                                onChange={(val: boolean) => {
+                                                    setMemberPermissions(prev => prev ? ({ ...prev, [key]: val }) : null);
+                                                    if (memberRole !== 'Custom') setMemberRole('Custom');
+                                                }}
+                                            >
+                                                <Switch.Control>
+                                                    <Switch.Thumb />
+                                                </Switch.Control>
+                                            </Switch>
+                                        </div>
+                                    ))}
+                                </div>
                             </Modal.Body>
                             <Modal.Footer>
                                 <Button variant="secondary" onPress={() => setMemberToEdit(null)}>Cancel</Button>

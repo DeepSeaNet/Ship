@@ -53,13 +53,26 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
   };
 
   // Resolve the message being replied to
+  const chatMessages = messagesByChat[message.chatId] || [];
   const repliedMessage = message.reply_to
-    ? Object.values(messagesByChat).flat().find(m => m.id === message.reply_to)
+    ? chatMessages.find(m => String(m.id) === String(message.reply_to)) || 
+      Object.values(messagesByChat).flat().find(m => String(m.id) === String(message.reply_to))
     : null;
+
+  const scrollToReplied = () => {
+    if (!message.reply_to) return;
+    const element = document.getElementById(`msg-${message.reply_to}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.classList.add('ring-2', 'ring-accent', 'ring-offset-2');
+      setTimeout(() => element.classList.remove('ring-2', 'ring-accent', 'ring-offset-2'), 2000);
+    }
+  };
 
   return (
     <>
       <div
+        id={`msg-${message.id}`}
         className={`flex gap-2 ${isOwn ? 'justify-end' : 'justify-start'} group hover:bg-neutral-800/5 rounded-lg p-1 transition-colors relative animate-in fade-in zoom-in-95 duration-500 ${isOwn ? 'slide-in-from-right-8' : 'slide-in-from-left-8'} fill-mode-both`}
         style={{ animationDelay: `40ms` }}
       >
@@ -88,13 +101,19 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
             >
               {/* Reply-to preview */}
               {repliedMessage && (
-                <div className={`mb-1.5 px-2 py-1 rounded-lg text-xs border-l-2 ${
+                <div 
+                  onClick={scrollToReplied}
+                  className={`mb-1.5 px-2 py-1 rounded-lg text-xs border-l-2 cursor-pointer hover:opacity-80 transition-opacity ${
                   isOwn ? 'border-white/40 bg-white/10' : 'border-accent bg-accent/10'
                 }`}>
                   <p className={`font-semibold mb-0.5 ${isOwn ? 'text-white/70' : 'text-accent'}`}>
                     {repliedMessage.senderName ?? 'User'}
                   </p>
-                  <p className="opacity-70 truncate">{repliedMessage.content}</p>
+                  <p className="opacity-70 truncate max-w-[300px]">
+                    {repliedMessage.content.length > 25 
+                      ? repliedMessage.content.slice(0, 25) + '...' 
+                      : repliedMessage.content}
+                  </p>
                 </div>
               )}
 
