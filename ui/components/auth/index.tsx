@@ -66,6 +66,9 @@ export default function AuthPage() {
 	) => {
 		setIsLoading(true);
 		try {
+			if (password !== confirmPassword) {
+				throw new Error("Passwords do not match");
+			}
 			await register(username, email, password);
 
 			setSuccessMessage(

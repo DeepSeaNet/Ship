@@ -1,7 +1,7 @@
 "use client";
 
 import { Comment, Gear, Persons, SquareFill } from "@gravity-ui/icons";
-import { Avatar, Badge, Dropdown, Label } from "@heroui/react";
+import { Avatar, Badge, Button, Dropdown, Label } from "@heroui/react";
 import { useEffect, useState } from "react";
 import {
 	MessengerProvider,
@@ -103,26 +103,38 @@ function MessengerContent() {
 				</Dropdown>
 
 				<div className="flex flex-col gap-3 mt-2">
-					<button className="w-10 h-10 rounded-lg hover:bg-on-surface flex items-center justify-center transition text-muted">
+					<Button
+						isIconOnly
+						variant="ghost"
+						className="w-10 h-10 rounded-lg hover:bg-on-surface text-muted border-none"
+					>
 						<SquareFill className="w-5 h-5" />
-					</button>
-					<button className="w-10 h-10 rounded-lg hover:bg-on-surface flex items-center justify-center transition text-muted">
+					</Button>
+					<Button
+						isIconOnly
+						variant="ghost"
+						className="w-10 h-10 rounded-lg hover:bg-on-surface text-muted border-none"
+					>
 						<Persons className="w-5 h-5" />
-					</button>
-					<button
-						onClick={() => setShowMessages(!showMessages)}
-						className="w-10 h-10 rounded-lg hover:bg-on-surface flex items-center justify-center transition text-muted"
+					</Button>
+					<Button
+						isIconOnly
+						variant="ghost"
+						onPress={() => setShowMessages(!showMessages)}
+						className={`w-10 h-10 rounded-lg hover:bg-on-surface transition border-none ${showMessages ? "bg-accent/10 text-accent" : "text-muted"}`}
 					>
 						<Comment className="w-5 h-5" />
-					</button>
+					</Button>
 				</div>
-				<div className="flex-1"></div>
-				<button
-					onClick={() => setShowSettings(true)}
-					className="w-10 h-10 rounded-lg hover:bg-on-surface flex items-center justify-center transition text-muted"
+				<div className="flex-1" />
+				<Button
+					isIconOnly
+					variant="ghost"
+					onPress={() => setShowSettings(true)}
+					className="w-10 h-10 rounded-lg hover:bg-on-surface text-muted border-none"
 				>
 					<Gear className="w-5 h-5" />
-				</button>
+				</Button>
 			</div>
 
 			{/* Left Panel - Messages List (Closable with Animation) */}

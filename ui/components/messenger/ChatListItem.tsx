@@ -1,8 +1,8 @@
 "use client";
 
 import { Avatar, Button, Chip } from "@heroui/react";
+import { formatChatTime } from "@/hooks/helper";
 import type { Chat } from "@/hooks/messengerTypes";
-import { formatChatTime } from "@/hooks/useMessengerState";
 
 interface ChatListItemProps {
 	chat: Chat;

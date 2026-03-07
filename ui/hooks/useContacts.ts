@@ -47,7 +47,7 @@ export const handleStatusChange = async (
 };
 
 export function useContacts() {
-	const [contacts, setContacts] = useState<ContactInfo[]>([]);
+	const [contacts, setContacts] = useState<Record<string, User>>({});
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -68,7 +68,7 @@ export function useContacts() {
 			await invoke("subscribe_to_users", {
 				userIds: result.map((c) => c.user_id),
 			});
-			setContacts(result);
+			setContacts(formattedContacts);
 		} catch (err) {
 			console.error("Failed to fetch contacts:", err);
 			setError(err instanceof Error ? err.message : "Failed to fetch contacts");
@@ -83,6 +83,7 @@ export function useContacts() {
 
 	return {
 		contacts,
+		setContacts,
 		loading,
 		error,
 		refresh: fetchContacts,

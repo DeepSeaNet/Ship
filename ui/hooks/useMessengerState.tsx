@@ -20,6 +20,7 @@ import type {
 	UIState,
 	User,
 } from "./messengerTypes";
+import { useContacts } from "./useContacts";
 import { useListener } from "./useListener";
 
 const defaultUIState: UIState = {
@@ -46,10 +47,10 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 	>({});
 	const [chats, setChats] = useState<Chat[]>([]);
 	const [groups, setGroups] = useState<Group[]>([]);
-	const [contacts, setContacts] = useState<Record<string, User>>({});
 	const [isLoading, setIsLoading] = useState(true);
 	const [currentUser, setCurrentUser] = useState<User | null>(null);
 	const uiStateRef = useRef(uiState);
+	const { contacts, setContacts } = useContacts();
 	useEffect(() => {
 		uiStateRef.current = uiState;
 	}, [uiState]);

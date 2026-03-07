@@ -29,7 +29,7 @@ function MentionText({
 		<>
 			{parts.map((part, i) => {
 				if (part.startsWith("@")) {
-					const isOwnMention = ownUsername && part === "@" + ownUsername;
+					const isOwnMention = ownUsername && part === `@${ownUsername}`;
 					return (
 						<span
 							key={i}
@@ -107,7 +107,7 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 				>
 					{!isOwn && (
 						<p className="text-xs text-muted mb-1 px-1">
-							{message.senderName || "User " + message.senderId}
+							{message.senderName || `User ${message.senderId}`}
 						</p>
 					)}
 

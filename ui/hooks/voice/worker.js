@@ -23,7 +23,7 @@ function getVp8EncryptionOffset(data) {
 }
 
 function isVp8Frame(chunk, metadata) {
-	if (metadata && metadata.mimeType) {
+	if (metadata?.mimeType) {
 		return metadata.mimeType.toLowerCase().includes("vp8");
 	}
 	const pt =

@@ -72,7 +72,7 @@ export function ChatArea() {
 		isInitialLoad.current = true;
 		clearReply();
 		clearEdit();
-	}, [uiState.activeChatId]);
+	}, [uiState.activeChatId, clearEdit, clearReply]);
 
 	if (!activeChat) {
 		return (

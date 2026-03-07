@@ -1,7 +1,7 @@
 "use client";
 
 import { CircleInfo, Ellipsis, Handset, Video } from "@gravity-ui/icons";
-import { Button } from "@heroui/react";
+import { Avatar, Button } from "@heroui/react";
 import { useState } from "react";
 import { useChats } from "@/hooks/useChats";
 import { useMessengerState } from "@/hooks/useMessengerState";
@@ -31,17 +31,16 @@ export function TopBar({ onInfoClick }: TopBarProps) {
 		<div className="h-16 border-b border-border flex items-center px-6 justify-between bg-surface">
 			{activeChat ? (
 				<div className="flex items-center gap-3">
-					{activeChat.avatar ? (
-						<img
-							src={activeChat.avatar}
-							alt={activeChat.name}
-							className="w-10 h-10 rounded-full object-cover border border-border"
-						/>
-					) : (
-						<div className="w-10 h-10 rounded-full bg-gradient-to-br from-neutral-700 to-neutral-800 flex items-center justify-center text-accent-foreground font-bold text-sm border border-neutral-700">
-							{activeChat.name.slice(0, 1).toUpperCase()}
-						</div>
-					)}
+					<Avatar className="size-10 border border-border">
+						{activeChat.avatar && (
+							<Avatar.Image src={activeChat.avatar} alt={activeChat.name} />
+						)}
+						<Avatar.Fallback>
+							{activeChat.name
+								? activeChat.name.slice(0, 1).toUpperCase()
+								: "?"}
+						</Avatar.Fallback>
+					</Avatar>
 					<div>
 						<h3 className="font-semibold text-sm text-accent">
 							{activeChat.name}

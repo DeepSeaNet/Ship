@@ -11,8 +11,8 @@ import {
 	toast,
 } from "@heroui/react";
 import { useMemo, useState } from "react";
+import { useMessengerState } from "@/hooks";
 import type { Chat } from "@/hooks/messengerTypes";
-import { useContacts } from "@/hooks/useContacts";
 import { useGroups } from "@/hooks/useGroups";
 
 interface InviteMemberModalProps {
@@ -27,7 +27,7 @@ export function InviteMemberModal({
 	group,
 }: InviteMemberModalProps) {
 	const { inviteUserToGroup, checkPermission } = useGroups();
-	const { contacts, loading: contactsLoading } = useContacts();
+	const { contacts } = useMessengerState();
 
 	const canManageMembers = checkPermission(group, "manage_members");
 	const [inviteMethod, setInviteMethod] = useState<"contacts" | "id">(
@@ -54,10 +54,10 @@ export function InviteMemberModal({
 	};
 
 	const filteredContacts = useMemo(() => {
-		return contacts.filter(
+		return Object.values(contacts).filter(
 			(c) =>
-				c.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				c.user_id.toString().includes(searchQuery),
+				c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+				c.id.toString().includes(searchQuery),
 		);
 	}, [contacts, searchQuery]);
 
@@ -139,14 +139,7 @@ export function InviteMemberModal({
 									</TextField>
 
 									<div className="flex-1 overflow-y-auto space-y-1 -mx-2 px-2 custom-scrollbar scrollbar-hide">
-										{contactsLoading ? (
-											<div className="h-full flex flex-col items-center justify-center py-10 opacity-50">
-												<div className="animate-spin rounded-full h-6 w-6 border-2 border-accent border-t-transparent mb-2" />
-												<p className="text-sm font-medium">
-													Looking for friends...
-												</p>
-											</div>
-										) : filteredContacts.length === 0 ? (
+										{filteredContacts.length === 0 ? (
 											<div className="h-full flex flex-col items-center justify-center py-10 text-center px-6">
 												<div className="w-16 h-16 rounded-full bg-surface/50 mb-4 flex items-center justify-center">
 													<Magnifier className="w-8 h-8 text-muted/30" />
@@ -160,11 +153,11 @@ export function InviteMemberModal({
 										) : (
 											filteredContacts.map((contact) => {
 												const isMember = group.members?.includes(
-													contact.user_id,
+													Number(contact.id),
 												);
 												return (
 													<div
-														key={contact.user_id}
+														key={contact.id}
 														className="flex items-center justify-between p-2.5 rounded-2xl hover:bg-surface/50 transition-all group/item"
 													>
 														<div className="flex items-center gap-3">
@@ -176,15 +169,15 @@ export function InviteMemberModal({
 																	<Avatar.Image src={contact.avatar} />
 																)}
 																<Avatar.Fallback className="bg-gradient-to-br from-accent/20 to-accent/5 text-accent font-bold">
-																	{contact.username.slice(0, 1).toUpperCase()}
+																	{contact.name.slice(0, 1).toUpperCase()}
 																</Avatar.Fallback>
 															</Avatar>
 															<div>
 																<p className="text-sm font-bold leading-tight">
-																	{contact.username}
+																	{contact.name}
 																</p>
 																<p className="text-[11px] text-muted font-mono mt-0.5 opacity-60 group-hover/item:opacity-100 transition-opacity">
-																	#{contact.user_id}
+																	#{contact.id}
 																</p>
 															</div>
 														</div>
@@ -193,7 +186,7 @@ export function InviteMemberModal({
 															variant={isMember ? "ghost" : "ghost"}
 															className={`h-9 px-4 text-xs font-bold rounded-xl transition-all ${isMember ? "text-muted opacity-50 cursor-default" : "text-accent hover:bg-accent/10 hover:scale-105 active:scale-95"}`}
 															onPress={() =>
-																!isMember && handleInvite(contact.user_id)
+																!isMember && handleInvite(Number(contact.id))
 															}
 															isDisabled={isMember}
 														>
