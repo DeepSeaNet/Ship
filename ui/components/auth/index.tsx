@@ -96,15 +96,10 @@ export default function AuthPage() {
 		setQrModalOpen(true);
 	};
 
-	const handleBase64Import = async (base64: string) => {
+	const handleBase64Import = async (data: string, key: string) => {
 		setIsLoading(true);
 		try {
-			// Assuming the key is provided via some other means or using a default for now
-			// The user snippet had import_account(import_data, import_key)
-			const importKey = prompt("Enter your account decryption key:");
-			if (!importKey) return;
-
-			const userId = await import_account(base64, importKey);
+			const userId = await import_account(data, key);
 
 			setSuccessMessage(`Account imported successfully (ID: ${userId})!`);
 			setTimeout(() => {

@@ -22,8 +22,6 @@ import {
 	Label,
 	ListBox,
 	Modal,
-	Radio,
-	RadioGroup,
 	Select,
 	Separator,
 	Slider,
@@ -33,9 +31,76 @@ import {
 	Tooltip,
 	toast,
 } from "@heroui/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNotificationSettings } from "@/hooks/useNotificationSettings";
 import { ExportAccountModal } from "../settings/ExportAccountModal";
+import { getUserDevices } from "@/hooks/useAccounts";
+
+function DevicesPanelContent() {
+	const [devices, setDevices] = useState<
+		{ device_id: string; created_at: number }[]
+	>([]);
+	const [loading, setLoading] = useState(true);
+
+	useEffect(() => {
+		const loadDevices = async () => {
+			try {
+				const userId = Number(localStorage.getItem("userId"));
+				if (userId) {
+					const deps = await getUserDevices(userId);
+					setDevices(deps);
+				}
+			} catch (err) {
+				toast("Failed to load devices", { variant: "danger" });
+			} finally {
+				setLoading(false);
+			}
+		};
+		loadDevices();
+	}, []);
+
+	const handleDelete = (id: string) => {
+		toast(`Device deleted (placeholder)`, { variant: "success" });
+		setDevices((prev) => prev.filter((d) => d.device_id !== id));
+	};
+
+	if (loading)
+		return <div className="text-sm text-muted">Loading devices...</div>;
+	if (devices.length === 0)
+		return <div className="text-sm text-muted">No devices found.</div>;
+
+	return (
+		<div className="space-y-4">
+			{devices.map((device) => (
+				<Card
+					key={device.device_id}
+					className="p-4 border border-border bg-surface/30"
+				>
+					<div className="flex items-center justify-between">
+						<div>
+							<h4 className="font-semibold text-sm">
+								Device {device.device_id}
+							</h4>
+							<p className="text-xs text-muted">
+								Signed in{" "}
+								{new Date(device.created_at * 1000).toLocaleDateString()}
+							</p>
+						</div>
+						<Button
+							size="sm"
+							variant="ghost"
+							className="text-danger hover:bg-danger/10"
+							onPress={() => handleDelete(device.device_id)}
+						>
+							<TrashBin className="size-4 mr-2" />
+							Delete
+						</Button>
+					</div>
+				</Card>
+			))}
+		</div>
+	);
+}
 
 interface SettingsModalProps {
 	isOpen: boolean;
@@ -98,6 +163,14 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
 										>
 											<Shield className="w-4 h-4 mr-2" />
 											Security
+											<Tabs.Indicator />
+										</Tabs.Tab>
+										<Tabs.Tab
+											id="devices"
+											className="justify-start px-3 py-2 text-sm font-medium"
+										>
+											<Display className="w-4 h-4 mr-2" />
+											Devices
 											<Tabs.Indicator />
 										</Tabs.Tab>
 										<Tabs.Tab
@@ -675,6 +748,17 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
 												<Button className="w-fit">Update Password</Button>
 											</div>
 										</div>
+									</Tabs.Panel>
+
+									<Tabs.Panel
+										id="devices"
+										className="space-y-6 max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-300"
+									>
+										<div>
+											<h3 className="text-2xl font-bold mb-1">Devices</h3>
+											<p className="text-muted">Manage your active devices.</p>
+										</div>
+										<DevicesPanelContent />
 									</Tabs.Panel>
 
 									<Tabs.Panel

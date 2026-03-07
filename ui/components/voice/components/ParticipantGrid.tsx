@@ -47,7 +47,7 @@ export function ParticipantGrid({
 	remoteTracks,
 	participants = {},
 }: ParticipantGridProps) {
-	const { users } = useMessengerState();
+	const { contacts } = useMessengerState();
 	const remoteParticipants = groupRemoteParticipants(remoteTracks);
 	const totalCount = 1 + remoteParticipants.size;
 	const colsClass = gridColsClass(totalCount);
@@ -79,7 +79,7 @@ export function ParticipantGrid({
 			{/* ── Remote tiles ── */}
 			{[...remoteParticipants.entries()].map(([pid, { videoTrack }]) => {
 				const userId = participants[pid];
-				const user = userId ? users[userId] : null;
+				const user = userId ? contacts[userId] : null;
 				const name = user?.name || `User ${pid.slice(0, 6)}`;
 				const avatar = user?.avatar;
 

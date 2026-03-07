@@ -50,7 +50,7 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 	const [isLoading, setIsLoading] = useState(true);
 	const [currentUser, setCurrentUser] = useState<User | null>(null);
 	const uiStateRef = useRef(uiState);
-	const { contacts, setContacts } = useContacts();
+	const { contacts, setContacts, getUserInfo } = useContacts();
 	useEffect(() => {
 		uiStateRef.current = uiState;
 	}, [uiState]);
@@ -269,13 +269,11 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 	};
 
 	const upsertUser = (user: User) => {
-		// Also update contact status if exists
 		setContacts((prev) => {
-			const newContacts = { ...prev };
-			if (newContacts[user.id]) {
-				newContacts[user.id] = { ...newContacts[user.id], ...user };
-			}
-			return newContacts;
+			return {
+				...prev,
+				[user.id]: { ...(prev[user.id] || {}), ...user },
+			};
 		});
 	};
 
@@ -323,6 +321,7 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 		fetchChats,
 		fetchGroups,
 		contacts,
+		getUserInfo,
 	};
 
 	return (

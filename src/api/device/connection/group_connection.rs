@@ -22,7 +22,7 @@ use tonic_h3::quinn::H3QuinnConnector;
 
 use crate::api::connection::endpoint::create_client_endpoint;
 use crate::api::device::connection::group_microservice::{
-    GetDeviceKeyPackageRequest, StreamAckDeliveryRequest, UpdateGroupSubscriptionsRequest,
+    Device, GetDeviceKeyPackageRequest, StreamAckDeliveryRequest, UpdateGroupSubscriptionsRequest,
 };
 use crate::api::device::types::group::GroupId;
 
@@ -133,7 +133,7 @@ impl Backend {
         Ok(response.into_inner().key_packages)
     }
 
-    pub async fn get_users_devices(&self, user_id: u64) -> Result<Vec<String>, Status> {
+    pub async fn get_users_devices(&self, user_id: u64) -> Result<Vec<Device>, Status> {
         let request = GetUsersDevicesRequest { user_id };
         let response = self
             .client

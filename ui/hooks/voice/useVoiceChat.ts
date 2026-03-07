@@ -205,7 +205,7 @@ export function useVoiceChat(): UseVoiceChatReturn {
 								action: "Consume",
 								producerId: producerId,
 								rtpCapabilities:
-									mediasoupServiceRef.current.getDevice()!.rtpCapabilities,
+									mediasoupServiceRef.current.getDevice()?.rtpCapabilities,
 							});
 
 							mediasoupServiceRef.current.setResponseCallback(

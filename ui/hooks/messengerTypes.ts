@@ -116,6 +116,7 @@ export interface MessengerContextType {
 	editMessage: (chatId: string, messageId: string, newContent: string) => void;
 	markChatAsLoaded: (chatId: string) => void;
 	upsertUser: (user: User) => void;
+	getUserInfo: (userId: string | number) => Promise<User | null>;
 
 	// Fetchers
 	fetchChats: () => Promise<void>;

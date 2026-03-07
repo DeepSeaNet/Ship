@@ -47,13 +47,12 @@ pub fn run() {
             commands::auth::login,
             commands::auth::register,
             commands::auth::reconnect,
-            commands::utils::save_media_file,
-            commands::utils::save_file_from_memory,
             commands::auth::get_account_list,
             commands::auth::delete_account,
             commands::auth::log_out,
             commands::auth::export_account,
             commands::auth::import_account,
+            commands::auth::get_user_devices,
             commands::chat::send_message,
             commands::chat::create_chat,
             commands::chat::get_chats,
@@ -89,6 +88,8 @@ pub fn run() {
             commands::user::subscribe_to_users,
             commands::user::unsubscribe_from_users,
             commands::user::get_contacts,
+            commands::utils::save_media_file,
+            commands::utils::save_file_from_memory,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

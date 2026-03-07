@@ -155,15 +155,15 @@ impl Device {
 
         let mut commit_builder = group.commit_builder();
 
-        for device_id in devices {
-            if device_id == self.device_id {
+        for device in devices {
+            if device.device_id == self.device_id {
                 continue;
             }
             let key_package_bytes = self
                 .backend
                 .as_mut()
                 .ok_or(GroupError::BackendError("Client is offline".to_string()))?
-                .get_device_key_package(user_id, device_id.clone())
+                .get_device_key_package(user_id, device.device_id.clone())
                 .await
                 .map_err(|e| {
                     GroupError::BackendError(format!("Failed to fetch device key package: {}", e))

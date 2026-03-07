@@ -190,3 +190,19 @@ pub async fn delete_account(username: String) -> Result<String, String> {
         .map_err(|e| e.to_string())?;
     Ok("Account deleted".to_string())
 }
+
+#[tauri::command]
+pub async fn get_user_devices(
+    group_user_state: tauri::State<'_, SafeGroupUser>,
+) -> Result<serde_json::Value, String> {
+    let mut group_user = group_user_state.write().await;
+    let group_user = group_user.as_mut().unwrap();
+    let devices = group_user
+        .get_account_devices()
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(devices
+        .into_iter()
+        .map(|device| serde_json::json!({"device_id": device.device_id, "created_at": device.created_at}))
+        .collect())
+}

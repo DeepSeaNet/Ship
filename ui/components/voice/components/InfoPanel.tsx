@@ -22,7 +22,7 @@ export function InfoPanel({
 	participants = {},
 	onClose,
 }: InfoPanelProps) {
-	const { users } = useMessengerState();
+	const { contacts } = useMessengerState();
 	const [copied, setCopied] = useState(false);
 
 	const copySessionId = () => {
@@ -121,7 +121,7 @@ export function InfoPanel({
 						{allParticipants.map((pid) => {
 							const isLocal = pid === localUserId;
 							const userId = isLocal ? pid : participants[pid];
-							const user = userId ? users[userId] : null;
+							const user = userId ? contacts[userId] : null;
 							const hasVid = videoTracks.some((t) => t.participantId === pid);
 							const hasAud =
 								isLocal || audioTracks.some((t) => t.participantId === pid);

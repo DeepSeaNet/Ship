@@ -32,7 +32,7 @@ export interface ReceiverKeyInfo {
 export class GroupCryptoManager {
 	private senderRatchet: SenderCryptoRatchet | null = null;
 	private receiverRatchets: Map<bigint, ReceiverCryptoRatchet> = new Map();
-	private initialized: boolean = false;
+	private initialized = false;
 
 	/**
 	 * Initialize or update the crypto state from Rust-provided key material.

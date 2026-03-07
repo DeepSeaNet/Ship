@@ -22,7 +22,7 @@ interface LoginFormProps {
 	isLoading: boolean;
 	onSubmit: (email: string, password: string) => Promise<void>;
 	onQrCodeScan: () => void;
-	onBase64Import: (base64: string) => Promise<void>;
+	onBase64Import: (data: string, key: string) => Promise<void>;
 }
 
 export function LoginForm({
@@ -35,6 +35,7 @@ export function LoginForm({
 	const [loginEmail, setLoginEmail] = useState("");
 	const [loginPassword, setLoginPassword] = useState("");
 	const [base64Input, setBase64Input] = useState("");
+	const [base64Key, setBase64Key] = useState("");
 	const [isBase64Loading, setIsBase64Loading] = useState(false);
 
 	const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -47,10 +48,14 @@ export function LoginForm({
 			alert("Please enter a valid base64 string");
 			return;
 		}
+		if (!base64Key.trim()) {
+			alert("Please enter the decryption key");
+			return;
+		}
 
 		setIsBase64Loading(true);
 		try {
-			await onBase64Import(base64Input);
+			await onBase64Import(base64Input, base64Key);
 		} finally {
 			setIsBase64Loading(false);
 		}
@@ -196,13 +201,26 @@ export function LoginForm({
 							<Input placeholder="Paste your base64 encoded credentials..." />
 						</TextField>
 
+						<TextField
+							fullWidth
+							isRequired
+							name="base64Key"
+							value={base64Key}
+							onChange={setBase64Key}
+						>
+							<Label>Decryption Key</Label>
+							<Input type="password" placeholder="Enter decryption key..." />
+						</TextField>
+
 						<p className="text-xs text-gray-500">
-							Paste your exported base64 credentials to sign in
+							Paste your exported base64 credentials and key to sign in
 						</p>
 
 						<Button
 							fullWidth
-							isDisabled={isBase64Loading || !base64Input.trim()}
+							isDisabled={
+								isBase64Loading || !base64Input.trim() || !base64Key.trim()
+							}
 							isPending={isBase64Loading}
 							onPress={handleBase64Import}
 						>

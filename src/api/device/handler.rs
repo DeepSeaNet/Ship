@@ -490,7 +490,7 @@ impl GroupHandler {
                                     .await?;
                             }
                             group_microservice::stream_response::Response::WelcomeMessage(msg) => {
-                                log::info!("Received welcome message for user {}", self.user_id);
+                                log::info!("Received welcome message {} for user {}", msg.message_id, self.user_id);
                                 if let Err(e) = async {
                                     let message = MlsMessage::from_bytes(&msg.welcome_message)
                                         .map_err(|e| {

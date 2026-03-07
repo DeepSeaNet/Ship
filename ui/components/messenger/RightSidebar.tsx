@@ -26,7 +26,7 @@ interface RightSidebarProps {
 }
 
 export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
-	const { uiState, contacts } = useMessengerState();
+	const { uiState, contacts, getUserInfo, upsertUser } = useMessengerState();
 	const { getChatById } = useChats();
 	const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 	const [mediaLoading, setMediaLoading] = useState(false);
@@ -113,6 +113,24 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 		fetchMedia();
 	}, [activeChat?.id, activeChat?.isGroup]);
 
+	// Fetch missing users for this chat
+	useEffect(() => {
+		if (!activeChat?.members) return;
+
+		const fetchMissingUsers = async () => {
+			const missingIds =
+				activeChat.members?.filter((id) => !contacts[id.toString()]) || [];
+
+			const users = await Promise.all(missingIds.map((id) => getUserInfo(id)));
+
+			users.forEach((user) => {
+				if (user) upsertUser(user);
+			});
+		};
+
+		fetchMissingUsers();
+	}, [activeChat?.members]);
+
 	if (!uiState.activeChatId) {
 		return (
 			<div className="w-96 bg-surface border-l border-border flex items-center justify-center">
@@ -138,7 +156,12 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 	// Resolve members from IDs
 	const memberList = (activeChat.members || []).map((id) => {
 		const idStr = id.toString();
-		const user = contacts[idStr] || { id: idStr, name: `User ${idStr}` };
+		const user = contacts[idStr] || {
+			id: idStr,
+			name: `User ${idStr}`,
+			status: "offline",
+		};
+
 		const role =
 			activeChat.owner_id === id
 				? "owner"
@@ -461,7 +484,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 				</div>
 			</ScrollShadow>
 
-			{activeChat && activeChat.isGroup && (
+			{activeChat?.isGroup && (
 				<GroupSettingsModal
 					isOpen={isSettingsOpen}
 					onOpenChange={setIsSettingsOpen}

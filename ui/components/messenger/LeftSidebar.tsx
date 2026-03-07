@@ -7,7 +7,7 @@ import type { Chat } from "@/hooks/messengerTypes";
 import { useChats } from "@/hooks/useChats";
 import { useMessengerState } from "@/hooks/useMessengerState";
 import { ChatListItem } from "./ChatListItem";
-import { CreateGroupModal } from "./CreateGroupModal";
+import { CreateGroupModal } from "../settings/CreateGroupModal";
 
 interface LeftSidebarProps {
 	onClose?: () => void;

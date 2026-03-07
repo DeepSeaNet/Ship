@@ -433,11 +433,12 @@ export const GroupSettingsModal = ({
 															</Avatar>
 															<div className="flex flex-col">
 																<span className="text-sm font-medium">
-																	{member.name} {isSelf && "(You)"}
+																	{member?.name || memberId} {isSelf && "(You)"}
 																</span>
 																<span className="text-xs text-muted">
 																	{(() => {
-																		const mId = Number(member.id);
+																		const mId =
+																			Number(member?.id) || Number(memberId);
 																		if (group.owner_id === mId) return "Owner";
 																		if (group.admins?.includes(mId))
 																			return "Admin";

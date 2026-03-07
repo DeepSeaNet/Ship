@@ -10,10 +10,10 @@ import {
 import { ChatArea } from "./ChatArea";
 import { LeftSidebar } from "./LeftSidebar";
 import { RightSidebar } from "./RightSidebar";
-import { SettingsModal } from "./SettingsModal";
 import { TopBar } from "./TopBar";
 import "./messenger.css";
 import { getStatusColor, handleStatusChange } from "@/hooks/useContacts";
+import { SettingsModal } from "../settings/SettingsModal";
 
 function MessengerContent() {
 	const { setAnimatingIn, currentUser, upsertUser } = useMessengerState();

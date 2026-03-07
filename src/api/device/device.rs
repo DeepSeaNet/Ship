@@ -19,7 +19,7 @@ use crate::api::{
     account::Account,
     connection::get_group_servers,
     device::{
-        connection::Backend,
+        connection::{Backend, group_microservice::Device as SDevice},
         db::{self},
         handler::GroupHandler,
         mls_client::MlsClient,
@@ -224,6 +224,16 @@ impl Device {
             )
             .await
             .map_err(|e| GroupError::BackendError(format!("Device registration failed: {}", e)))
+    }
+
+    pub async fn get_account_devices(&mut self) -> Result<Vec<SDevice>, GroupError> {
+        let user_id = self.user_id();
+        self.backend
+            .as_mut()
+            .ok_or(GroupError::BackendError("Client is offline".to_string()))?
+            .get_users_devices(user_id)
+            .await
+            .map_err(|e| GroupError::BackendError(format!("Failed to fetch user devices: {}", e)))
     }
 
     /// Upload key packages to backend

@@ -77,6 +77,24 @@ export function useContacts() {
 		}
 	}, []);
 
+	const getUserInfo = useCallback(async (userId: string | number) => {
+		try {
+			const result = await invoke<any>("get_user_info", {
+				userId: Number(userId),
+			});
+			const contact: User = {
+				id: String(result.user_id),
+				name: result.username,
+				avatar: createMediaUrl(result.avatar),
+				status: result.status,
+			};
+			return contact;
+		} catch (err) {
+			console.error(`Failed to fetch user info for ${userId}:`, err);
+			return null;
+		}
+	}, []);
+
 	useEffect(() => {
 		fetchContacts();
 	}, [fetchContacts]);
@@ -86,6 +104,7 @@ export function useContacts() {
 		setContacts,
 		loading,
 		error,
+		getUserInfo,
 		refresh: fetchContacts,
 	};
 }
