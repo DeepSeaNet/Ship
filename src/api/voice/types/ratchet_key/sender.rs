@@ -91,6 +91,36 @@ impl SenderRatchet {
         };
     }
 
+    /// Returns the current epoch
+    pub fn current_epoch(&self) -> u32 {
+        self.current_epoch
+    }
+
+    /// Returns the current generation
+    pub fn generation(&self) -> u32 {
+        self.current_keys.generation
+    }
+
+    /// Returns the public key
+    pub fn public_key(&self) -> &[u8] {
+        &self.public_key
+    }
+
+    /// Returns the user id
+    pub fn user_id(&self) -> u64 {
+        self.user_id
+    }
+
+    /// Returns current root key (for export to TS crypto)
+    pub fn root_key(&self) -> [u8; AES_KEY_SIZE] {
+        self.current_keys.root_key
+    }
+
+    /// Returns current chain key (for export to TS crypto)
+    pub fn chain_key(&self) -> [u8; AES_KEY_SIZE] {
+        self.current_keys.chain_key
+    }
+
     /// Шифрует сообщение
     pub fn encrypt(&mut self, plaintext: &[u8]) -> Result<Vec<u8>, RatchetError> {
         // Получаем ключ сообщения

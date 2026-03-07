@@ -17,10 +17,7 @@ type SafeGroupUser = Arc<RwLock<Option<Device>>>;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 #[tauri::command]
-pub async fn grpc_login(
-    app_handle: AppHandle,
-    username: String,
-) -> Result<serde_json::Value, String> {
+pub async fn login(app_handle: AppHandle, username: String) -> Result<serde_json::Value, String> {
     let account = Account::load_from_db(username)
         .await
         .map_err(|e| e.to_string())?;
@@ -87,7 +84,7 @@ pub async fn grpc_login(
 }
 
 #[tauri::command]
-pub async fn grpc_register(
+pub async fn register(
     username: String,
     avatar_url: Option<String>,
     app_handle: AppHandle,

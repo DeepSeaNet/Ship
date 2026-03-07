@@ -1,3 +1,4 @@
+use serde::Serialize;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::sync::Arc;
@@ -10,6 +11,28 @@ use super::receiver::ReceiverRatchet;
 use super::sender::SenderRatchet;
 use crate::api::voice::types::basic_types::{EXPORT_SECRET_LABEL, EXPORT_SECRET_LENGTH};
 use crate::api::voice::voice_user::MlsGroup;
+
+/// Exported receiver key info for TypeScript crypto
+#[derive(Debug, Clone, Serialize)]
+pub struct ReceiverKeyInfo {
+    pub user_id: u64,
+    pub public_key: Vec<u8>,
+    pub epoch_secrets: HashMap<u32, Vec<u8>>,
+    pub current_epoch: u32,
+}
+
+/// Full key material payload for export to TypeScript
+#[derive(Debug, Clone, Serialize)]
+pub struct VoiceKeysPayload {
+    pub sender_root_key: Vec<u8>,
+    pub sender_chain_key: Vec<u8>,
+    pub sender_public_key: Vec<u8>,
+    pub sender_user_id: u64,
+    pub sender_epoch: u32,
+    pub sender_generation: u32,
+    pub group_epoch: u64,
+    pub receivers: Vec<ReceiverKeyInfo>,
+}
 
 /// Менеджер рачет-ключей для группового общения
 pub struct GroupRatchetManager {
@@ -225,5 +248,39 @@ impl GroupRatchetManager {
         // Let the receiver handle the rest
         let mut receiver = receiver_lock_clone.write().await;
         receiver.decrypt(ciphertext)
+    }
+
+    /// Exports all key material for the TypeScript SubtleCrypto layer
+    pub async fn export_key_material(&self) -> VoiceKeysPayload {
+        let sender = self.sender_ratchet.read().await;
+
+        let mut receivers = Vec::new();
+        let receiver_ratchets = self.receiver_ratchets.read().await;
+        for (_, receiver_lock) in receiver_ratchets.iter() {
+            let receiver = receiver_lock.read().await;
+            let epoch_secrets: HashMap<u32, Vec<u8>> = receiver
+                .epoch_secrets()
+                .iter()
+                .map(|(k, v)| (*k, v.to_vec()))
+                .collect();
+
+            receivers.push(ReceiverKeyInfo {
+                user_id: receiver.sender_id(),
+                public_key: receiver.sender_public_key().to_vec(),
+                epoch_secrets,
+                current_epoch: receiver.current_epoch(),
+            });
+        }
+
+        VoiceKeysPayload {
+            sender_root_key: sender.root_key().to_vec(),
+            sender_chain_key: sender.chain_key().to_vec(),
+            sender_public_key: sender.public_key().to_vec(),
+            sender_user_id: sender.user_id(),
+            sender_epoch: sender.current_epoch(),
+            sender_generation: sender.generation(),
+            group_epoch: self.group_epoch,
+            receivers,
+        }
     }
 }

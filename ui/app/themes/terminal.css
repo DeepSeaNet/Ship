@@ -1,0 +1,85 @@
+/*
+ * HeroUI Theme Customization
+ * Add this to your global.css after importing @heroui/styles
+ * Only includes base variables from variables.css
+ * @see https://v3.heroui.com/docs/react/getting-started/theming
+ */
+@layer base {
+	[data-theme="terminal-green"] {
+		color-scheme: light;
+		/* Theme Colors (Light Mode) */
+		--accent: oklch(62.04% 0.195 128.05);
+		--accent-foreground: oklch(99.11% 0 0);
+		--background: oklch(97.02% 0.0079 128.05);
+		--border: oklch(90.00% 0.0079 128.05);
+		--danger: oklch(65.32% 0.2365 10.65);
+		--danger-foreground: oklch(99.11% 0 0);
+		--default: oklch(94.00% 0.0079 128.05);
+		--default-foreground: oklch(21.03% 0.0059 128.05);
+		--field-background: oklch(100.00% 0.004 128.05);
+		--field-foreground: oklch(21.03% 0.0059 128.05);
+		--field-placeholder: oklch(55.17% 0.0158 128.05);
+		--focus: oklch(62.04% 0.195 128.05);
+		--foreground: oklch(21.03% 0.0059 128.05);
+		--muted: oklch(55.17% 0.0158 128.05);
+		--overlay: oklch(100.00% 0.0024 128.05);
+		--overlay-foreground: oklch(21.03% 0.0059 128.05);
+		--scrollbar: oklch(87.10% 0.0079 128.05);
+		--segment: oklch(100.00% 0.0079 128.05);
+		--segment-foreground: oklch(21.03% 0.0059 128.05);
+		--separator: oklch(92.00% 0.0079 128.05);
+		--success: oklch(73.29% 0.1966 135.72);
+		--success-foreground: oklch(21.03% 0.0059 135.72);
+		--surface: oklch(100.00% 0.004 128.05);
+		--surface-foreground: oklch(21.03% 0.0059 128.05);
+		--warning: oklch(78.19% 0.161 57.24);
+		--warning-foreground: oklch(21.03% 0.0059 57.24);
+
+		/* Border Radius */
+		--radius: 0rem;
+		--field-radius: 0.75rem;
+
+		/* Font Family */
+		/* Make sure to load IBM Plex Mono font in your app */
+		--font-sans: var(--font-ibm-plex-mono);
+	}
+
+	[data-theme="terminal-green-dark"] {
+		color-scheme: dark;
+		/* Theme Colors (Dark Mode) */
+		--accent: oklch(62.04% 0.195 128.05);
+		--accent-foreground: oklch(99.11% 0 0);
+		--background: oklch(12.00% 0.0079 128.05);
+		--border: oklch(28.00% 0.0079 128.05);
+		--danger: oklch(59.40% 0.1998 9.54);
+		--danger-foreground: oklch(99.11% 0 0);
+		--default: oklch(27.40% 0.0079 128.05);
+		--default-foreground: oklch(99.11% 0 0);
+		--field-background: oklch(21.03% 0.0158 128.05);
+		--field-foreground: oklch(99.11% 0 0);
+		--field-placeholder: oklch(70.50% 0.0158 128.05);
+		--focus: oklch(62.04% 0.195 128.05);
+		--foreground: oklch(99.11% 0 0);
+		--muted: oklch(70.50% 0.0158 128.05);
+		--overlay: oklch(21.03% 0.0158 128.05);
+		--overlay-foreground: oklch(99.11% 0 0);
+		--scrollbar: oklch(70.50% 0.0079 128.05);
+		--segment: oklch(39.64% 0.0079 128.05);
+		--segment-foreground: oklch(99.11% 0 0);
+		--separator: oklch(25.00% 0.0079 128.05);
+		--success: oklch(73.29% 0.1966 135.72);
+		--success-foreground: oklch(21.03% 0.0059 135.72);
+		--surface: oklch(21.03% 0.0158 128.05);
+		--surface-foreground: oklch(99.11% 0 0);
+		--warning: oklch(82.03% 0.141 61.25);
+		--warning-foreground: oklch(21.03% 0.0059 61.25);
+
+		/* Border Radius */
+		--radius: 0rem;
+		--field-radius: 0.75rem;
+
+		/* Font Family */
+		/* Make sure to load IBM Plex Mono font in your app */
+		--font-sans: var(--font-ibm-plex-mono);
+	}
+}

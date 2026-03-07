@@ -8,3 +8,4 @@ mod sender;
 
 pub use config::RatchetConfig;
 pub use manager::GroupRatchetManager;
+pub use manager::VoiceKeysPayload;

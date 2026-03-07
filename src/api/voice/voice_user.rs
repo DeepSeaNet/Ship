@@ -157,16 +157,16 @@ impl VoiceUser {
         #[cfg(not(target_os = "ios"))]
         {
             let mut path = dirs::home_dir().expect("Could not find home directory");
-            path.push(".anongram");
-            std::fs::create_dir_all(&path).expect("Could not create .anongram directory");
+            path.push(".ship");
+            std::fs::create_dir_all(&path).expect("Could not create .ship directory");
             path.push(format!("voice_{}.json", user_id));
             path
         }
         #[cfg(target_os = "ios")]
         {
             let mut path = dirs::document_dir().expect("Could not find home directory");
-            path.push(".anongram");
-            std::fs::create_dir_all(&path).expect("Could not create .anongram directory");
+            path.push(".ship");
+            std::fs::create_dir_all(&path).expect("Could not create .ship directory");
             path.push(format!("voice_{}.json", user_id));
             path
         }
@@ -304,34 +304,6 @@ impl VoiceUser {
         Ok(())
     }
 
-    pub async fn encrypt_voice(&self, bytes: Vec<u8>) -> Result<Vec<u8>, anyhow::Error> {
-        let lock = self.current_voice.read().await;
-        let voice = lock
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("No active voice session"))?;
-        voice
-            .voice_ratchet_manager
-            .read()
-            .await
-            .encrypt(&bytes)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to encrypt message: {:?}", e))
-    }
-
-    pub async fn decrypt_voice(&self, bytes: Vec<u8>) -> Result<Vec<u8>, anyhow::Error> {
-        let lock = self.current_voice.read().await;
-        let voice = lock
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("No active voice session"))?;
-        voice
-            .voice_ratchet_manager
-            .read()
-            .await
-            .decrypt(&bytes)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to decrypt message: {:?}", e))
-    }
-
     pub async fn initialize(&self) -> Result<(), anyhow::Error> {
         self.backend.initialize().await
     }
@@ -462,7 +434,6 @@ impl VoiceUser {
         self.backend
             .init_signaling_stream(room_id, rtp_capabilities)
             .await?;
-        log::info!("Signaling stream initialized successfully");
         Ok(())
     }
 
@@ -473,5 +444,21 @@ impl VoiceUser {
     ) -> Result<(), anyhow::Error> {
         self.backend.send_signaling_message(message).await?;
         Ok(())
+    }
+
+    /// Export key material for TypeScript SubtleCrypto layer
+    pub async fn get_voice_keys(
+        &self,
+    ) -> Result<crate::api::voice::types::ratchet_key::VoiceKeysPayload, anyhow::Error> {
+        let lock = self.current_voice.read().await;
+        let voice = lock
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No active voice session"))?;
+        let manager = voice.voice_ratchet_manager.read().await;
+        Ok(manager.export_key_material().await)
+    }
+
+    pub async fn is_joined(&self) -> bool {
+        self.current_voice.read().await.is_some()
     }
 }

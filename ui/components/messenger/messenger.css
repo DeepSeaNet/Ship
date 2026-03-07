@@ -1,0 +1,113 @@
+/* Messenger Container */
+.messenger-container {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 100vh;
+	background: #000000;
+	color: #ffffff;
+	animation: messengerFadeIn 0.5s ease-out forwards;
+}
+
+.messenger-layout {
+	display: flex;
+	flex: 1;
+	overflow: hidden;
+	animation: messengerSlideUp 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+/* Chat Column */
+.chat-column {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+}
+
+/* Animations */
+@keyframes messengerFadeIn {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes messengerSlideUp {
+	from {
+		transform: translateY(20px);
+		opacity: 0;
+	}
+
+	to {
+		transform: translateY(0);
+		opacity: 1;
+	}
+}
+
+/* Smooth transitions for chat switching */
+@keyframes chatAreaFadeIn {
+	from {
+		opacity: 0;
+		transform: scale(0.98);
+	}
+
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+/* Message animation */
+@keyframes messageSlideIn {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+	.messenger-layout {
+		flex-direction: column;
+	}
+
+	.chat-column {
+		flex: 1;
+		min-height: 0;
+	}
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+	.messenger-container {
+		background: #000000;
+		color: #ffffff;
+	}
+}
+
+/* Smooth scroll behavior */
+::-webkit-scrollbar {
+	width: 6px;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	background: rgba(64, 64, 64, 0.5);
+	border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: rgba(96, 96, 96, 0.7);
+}

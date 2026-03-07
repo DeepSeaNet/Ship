@@ -1,52 +1,52 @@
 {
-  "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ship",
-  "version": "0.1.0",
-  "identifier": "com.aplxd-ship.app",
-  "build": {
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build",
-    "devUrl": "http://localhost:3000",
-    "frontendDist": "./ui/dist"
-  },
-  "app": {
-    "withGlobalTauri": true,
-    "windows": [
-      {
-        "title": "ship",
-        "width": 1920,
-        "height": 1080,
-        "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3.1 Safari/605.1.15"
-      }
-    ],
-    "security": {
-      "csp": null
-    }
-  },
-  "bundle": {
-    "active": true,
-    "targets": "all",
-    "macOS": {
-      "entitlements": "Entitlements.plist",
-      "signingIdentity": "-"
-    },
-    "icon": [
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/32x32.png",
-      "icons/icon.icns",
-      "icons/icon.ico",
-      "icons/icon.png",
-      "icons/Square107x107Logo.png",
-      "icons/Square142x142Logo.png",
-      "icons/Square150x150Logo.png",
-      "icons/Square284x284Logo.png",
-      "icons/Square30x30Logo.png",
-      "icons/Square310x310Logo.png",
-      "icons/Square44x44Logo.png",
-      "icons/Square71x71Logo.png",
-      "icons/Square89x89Logo.png",
-      "icons/StoreLogo.png"
-    ]
-  }
+	"$schema": "https://schema.tauri.app/config/2",
+	"productName": "ship",
+	"version": "0.1.0",
+	"identifier": "com.aplxd-ship.app",
+	"build": {
+		"beforeDevCommand": "npm run dev",
+		"beforeBuildCommand": "npm run build",
+		"devUrl": "http://localhost:3000",
+		"frontendDist": "./ui/dist"
+	},
+	"app": {
+		"withGlobalTauri": true,
+		"windows": [
+			{
+				"title": "ship",
+				"width": 1920,
+				"height": 1080,
+				"userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.3.1 Safari/605.1.15"
+			}
+		],
+		"security": {
+			"csp": null
+		}
+	},
+	"bundle": {
+		"active": true,
+		"targets": "all",
+		"macOS": {
+			"entitlements": "Entitlements.plist",
+			"signingIdentity": "-"
+		},
+		"icon": [
+			"icons/128x128.png",
+			"icons/128x128@2x.png",
+			"icons/32x32.png",
+			"icons/icon.icns",
+			"icons/icon.ico",
+			"icons/icon.png",
+			"icons/Square107x107Logo.png",
+			"icons/Square142x142Logo.png",
+			"icons/Square150x150Logo.png",
+			"icons/Square284x284Logo.png",
+			"icons/Square30x30Logo.png",
+			"icons/Square310x310Logo.png",
+			"icons/Square44x44Logo.png",
+			"icons/Square71x71Logo.png",
+			"icons/Square89x89Logo.png",
+			"icons/StoreLogo.png"
+		]
+	}
 }

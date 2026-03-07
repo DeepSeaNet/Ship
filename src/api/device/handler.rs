@@ -496,7 +496,13 @@ impl GroupHandler {
                                         .map_err(|e| {
                                             GroupError::MessageDecodingError(e.to_string())
                                         })?;
-                                    self.join(&message).await
+                                    self.join(&message).await?;
+                                    self.backend
+                                        .ack_delivery(msg.message_id, self.user_id, self.device_id.clone(), Vec::new())
+                                        .await
+                                        .map_err(|e| {
+                                            GroupError::BackendError(format!("Failed to ack delivery: {}", e))
+                                        })
                                 }
                                 .await
                                 {
