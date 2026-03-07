@@ -1,35 +1,34 @@
-'use client';
+"use client";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Toast} from "@heroui/react";
-
+import { Toast } from "@heroui/react";
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+	variable: "--font-geist-sans",
+	subsets: ["latin"],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+	variable: "--font-geist-mono",
+	subsets: ["latin"],
 });
 
 export default function RootLayout({
-  children,
+	children,
 }: Readonly<{
-  children: React.ReactNode;
+	children: React.ReactNode;
 }>) {
-  const theme = localStorage.getItem('theme') || 'default';
-  return (
-    <html lang="en" data-theme={theme}>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <div>
-          <Toast.Provider />
-          {children}
-        </div>
-      </body>
-    </html>
-  );
+	const theme = localStorage.getItem("theme") || "default";
+	return (
+		<html lang="en" data-theme={theme}>
+			<body
+				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+			>
+				<div>
+					<Toast.Provider />
+					{children}
+				</div>
+			</body>
+		</html>
+	);
 }

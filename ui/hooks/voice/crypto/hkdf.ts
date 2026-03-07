@@ -9,7 +9,11 @@
  *   - output length = 32 bytes (2 × AES_KEY_SIZE)
  */
 
-import { AES_KEY_SIZE, SENDER_RATCHET_INIT_INFO, MESSAGE_KEY_DERIVATION_INFO } from './constants';
+import {
+	AES_KEY_SIZE,
+	MESSAGE_KEY_DERIVATION_INFO,
+	SENDER_RATCHET_INIT_INFO,
+} from "./constants";
 
 const encoder = new TextEncoder();
 
@@ -23,32 +27,32 @@ const encoder = new TextEncoder();
  * @returns Derived key bytes
  */
 export async function hkdfDerive(
-    ikm: Uint8Array,
-    salt: Uint8Array | null,
-    info: string,
-    length: number
+	ikm: Uint8Array,
+	salt: Uint8Array | null,
+	info: string,
+	length: number,
 ): Promise<Uint8Array> {
-    // Import IKM as raw key material for HKDF
-    const baseKey = await crypto.subtle.importKey(
-        'raw',
-        ikm as any,
-        'HKDF',
-        false,
-        ['deriveBits']
-    );
+	// Import IKM as raw key material for HKDF
+	const baseKey = await crypto.subtle.importKey(
+		"raw",
+		ikm as any,
+		"HKDF",
+		false,
+		["deriveBits"],
+	);
 
-    const derivedBits = await crypto.subtle.deriveBits(
-        {
-            name: 'HKDF',
-            hash: 'SHA-256',
-            salt: (salt ?? new Uint8Array(32)) as any, // Match Rust Hkdf::new(None, ...) → zero salt
-            info: encoder.encode(info) as any,
-        },
-        baseKey,
-        length * 8 // deriveBits expects bits
-    );
+	const derivedBits = await crypto.subtle.deriveBits(
+		{
+			name: "HKDF",
+			hash: "SHA-256",
+			salt: (salt ?? new Uint8Array(32)) as any, // Match Rust Hkdf::new(None, ...) → zero salt
+			info: encoder.encode(info) as any,
+		},
+		baseKey,
+		length * 8, // deriveBits expects bits
+	);
 
-    return new Uint8Array(derivedBits);
+	return new Uint8Array(derivedBits);
 }
 
 /**
@@ -56,19 +60,19 @@ export async function hkdfDerive(
  * Returns [root_key (16 bytes), chain_key (16 bytes)].
  */
 export async function deriveRatchetKeys(
-    sharedSecret: Uint8Array
+	sharedSecret: Uint8Array,
 ): Promise<{ rootKey: Uint8Array; chainKey: Uint8Array }> {
-    const derived = await hkdfDerive(
-        sharedSecret,
-        null,
-        SENDER_RATCHET_INIT_INFO,
-        AES_KEY_SIZE * 2
-    );
+	const derived = await hkdfDerive(
+		sharedSecret,
+		null,
+		SENDER_RATCHET_INIT_INFO,
+		AES_KEY_SIZE * 2,
+	);
 
-    return {
-        rootKey: derived.slice(0, AES_KEY_SIZE),
-        chainKey: derived.slice(AES_KEY_SIZE),
-    };
+	return {
+		rootKey: derived.slice(0, AES_KEY_SIZE),
+		chainKey: derived.slice(AES_KEY_SIZE),
+	};
 }
 
 /**
@@ -79,22 +83,22 @@ export async function deriveRatchetKeys(
  * This mirrors the Rust HKDF with salt=root_key, ikm=chain_key, info="MessageKeyDerivation".
  */
 export async function deriveMessageKey(
-    rootKey: Uint8Array,
-    chainKey: Uint8Array
+	rootKey: Uint8Array,
+	chainKey: Uint8Array,
 ): Promise<{ newChainKey: Uint8Array; messageKey: Uint8Array }> {
-    // In Rust: Hkdf::new(Some(&root_key), &chain_key) → Extract with salt=root_key, ikm=chain_key
-    // Then expand with info="MessageKeyDerivation"
-    const derived = await hkdfDerive(
-        chainKey,
-        rootKey,
-        MESSAGE_KEY_DERIVATION_INFO,
-        AES_KEY_SIZE * 2
-    );
+	// In Rust: Hkdf::new(Some(&root_key), &chain_key) → Extract with salt=root_key, ikm=chain_key
+	// Then expand with info="MessageKeyDerivation"
+	const derived = await hkdfDerive(
+		chainKey,
+		rootKey,
+		MESSAGE_KEY_DERIVATION_INFO,
+		AES_KEY_SIZE * 2,
+	);
 
-    return {
-        newChainKey: derived.slice(0, AES_KEY_SIZE),
-        messageKey: derived.slice(AES_KEY_SIZE),
-    };
+	return {
+		newChainKey: derived.slice(0, AES_KEY_SIZE),
+		messageKey: derived.slice(AES_KEY_SIZE),
+	};
 }
 
 /**
@@ -102,52 +106,52 @@ export async function deriveMessageKey(
  * Returns { nonce (12 bytes), ciphertext (includes GCM tag) }.
  */
 export async function aesGcmEncrypt(
-    key: Uint8Array,
-    plaintext: Uint8Array
+	key: Uint8Array,
+	plaintext: Uint8Array,
 ): Promise<{ nonce: Uint8Array; ciphertext: Uint8Array }> {
-    const nonce = crypto.getRandomValues(new Uint8Array(12));
+	const nonce = crypto.getRandomValues(new Uint8Array(12));
 
-    const cryptoKey = await crypto.subtle.importKey(
-        'raw',
-        key as any,
-        { name: 'AES-GCM' },
-        false,
-        ['encrypt']
-    );
+	const cryptoKey = await crypto.subtle.importKey(
+		"raw",
+		key as any,
+		{ name: "AES-GCM" },
+		false,
+		["encrypt"],
+	);
 
-    const encrypted = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv: nonce as any },
-        cryptoKey,
-        plaintext as any
-    );
+	const encrypted = await crypto.subtle.encrypt(
+		{ name: "AES-GCM", iv: nonce as any },
+		cryptoKey,
+		plaintext as any,
+	);
 
-    return {
-        nonce,
-        ciphertext: new Uint8Array(encrypted),
-    };
+	return {
+		nonce,
+		ciphertext: new Uint8Array(encrypted),
+	};
 }
 
 /**
  * Decrypts ciphertext using AES-128-GCM.
  */
 export async function aesGcmDecrypt(
-    key: Uint8Array,
-    nonce: Uint8Array,
-    ciphertext: Uint8Array
+	key: Uint8Array,
+	nonce: Uint8Array,
+	ciphertext: Uint8Array,
 ): Promise<Uint8Array> {
-    const cryptoKey = await crypto.subtle.importKey(
-        'raw',
-        key as any,
-        { name: 'AES-GCM' },
-        false,
-        ['decrypt']
-    );
+	const cryptoKey = await crypto.subtle.importKey(
+		"raw",
+		key as any,
+		{ name: "AES-GCM" },
+		false,
+		["decrypt"],
+	);
 
-    const decrypted = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: nonce as any },
-        cryptoKey,
-        ciphertext as any
-    );
+	const decrypted = await crypto.subtle.decrypt(
+		{ name: "AES-GCM", iv: nonce as any },
+		cryptoKey,
+		ciphertext as any,
+	);
 
-    return new Uint8Array(decrypted);
+	return new Uint8Array(decrypted);
 }

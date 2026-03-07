@@ -45,7 +45,7 @@ pub async fn join_session(
     voice_user.initialize().await.map_err(|e| e.to_string())?;
     if voice_user.is_joined().await {
         log::error!("Already joined session");
-        return Err(format!("Already joined session"));
+        return Err("Already joined session".to_string());
     }
     match voice_user.join(session_id).await {
         Ok(_) => {

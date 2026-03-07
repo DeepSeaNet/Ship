@@ -20,7 +20,7 @@ use tonic::{Request, Status, Streaming};
 use tonic_h3::H3Channel;
 use tonic_h3::quinn::H3QuinnConnector;
 
-use crate::api::device::connection::endpoint::create_client_endpoint;
+use crate::api::connection::endpoint::create_client_endpoint;
 use crate::api::device::connection::group_microservice::{
     GetDeviceKeyPackageRequest, StreamAckDeliveryRequest, UpdateGroupSubscriptionsRequest,
 };

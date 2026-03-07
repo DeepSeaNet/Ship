@@ -1,33 +1,33 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { getAccountList } from "./useAccounts";
+import { useEffect, useState } from "react";
 import type { Account } from "./types";
+import { getAccountList } from "./useAccounts";
 
 export const useAccountList = () => {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [loadingAccounts, setLoadingAccounts] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+	const [accounts, setAccounts] = useState<Account[]>([]);
+	const [loadingAccounts, setLoadingAccounts] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 
-  const loadAccounts = async () => {
-    try {
-      setLoadingAccounts(true);
-      setError(null);
-      const accountList = await getAccountList();
-      setAccounts(accountList);
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to load accounts";
-      setError(errorMessage);
-      console.error("Failed to load accounts:", err);
-    } finally {
-      setLoadingAccounts(false);
-    }
-  };
+	const loadAccounts = async () => {
+		try {
+			setLoadingAccounts(true);
+			setError(null);
+			const accountList = await getAccountList();
+			setAccounts(accountList);
+		} catch (err) {
+			const errorMessage =
+				err instanceof Error ? err.message : "Failed to load accounts";
+			setError(errorMessage);
+			console.error("Failed to load accounts:", err);
+		} finally {
+			setLoadingAccounts(false);
+		}
+	};
 
-  useEffect(() => {
-    loadAccounts();
-  }, []);
+	useEffect(() => {
+		loadAccounts();
+	}, []);
 
-  return { accounts, loadingAccounts, error, refreshAccounts: loadAccounts };
+	return { accounts, loadingAccounts, error, refreshAccounts: loadAccounts };
 };

@@ -1,2 +1,1 @@
-export { LandscapeBackground } from './LandscapeBackground';
-export { default } from './LandscapeBackground';
+export { default, LandscapeBackground } from "./LandscapeBackground";

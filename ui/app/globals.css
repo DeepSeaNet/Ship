@@ -7,43 +7,43 @@
 
 /* Используем переменные HeroUI для автоматической поддержки тем */
 .messenger-container {
-  background-color: var(--background);
-  color: var(--foreground);
+	background-color: var(--background);
+	color: var(--foreground);
 }
 
 .messenger-nav {
-  background-color: var(--surface);
-  border-color: var(--border);
+	background-color: var(--surface);
+	border-color: var(--border);
 }
 
 .messenger-nav-button {
-  background-color: var(--default);
-  color: var(--default-foreground);
+	background-color: var(--default);
+	color: var(--default-foreground);
 }
 
 .messenger-nav-button:hover {
-  background-color: var(--default-hover);
+	background-color: var(--default-hover);
 }
 
 .messenger-panel {
-  background-color: var(--surface);
-  border-color: var(--border);
+	background-color: var(--surface);
+	border-color: var(--border);
 }
 
 .messenger-input {
-  background-color: var(--field);
-  color: var(--field-foreground);
-  border-color: var(--field-border);
+	background-color: var(--field);
+	color: var(--field-foreground);
+	border-color: var(--field-border);
 }
 
 .messenger-input:hover {
-  background-color: var(--field-hover);
-  border-color: var(--field-border-hover);
+	background-color: var(--field-hover);
+	border-color: var(--field-border-hover);
 }
 
 .messenger-input:focus {
-  background-color: var(--field-focus);
-  border-color: var(--field-border-focus);
+	background-color: var(--field-focus);
+	border-color: var(--field-border-focus);
 }
 
 /*

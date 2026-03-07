@@ -1,8 +1,8 @@
+use serde::Serialize;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use serde::Serialize;
 
 use super::config::RatchetConfig;
 use super::constants::AES_KEY_SIZE;

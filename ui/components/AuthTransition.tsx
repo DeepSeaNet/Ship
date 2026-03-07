@@ -1,30 +1,28 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { MainMenu } from './messenger/MainMenu';
-import './auth-transition.css';
+import { useState } from "react";
+import { MainMenu } from "./messenger/MainMenu";
+import "./auth-transition.css";
 
 interface AuthTransitionProps {
-  show: boolean;
+	show: boolean;
 }
 
 export function AuthTransition({ show }: AuthTransitionProps) {
-  const [isVisible, setIsVisible] = useState(false);
+	const [isVisible, setIsVisible] = useState(show);
 
-  useEffect(() => {
-    if (show) {
-      setIsVisible(true);
-    }
-  }, [show]);
+	if (show && !isVisible) {
+		setIsVisible(true);
+	}
 
-  if (!isVisible) return null;
+	if (!isVisible) return null;
 
-  return (
-    <div className="auth-transition-container">
-      <div className={`auth-transition-overlay ${show ? 'fade-out' : ''}`} />
-      <div className={`messenger-entrance ${show ? 'slide-in' : ''}`}>
-        <MainMenu />
-      </div>
-    </div>
-  );
+	return (
+		<div className="auth-transition-container">
+			<div className={`auth-transition-overlay ${show ? "fade-out" : ""}`} />
+			<div className={`messenger-entrance ${show ? "slide-in" : ""}`}>
+				<MainMenu />
+			</div>
+		</div>
+	);
 }
