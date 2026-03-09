@@ -23,10 +23,7 @@
 	-webkit-font-smoothing: antialiased;
 	image-rendering: -webkit-optimize-contrast;
 
-	will-change: transform;
-	/* Убирает щели между элементами SVG */
 	shape-rendering: geometricPrecision;
-	/* Устанавливаем плавность для scale и origin */
 	transition:
 		transform 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94),
 		transform-origin 1.2s ease;

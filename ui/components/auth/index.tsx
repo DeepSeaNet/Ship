@@ -69,7 +69,12 @@ export default function AuthPage() {
 			if (password !== confirmPassword) {
 				throw new Error("Passwords do not match");
 			}
-			await register(username, email, password);
+			try {
+				await register(username, email, password);
+			} catch (error) {
+				console.error("Registration failed:", error);
+				alert(`Registration failed: ${error}`);
+			}
 
 			setSuccessMessage(
 				"Account created successfully! Updating account list...",

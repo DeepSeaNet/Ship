@@ -42,10 +42,13 @@ impl VoiceHandler {
         );
 
         let voice_lock = self.voice.read().await;
-        let voice = voice_lock
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("No active voice session"))
-            .unwrap();
+        let voice = match voice_lock.as_ref() {
+            Some(v) => v,
+            None => {
+                log::error!("No active voice session");
+                return;
+            }
+        };
 
         if data.is_empty() {
             return;
@@ -73,7 +76,10 @@ impl VoiceHandler {
         log::info!("Processed message: {:?}", processed_message);
 
         if let ReceivedMessage::Commit(commit) = processed_message {
-            mls_group.write_to_storage().await.unwrap();
+            if let Err(e) = mls_group.write_to_storage().await {
+                log::error!("Failed to write to storage: {}", e);
+                return;
+            }
             log::debug!(
                 "Commit sended by {} with effect: {:#?}",
                 commit.committer,

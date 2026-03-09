@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { LoginResult, RegisterResult } from "./types";
+import { toast } from "@heroui/react";
 
 export const register = async (
 	username: string,
@@ -8,13 +9,19 @@ export const register = async (
 ) => {
 	// Note: Backend currently takes (username, avatar_url).
 	// We keep the signature as requested by the user.
-	const result: RegisterResult = await invoke("register", {
-		username,
-		email,
-		password,
-	});
-
-	return result;
+	try {
+		const result: RegisterResult = await invoke("register", {
+			username,
+			email,
+			password,
+		});
+		toast.info("Account registered successfully: " + result);
+		return result;
+	} catch (error) {
+		console.error("Failed to register:", error);
+		toast.danger("Failed to register" + error)
+		throw error;
+	}
 };
 
 export const import_account = async (

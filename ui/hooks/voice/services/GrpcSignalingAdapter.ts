@@ -10,12 +10,160 @@ import type {
 	ServerProducerAdded,
 	ServerProducerRemoved,
 } from "../types/mediasoup";
+import { minimalCapabilities } from "../utils/rtpCapabilities";
+import type { IceCandidate } from "mediasoup-client/types";
 
-// Type for server error messages
+// ─── Proto types ─────────────────────────────────────────────────────────────
+
+interface ProtoFingerprint {
+	algorithm: string;
+	value: string;
+}
+
+interface ProtoDtlsParameters {
+	fingerprints?: ProtoFingerprint[];
+	role?: string;
+}
+
+interface ProtoIceParameters {
+	usernameFragment?: string;
+	username_fragment?: string;
+	password?: string;
+	iceLite?: boolean;
+	ice_lite?: boolean;
+}
+
+interface ProtoIceCandidate {
+	foundation: string;
+	priority: number;
+	address: string;
+	protocol?: string;
+	port: number;
+	type?: string;
+	tcpType?: string;
+}
+
+interface ProtoTransportOptions {
+	id: string;
+	iceParameters?: ProtoIceParameters;
+	ice_parameters?: ProtoIceParameters;
+	iceCandidates?: ProtoIceCandidate[];
+	ice_candidates?: ProtoIceCandidate[];
+	dtlsParameters?: ProtoDtlsParameters;
+	dtls_parameters?: ProtoDtlsParameters;
+}
+
+interface ProtoCodec {
+	mimeType?: string;
+	mime_type?: string;
+}
+
+interface ProtoRtpCapabilities {
+	codecs?: ProtoCodec[];
+}
+
+interface ProtoRtpParameters {
+	mid?: string;
+}
+
+interface ProtoConsumed {
+	consumerId?: string;
+	consumer_id?: string;
+	producerId?: string;
+	producer_id?: string;
+	kind?: number;
+	rtpParameters?: ProtoRtpParameters;
+	rtp_parameters?: ProtoRtpParameters;
+}
+
+interface ProtoProducerAdded {
+	producerId?: string;
+	producer_id?: string;
+	participantId?: string;
+	participant_id?: string;
+	appData?: string;
+	app_data?: string;
+}
+
+interface ProtoProducerRemoved {
+	producerId?: string;
+	producer_id?: string;
+	participantId?: string;
+	participant_id?: string;
+}
+
+interface ProtoInitMessage {
+	routerRtpCapabilities?: ProtoRtpCapabilities;
+	router_rtp_capabilities?: ProtoRtpCapabilities;
+	producerTransportOptions?: ProtoTransportOptions;
+	producer_transport_options?: ProtoTransportOptions;
+	consumerTransportOptions?: ProtoTransportOptions;
+	consumer_transport_options?: ProtoTransportOptions;
+}
+
+interface ProtoErrorMessage {
+	errorMessage?: string;
+	error_message?: string;
+}
+
+interface ProtoVoiceData {
+	userId?: string;
+	user_id?: string;
+	voiceId?: string;
+	voice_id?: string;
+	data?: Uint8Array;
+}
+
+interface ProtoServerCommit {
+	voiceId?: string;
+	voice_id?: string;
+	commit?: unknown;
+	commitId?: string;
+	commit_id?: string;
+}
+
+interface ProtoAddProposal {
+	voiceId?: string;
+	voice_id?: string;
+	proposal?: unknown;
+}
+
+interface ProtoServerMessage {
+	message?: {
+		init?: ProtoInitMessage;
+		producerAdded?: ProtoProducerAdded;
+		producer_added?: ProtoProducerAdded;
+		producerRemoved?: ProtoProducerRemoved;
+		producer_removed?: ProtoProducerRemoved;
+		consumed?: ProtoConsumed;
+		connectedProducerTransport?: object;
+		connected_producer_transport?: object;
+		connectedConsumerTransport?: object;
+		connected_consumer_transport?: object;
+		produced?: { producerId?: string; producer_id?: string };
+		error?: ProtoErrorMessage;
+		voiceData?: ProtoVoiceData;
+		voice_data?: ProtoVoiceData;
+		serverCommit?: ProtoServerCommit;
+		server_commit?: ProtoServerCommit;
+		addProposal?: ProtoAddProposal;
+		add_proposal?: ProtoAddProposal;
+	};
+}
+
+interface VoiceEventPayload {
+	type: string;
+	data: ProtoServerMessage;
+}
+
+// ─── Extended server message types ───────────────────────────────────────────
+
 interface ServerError extends ServerMessage {
 	action: "Error";
 	message: string;
 }
+
+// ─── Adapter options ──────────────────────────────────────────────────────────
 
 export interface GrpcSignalingAdapterOptions {
 	sessionId: string;
@@ -23,27 +171,23 @@ export interface GrpcSignalingAdapterOptions {
 	onProducerAdded: (
 		producerId: string,
 		participantId: string,
-		appData: any,
+		appData: Record<string, unknown>,
 	) => void;
 	onProducerRemoved: (producerId: string, participantId: string) => void;
-	onConnectionStateChange: (state: boolean) => void;
+	onConnectionStateChange: (connected: boolean) => void;
 	onMessage?: (message: ServerMessage) => void;
 }
 
+// ─── Adapter ──────────────────────────────────────────────────────────────────
+
 export class GrpcSignalingAdapter {
-	private sessionId: string;
-	private addLog: LoggerFunction;
-	private onProducerAdded: (
-		producerId: string,
-		participantId: string,
-		appData: any,
-	) => void;
-	private onProducerRemoved: (
-		producerId: string,
-		participantId: string,
-	) => void;
-	private onConnectionStateChange: (state: boolean) => void;
-	private onMessage?: (message: ServerMessage) => void;
+	private readonly sessionId: string;
+	private readonly addLog: LoggerFunction;
+	private readonly onProducerAdded: GrpcSignalingAdapterOptions["onProducerAdded"];
+	private readonly onProducerRemoved: GrpcSignalingAdapterOptions["onProducerRemoved"];
+	private readonly onConnectionStateChange: GrpcSignalingAdapterOptions["onConnectionStateChange"];
+	private readonly onMessage?: (message: ServerMessage) => void;
+
 	private unlistenFn: UnlistenFn | null = null;
 	private isConnected = false;
 
@@ -56,253 +200,19 @@ export class GrpcSignalingAdapter {
 		this.onMessage = options.onMessage;
 	}
 
-	// Начать gRPC соединение
+	// ─── Public API ───────────────────────────────────────────────────────────
+
 	public async connect(): Promise<void> {
 		if (this.isConnected) {
-			this.addLog("gRPC соединение уже установлено", "warning");
+			this.addLog("gRPC connection is already established", "warning");
 			return;
 		}
 
-		this.addLog(
-			`Подключение к gRPC SignalingStream: ${this.sessionId}`,
-			"info",
-		);
+		this.addLog(`Connecting to gRPC SignalingStream: ${this.sessionId}`, "info");
 
 		try {
-			// Настраиваем слушатель событий сначала
 			await this.setupEventListener();
 
-			const minimalCapabilities = {
-				codecs: [
-					// ===== AUDIO =====
-					{
-						kind: "audio",
-						mimeType: "audio/opus",
-						clockRate: 48000,
-						channels: 2,
-						preferredPayloadType: 111,
-						parameters: {
-							useinbandfec: 1,
-							stereo: 1,
-							maxplaybackrate: 48000,
-							ptime: 20,
-						},
-						rtcpFeedback: [
-							{ type: "transport-cc" },
-							{ type: "ccm", parameter: "fir" },
-							{ type: "nack" },
-							{ type: "nack", parameter: "pli" },
-						],
-					},
-
-					// ===== VIDEO VP8 =====
-					{
-						kind: "video",
-						mimeType: "video/VP8",
-						clockRate: 90000,
-						preferredPayloadType: 96,
-						parameters: {},
-						rtcpFeedback: [
-							{ type: "nack" },
-							{ type: "nack", parameter: "pli" },
-							{ type: "ccm", parameter: "fir" },
-							{ type: "goog-remb" },
-							{ type: "transport-cc" },
-						],
-					},
-					// RTX для VP8
-					{
-						kind: "video",
-						mimeType: "video/rtx",
-						preferredPayloadType: 97,
-						clockRate: 90000,
-						parameters: { apt: 96 },
-						rtcpFeedback: [],
-					},
-
-					// ===== VIDEO VP9 =====
-					{
-						kind: "video",
-						mimeType: "video/VP9",
-						clockRate: 90000,
-						preferredPayloadType: 98,
-						parameters: { "profile-id": 2 },
-						rtcpFeedback: [
-							{ type: "nack" },
-							{ type: "nack", parameter: "pli" },
-							{ type: "ccm", parameter: "fir" },
-							{ type: "goog-remb" },
-							{ type: "transport-cc" },
-						],
-					},
-					// RTX для VP9
-					{
-						kind: "video",
-						mimeType: "video/rtx",
-						preferredPayloadType: 99,
-						clockRate: 90000,
-						parameters: { apt: 98 },
-						rtcpFeedback: [],
-					},
-
-					// ===== VIDEO H264 =====
-					{
-						kind: "video",
-						mimeType: "video/H264",
-						clockRate: 90000,
-						preferredPayloadType: 100,
-						parameters: {
-							"level-asymmetry-allowed": 1,
-							"packetization-mode": 1,
-							"profile-level-id": "42e01f",
-						},
-						rtcpFeedback: [
-							{ type: "nack" },
-							{ type: "nack", parameter: "pli" },
-							{ type: "ccm", parameter: "fir" },
-							{ type: "goog-remb" },
-							{ type: "transport-cc" },
-						],
-					},
-					// RTX для H264
-					{
-						kind: "video",
-						mimeType: "video/rtx",
-						preferredPayloadType: 101,
-						clockRate: 90000,
-						parameters: { apt: 100 },
-						rtcpFeedback: [],
-					},
-				],
-
-				headerExtensions: [
-					// ===== AUDIO =====
-					{
-						kind: "audio",
-						uri: "urn:ietf:params:rtp-hdrext:sdes:mid",
-						preferredId: 1,
-						preferredEncrypt: false,
-						direction: "sendrecv",
-					},
-					{
-						kind: "audio",
-						uri: "http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time",
-						preferredId: 4,
-						preferredEncrypt: false,
-						direction: "sendrecv",
-					},
-					{
-						kind: "audio",
-						uri: "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01",
-						preferredId: 5,
-						preferredEncrypt: false,
-						direction: "sendrecv",
-					},
-					{
-						kind: "audio",
-						uri: "urn:ietf:params:rtp-hdrext:ssrc-audio-level",
-						preferredId: 10,
-						preferredEncrypt: false,
-						direction: "sendrecv",
-					},
-					{
-						kind: "audio",
-						uri: "urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id",
-						preferredId: 11,
-						preferredEncrypt: false,
-						direction: "sendrecv",
-					},
-					{
-						kind: "audio",
-						uri: "urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id",
-						preferredId: 12,
-						preferredEncrypt: false,
-						direction: "sendrecv",
-					},
-
-					// ===== VIDEO =====
-					{
-						kind: "video",
-						uri: "urn:ietf:params:rtp-hdrext:sdes:mid",
-						preferredId: 1,
-						preferredEncrypt: false,
-						direction: "sendrecv",
-					},
-					{
-						kind: "video",
-						uri: "http://www.webrtc.org/experiments/rtp-hdrext/abs-send-time",
-						preferredId: 4,
-						preferredEncrypt: false,
-						direction: "sendrecv",
-					},
-					{
-						kind: "video",
-						uri: "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01",
-						preferredId: 5,
-						preferredEncrypt: false,
-						direction: "sendrecv",
-					},
-					{
-						kind: "video",
-						uri: "urn:ietf:params:rtp-hdrext:toffset",
-						preferredId: 13,
-						preferredEncrypt: false,
-						direction: "sendrecv",
-					},
-					{
-						kind: "video",
-						uri: "urn:ietf:params:rtp-hdrext:sdes:rtp-stream-id",
-						preferredId: 14,
-						preferredEncrypt: false,
-						direction: "sendrecv",
-					},
-					{
-						kind: "video",
-						uri: "urn:ietf:params:rtp-hdrext:sdes:repaired-rtp-stream-id",
-						preferredId: 15,
-						preferredEncrypt: false,
-						direction: "sendrecv",
-					},
-					{
-						kind: "video",
-						uri: "urn:ietf:params:rtp-hdrext:framemarking",
-						preferredId: 16,
-						preferredEncrypt: false,
-						direction: "sendrecv",
-					},
-					{
-						kind: "video",
-						uri: "urn:3gpp:video-orientation",
-						preferredId: 17,
-						preferredEncrypt: false,
-						direction: "sendrecv",
-					},
-					{
-						kind: "video",
-						uri: "urn:ietf:params:rtp-hdrext:playout-delay",
-						preferredId: 18,
-						preferredEncrypt: false,
-						direction: "sendrecv",
-					},
-					{
-						kind: "video",
-						uri: "http://www.webrtc.org/experiments/rtp-hdrext/video-content-type",
-						preferredId: 19,
-						preferredEncrypt: false,
-						direction: "sendrecv",
-					},
-					{
-						kind: "video",
-						uri: "http://www.webrtc.org/experiments/rtp-hdrext/video-timing",
-						preferredId: 20,
-						preferredEncrypt: false,
-						direction: "sendrecv",
-					},
-				],
-			};
-
-			// Инициализируем signaling stream с RTP capabilities
-			// Init сообщение отправляется автоматически на стороне Rust
 			await invoke("init_webrtc_signaling", {
 				sessionId: this.sessionId,
 				rtpCapabilities: JSON.stringify(minimalCapabilities),
@@ -310,420 +220,332 @@ export class GrpcSignalingAdapter {
 
 			this.isConnected = true;
 			this.onConnectionStateChange(true);
-			this.addLog("gRPC SignalingStream соединение установлено", "success");
+			this.addLog("gRPC SignalingStream connected", "success");
 		} catch (error) {
-			this.addLog(`Ошибка подключения к gRPC: ${error}`, "error");
+			this.addLog(`Failed to connect to gRPC: ${error}`, "error");
 			throw error;
 		}
 	}
 
-	// Закрыть соединение
 	public closeConnection(): void {
-		if (this.unlistenFn) {
-			this.unlistenFn();
-			this.unlistenFn = null;
-		}
+		this.unlistenFn?.();
+		this.unlistenFn = null;
 		this.isConnected = false;
 		this.onConnectionStateChange(false);
-		this.addLog("gRPC SignalingStream соединение закрыто", "info");
+		this.addLog("gRPC SignalingStream connection closed", "info");
 	}
 
-	// Отправить сообщение серверу
 	public async sendMessage(message: ClientMessage): Promise<void> {
 		if (!this.isConnected) {
 			this.addLog(
-				`Не удалось отправить gRPC сообщение (${message.action}): соединение не установлено`,
+				`Cannot send gRPC message (${message.action}): not connected`,
 				"error",
 			);
 			return;
 		}
 
 		try {
-			// Конвертируем TypeScript ClientMessage в proto формат
 			const protoMessage = this.convertToProto(message);
-			const messageString = JSON.stringify(protoMessage);
-
-			this.addLog(`Отправка gRPC сообщения: ${message.action}`, "info");
-			await invoke("send_webrtc_message", { messageJson: messageString });
+			this.addLog(`Sending gRPC message: ${message.action}`, "info");
+			await invoke("send_webrtc_message", {
+				messageJson: JSON.stringify(protoMessage),
+			});
 		} catch (error) {
 			this.addLog(
-				`Ошибка отправки gRPC сообщения (${message.action}): ${error}`,
+				`Failed to send gRPC message (${message.action}): ${error}`,
 				"error",
 			);
 		}
 	}
 
-	// Настройка слушателя событий
-	private async setupEventListener(): Promise<void> {
-		// Listen for WebRTC signaling messages
-		this.unlistenFn = await listen("voice-event", (event) => {
-			const { type, data } = event.payload as any;
+	// ─── Event listener ───────────────────────────────────────────────────────
 
-			if (type === "signaling_message") {
-				this.handleMessage(data);
-			}
-		});
+	private async setupEventListener(): Promise<void> {
+		this.unlistenFn = await listen<VoiceEventPayload>(
+			"voice-event",
+			(event) => {
+				const { type, data } = event.payload;
+				if (type === "signaling_message") {
+					this.handleMessage(data);
+				}
+			},
+		);
 	}
 
-	// Обработка входящих сообщений
-	private handleMessage(serverMessage: any): void {
-		// Определяем тип сообщения для логирования
-		const messageType = serverMessage.message
-			? Object.keys(serverMessage.message)[0]
-			: "unknown";
-		console.log(serverMessage);
+	// ─── Message handling ─────────────────────────────────────────────────────
 
-		// Конвертируем proto message в mediasoup format
-		const message = this.convertProtoToMediasoup(serverMessage);
+	private handleMessage(raw: ProtoServerMessage): void {
+		const message = this.convertProtoToMediasoup(raw);
 
 		if (!message) {
-			this.addLog(
-				`Не удалось конвертировать proto сообщение типа: ${messageType}`,
-				"error",
-			);
+			const keys = raw.message ? Object.keys(raw.message).join(", ") : "none";
+			this.addLog(`Failed to convert proto message: ${keys}`, "error");
 			return;
 		}
 
-		// Если есть внешний обработчик сообщений, передаем ему
-		if (this.onMessage) {
-			this.onMessage(message);
-		}
+		this.onMessage?.(message);
 
-		// Обработка сообщений сервера (fallback)
 		switch (message.action) {
 			case "Init":
-				this.handleInitMessage(message as ServerInit);
+				this.addLog("Received Init message from server", "success");
+				// Initialization is handled by WebRTCConnectionManager
 				break;
+
 			case "producerAdded": {
-				const producerAddedMsg = message as ServerProducerAdded;
+				const msg = message as ServerProducerAdded;
 				this.addLog(
-					`Сервер сообщил о новом продюсере [${producerAddedMsg.producerId}] от участника ${producerAddedMsg.participantId}`,
+					`New producer [${msg.producerId}] from participant ${msg.participantId}`,
 					"info",
 				);
-				this.onProducerAdded(
-					producerAddedMsg.producerId,
-					producerAddedMsg.participantId,
-					producerAddedMsg.appData,
-				);
+				this.onProducerAdded(msg.producerId, msg.participantId, msg.appData);
 				break;
 			}
+
 			case "producerRemoved": {
-				const producerRemovedMsg = message as ServerProducerRemoved;
+				const msg = message as ServerProducerRemoved;
 				this.addLog(
-					`Сервер сообщил об удалении продюсера [${producerRemovedMsg.producerId}] от участника ${producerRemovedMsg.participantId}`,
+					`Producer [${msg.producerId}] removed from participant ${msg.participantId}`,
 					"info",
 				);
-				this.onProducerRemoved(
-					producerRemovedMsg.producerId,
-					producerRemovedMsg.participantId,
-				);
+				this.onProducerRemoved(msg.producerId, msg.participantId);
 				break;
 			}
+
 			case "Error":
 				this.addLog(
-					`Ошибка от сервера: ${(message as ServerError).message}`,
+					`Server error: ${(message as ServerError).message}`,
 					"error",
 				);
 				break;
-			case "VoiceData":
-				this.addLog(
-					`Получены голосовые данные: ${(message as any).data.length} bytes`,
-					"debug",
-				);
-				// Voice data обрабатывается в Rust
-				break;
-			case "AddProposal":
-				// AddProposal обрабатывается в Rust
-				this.addLog(
-					`Получен AddProposal для voice_id: ${(message as any).voiceId}`,
-					"debug",
-				);
-				break;
-			case "ServerCommit":
-				// ServerCommit обрабатывается в Rust
-				this.addLog(
-					`Получен ServerCommit для voice_id: ${(message as any).voiceId}, commit_id: ${(message as any).commitId}`,
-					"debug",
-				);
-				break;
+
 			default:
-				// Check if it's a specific consumed action
-				if (message.action.startsWith("consumed:")) {
-					return;
+				if (!message.action.startsWith("consumed:")) {
+					this.addLog(`Unhandled gRPC message: ${message.action}`, "info");
 				}
-				this.addLog(
-					`Получено необработанное gRPC сообщение: ${message.action}`,
-					"info",
-				);
 		}
 	}
 
-	// Конвертация proto сообщения в mediasoup формат
-	private convertProtoToMediasoup(protoMessage: any): ServerMessage | null {
-		const message = protoMessage.message;
+	// ─── Proto → mediasoup conversion ─────────────────────────────────────────
 
-		if (!message) {
-			this.addLog("Proto message не содержит поле message", "error");
+	private convertProtoToMediasoup(
+		proto: ProtoServerMessage,
+	): ServerMessage | null {
+		const msg = proto.message;
+		if (!msg) {
+			this.addLog("Proto message has no 'message' field", "error");
 			return null;
 		}
 
-		// Определяем тип сообщения по oneof field (camelCase)
-		if (message.init) {
+		if (msg.init) {
 			return {
 				action: "Init",
 				routerRtpCapabilities: this.parseRtpCapabilities(
-					message.init.routerRtpCapabilities ||
-						message.init.router_rtp_capabilities,
+					msg.init.routerRtpCapabilities ?? msg.init.router_rtp_capabilities,
 				),
 				producerTransportOptions: this.parseTransportOptions(
-					message.init.producerTransportOptions ||
-						message.init.producer_transport_options,
+					msg.init.producerTransportOptions ?? msg.init.producer_transport_options,
 				),
 				consumerTransportOptions: this.parseTransportOptions(
-					message.init.consumerTransportOptions ||
-						message.init.consumer_transport_options,
+					msg.init.consumerTransportOptions ?? msg.init.consumer_transport_options,
 				),
 			} as ServerInit;
 		}
 
-		if (message.producerAdded || message.producer_added) {
-			const data = message.producerAdded || message.producer_added;
+		const producerAdded = msg.producerAdded ?? msg.producer_added;
+		if (producerAdded) {
 			return {
 				action: "producerAdded",
-				producerId: data.producerId || data.producer_id,
-				participantId: data.participantId || data.participant_id,
-				appData: JSON.parse(data.appData || data.app_data || "{}"),
+				producerId: producerAdded.producerId ?? producerAdded.producer_id ?? "",
+				participantId:
+					producerAdded.participantId ?? producerAdded.participant_id ?? "",
+				appData: JSON.parse(
+					producerAdded.appData ?? producerAdded.app_data ?? "{}",
+				),
 			} as ServerProducerAdded;
 		}
 
-		if (message.producerRemoved || message.producer_removed) {
-			const data = message.producerRemoved || message.producer_removed;
+		const producerRemoved = msg.producerRemoved ?? msg.producer_removed;
+		if (producerRemoved) {
 			return {
 				action: "producerRemoved",
-				producerId: data.producerId || data.producer_id,
-				participantId: data.participantId || data.participant_id,
+				producerId:
+					producerRemoved.producerId ?? producerRemoved.producer_id ?? "",
+				participantId:
+					producerRemoved.participantId ?? producerRemoved.participant_id ?? "",
 			} as ServerProducerRemoved;
 		}
 
-		if (message.consumed) {
-			const producerId =
-				message.consumed.producerId || message.consumed.producer_id;
+		if (msg.consumed) {
+			const c = msg.consumed;
+			const producerId = c.producerId ?? c.producer_id ?? "";
 			return {
 				action: `consumed:${producerId}`,
-				id: message.consumed.consumerId || message.consumed.consumer_id,
-				producerId: producerId,
-				kind: this.convertMediaKind(message.consumed.kind),
+				id: c.consumerId ?? c.consumer_id ?? "",
+				producerId,
+				kind: c.kind === 2 ? "video" : "audio",
 				rtpParameters: this.parseRtpParameters(
-					message.consumed.rtpParameters || message.consumed.rtp_parameters,
+					c.rtpParameters ?? c.rtp_parameters,
 				),
 			} as ServerConsumed;
 		}
 
-		if (
-			message.connectedProducerTransport ||
-			message.connected_producer_transport
-		) {
-			return {
-				action: "ConnectedProducerTransport",
-				success: true,
-			} as ServerMessage;
+		if (msg.connectedProducerTransport ?? msg.connected_producer_transport) {
+			return { action: "ConnectedProducerTransport", success: true };
 		}
 
-		if (
-			message.connectedConsumerTransport ||
-			message.connected_consumer_transport
-		) {
-			return {
-				action: "ConnectedConsumerTransport",
-				success: true,
-			} as ServerMessage;
+		if (msg.connectedConsumerTransport ?? msg.connected_consumer_transport) {
+			return { action: "ConnectedConsumerTransport", success: true };
 		}
 
-		if (message.produced) {
+		if (msg.produced) {
 			return {
 				action: "Produced",
-				id: message.produced.producerId || message.produced.producer_id,
-			} as ServerMessage;
+				id: msg.produced.producerId ?? msg.produced.producer_id ?? "",
+			};
 		}
 
-		if (message.error) {
+		if (msg.error) {
 			return {
 				action: "Error",
-				message: message.error.errorMessage || message.error.error_message,
+				message: msg.error.errorMessage ?? msg.error.error_message ?? "",
 			} as ServerError;
 		}
 
-		if (message.voiceData || message.voice_data) {
-			const data = message.voiceData || message.voice_data;
-			return {
-				action: "VoiceData",
-				userId: data.userId || data.user_id,
-				voiceId: data.voiceId || data.voice_id,
-				data: data.data,
-			} as ServerMessage;
-		}
-
-		if (message.serverCommit || message.server_commit) {
-			const data = message.serverCommit || message.server_commit;
-			return {
-				action: "ServerCommit",
-				voiceId: data.voiceId || data.voice_id,
-				commit: data.commit,
-				commitId: data.commitId || data.commit_id,
-			} as ServerMessage;
-		}
-
-		if (message.addProposal || message.add_proposal) {
-			const data = message.addProposal || message.add_proposal;
-			return {
-				action: "AddProposal",
-				voiceId: data.voiceId || data.voice_id,
-				proposal: data.proposal,
-			} as ServerMessage;
-		}
-
 		this.addLog(
-			`Неизвестный тип proto сообщения: ${Object.keys(message).join(", ")}`,
+			`Unknown proto message type: ${Object.keys(msg).join(", ")}`,
 			"error",
 		);
 		return null;
 	}
 
-	// Парсинг RtpCapabilities из proto
-	private parseRtpCapabilities(proto: any): mediasoupTypes.RtpCapabilities {
-		if (!proto || !proto.codecs || !proto.codecs[0]) {
-			return { codecs: [], headerExtensions: [] };
-		}
+	// ─── Proto field parsers ──────────────────────────────────────────────────
 
-		const mimeType = proto.codecs[0].mimeType || proto.codecs[0].mime_type;
-		if (!mimeType) {
-			return { codecs: [], headerExtensions: [] };
-		}
+	private parseRtpCapabilities(
+		proto: ProtoRtpCapabilities | undefined,
+	): mediasoupTypes.RtpCapabilities {
+		const raw = proto?.codecs?.[0]?.mimeType ?? proto?.codecs?.[0]?.mime_type;
+		if (!raw) return { codecs: [], headerExtensions: [] };
 
 		try {
-			// RtpCapabilities сериализованы в JSON в поле mimeType/mime_type
-			return JSON.parse(mimeType);
+			return JSON.parse(raw) as mediasoupTypes.RtpCapabilities;
 		} catch (error) {
-			this.addLog(`Ошибка парсинга RtpCapabilities: ${error}`, "error");
+			this.addLog(`Failed to parse RtpCapabilities: ${error}`, "error");
 			return { codecs: [], headerExtensions: [] };
 		}
 	}
 
-	// Парсинг TransportOptions из proto
-	private parseTransportOptions(proto: any): mediasoupTypes.TransportOptions {
-		if (!proto) {
-			return {} as mediasoupTypes.TransportOptions;
+	private parseCandidateType(raw?: string): "host" | "srflx" | "prflx" | "relay" {
+		if (!raw) return "host";
+
+		const match = raw.match(/type:\s*(\w+)/i);
+		const type = match?.[1]?.toLowerCase();
+
+		if (type === "host" || type === "srflx" || type === "prflx" || type === "relay") {
+			return type;
 		}
 
-		const iceParams = proto.iceParameters || proto.ice_parameters;
-		const iceCandidates = proto.iceCandidates || proto.ice_candidates;
-		const dtlsParams = proto.dtlsParameters || proto.dtls_parameters;
+		return "host";
+	}
 
-		// Парсим fingerprints, которые могут прийти в Debug формате из Rust
-		const fingerprints =
-			dtlsParams?.fingerprints?.map((fp: any) => {
-				let algorithm = fp.algorithm;
-				let value = fp.value;
+	private parseTransportOptions(
+		proto: ProtoTransportOptions | undefined,
+	): mediasoupTypes.TransportOptions {
+		if (!proto) return {} as mediasoupTypes.TransportOptions;
 
-				// Если algorithm содержит "Sha1 { value" и т.д., извлекаем правильное имя
-				if (algorithm.includes("{")) {
-					algorithm = algorithm.split(" ")[0].toLowerCase(); // "Sha1" -> "sha1"
-					// Нормализуем имена алгоритмов для mediasoup
-					if (algorithm === "sha1") algorithm = "sha-1";
-					else if (algorithm === "sha224") algorithm = "sha-224";
-					else if (algorithm === "sha256") algorithm = "sha-256";
-					else if (algorithm === "sha384") algorithm = "sha-384";
-					else if (algorithm === "sha512") algorithm = "sha-512";
-				}
-
-				// Если value содержит кавычки и закрывающую скобку, очищаем
-				if (value.includes('"')) {
-					value = value
-						.replace(/"/g, "")
-						.replace(/\s*}\s*$/, "")
-						.trim();
-				}
-
-				this.addLog(
-					`Fingerprint parsed: ${algorithm} = ${value.substring(0, 20)}...`,
-					"debug",
-				);
-
-				return {
-					algorithm,
-					value,
-				};
-			}) || [];
-
-		// Парсим DTLS role
-		let dtlsRole: "auto" | "client" | "server" = "auto";
-		if (dtlsParams?.role) {
-			const role = dtlsParams.role.toLowerCase();
-			if (role === "auto" || role === "client" || role === "server") {
-				dtlsRole = role as "auto" | "client" | "server";
-			}
-		}
+		const iceParams = proto.iceParameters ?? proto.ice_parameters;
+		const iceCandidates = proto.iceCandidates ?? proto.ice_candidates ?? [];
+		const dtlsParams = proto.dtlsParameters ?? proto.dtls_parameters;
 
 		return {
 			id: proto.id,
 			iceParameters: {
 				usernameFragment:
-					iceParams?.usernameFragment || iceParams?.username_fragment || "",
-				password: iceParams?.password || "",
-				iceLite: iceParams?.iceLite || iceParams?.ice_lite || false,
+					iceParams?.usernameFragment ?? iceParams?.username_fragment ?? "",
+				password: iceParams?.password ?? "",
+				iceLite: iceParams?.iceLite ?? iceParams?.ice_lite ?? false,
 			},
-			iceCandidates:
-				iceCandidates?.map((candidate: any) => ({
-					foundation: candidate.foundation,
-					priority: candidate.priority,
-					ip: candidate.address,
-					protocol: (candidate.protocol?.toLowerCase() || "udp") as
-						| "udp"
-						| "tcp",
-					port: candidate.port,
-					type: "host" as "host" | "srflx" | "prflx" | "relay",
-					tcpType: candidate.tcpType || candidate.tcp_type || undefined,
-				})) || [],
+			iceCandidates: iceCandidates.map((candidate): IceCandidate => ({
+				foundation: candidate.foundation,
+				priority: candidate.priority,
+				address: candidate.address,
+				ip: candidate.address,
+				protocol: (candidate.protocol?.toLowerCase() === "tcp" ? "tcp" : "udp"),
+				port: candidate.port,
+				type: this.parseCandidateType(candidate.type),
+				tcpType: candidate.tcpType ?? undefined,
+			})),
 			dtlsParameters: {
-				role: dtlsRole,
-				fingerprints,
+				role: this.parseDtlsRole(dtlsParams?.role),
+				fingerprints: (dtlsParams?.fingerprints ?? []).map((fp) =>
+					this.parseFingerprint(fp),
+				),
 			},
 		};
 	}
 
-	// Парсинг RtpParameters из proto
-	private parseRtpParameters(proto: any): any {
-		if (!proto || !proto.mid) {
-			return {};
+	private parseFingerprint(
+		fp: ProtoFingerprint,
+	): mediasoupTypes.DtlsFingerprint {
+		let { algorithm, value } = fp;
+
+		// Rust Debug format: "Sha256 { value: \"...\" }" → normalize to "sha-256"
+		if (algorithm.includes("{")) {
+			const base = algorithm.split(" ")[0].toLowerCase();
+			const normalized: Record<string, string> = {
+				sha1: "sha-1",
+				sha224: "sha-224",
+				sha256: "sha-256",
+				sha384: "sha-384",
+				sha512: "sha-512",
+			};
+			algorithm = normalized[base] ?? base;
 		}
+
+		if (value.includes('"')) {
+			value = value.replace(/"/g, "").replace(/\s*}\s*$/, "").trim();
+		}
+
+		this.addLog(
+			`Fingerprint parsed: ${algorithm} = ${value.substring(0, 20)}...`,
+			"debug",
+		);
+
+		return {
+			algorithm: algorithm as mediasoupTypes.FingerprintAlgorithm,
+			value,
+		};
+	}
+
+	private parseDtlsRole(
+		role: string | undefined,
+	): "auto" | "client" | "server" {
+		const normalized = role?.toLowerCase();
+		if (
+			normalized === "auto" ||
+			normalized === "client" ||
+			normalized === "server"
+		) {
+			return normalized;
+		}
+		return "auto";
+	}
+
+	private parseRtpParameters(
+		proto: ProtoRtpParameters | undefined,
+	): mediasoupTypes.RtpParameters {
+		if (!proto?.mid) return {} as mediasoupTypes.RtpParameters;
 
 		try {
-			// RtpParameters сериализованы в JSON в поле mid
-			return JSON.parse(proto.mid);
+			return JSON.parse(proto.mid) as mediasoupTypes.RtpParameters;
 		} catch (error) {
-			this.addLog(`Ошибка парсинга RtpParameters: ${error}`, "error");
-			return {};
+			this.addLog(`Failed to parse RtpParameters: ${error}`, "error");
+			return {} as mediasoupTypes.RtpParameters;
 		}
 	}
 
-	// Конвертация MediaKind из proto enum
-	private convertMediaKind(kind: number): "audio" | "video" {
-		switch (kind) {
-			case 1: // AUDIO
-				return "audio";
-			case 2: // VIDEO
-				return "video";
-			default:
-				return "audio";
-		}
-	}
+	// ─── mediasoup → Proto conversion ─────────────────────────────────────────
 
-	// Конвертация mediasoup сообщения в proto формат
-	public convertToProto(message: ClientMessage): any {
-		const baseMessage = {
-			action: message.action,
-		};
-
+	public convertToProto(message: ClientMessage): object {
 		switch (message.action) {
 			case "Init":
 				return {
@@ -753,12 +575,8 @@ export class GrpcSignalingAdapter {
 					message: {
 						connectProducerTransport: {
 							dtlsParameters: {
-								fingerprints:
-									message.dtlsParameters?.fingerprints?.map((fp) => ({
-										algorithm: fp.algorithm,
-										value: fp.value,
-									})) || [],
-								role: message.dtlsParameters?.role || "auto",
+								fingerprints: message.dtlsParameters?.fingerprints ?? [],
+								role: message.dtlsParameters?.role ?? "auto",
 							},
 						},
 					},
@@ -769,12 +587,8 @@ export class GrpcSignalingAdapter {
 					message: {
 						connectConsumerTransport: {
 							dtlsParameters: {
-								fingerprints:
-									message.dtlsParameters?.fingerprints?.map((fp) => ({
-										algorithm: fp.algorithm,
-										value: fp.value,
-									})) || [],
-								role: message.dtlsParameters?.role || "auto",
+								fingerprints: message.dtlsParameters?.fingerprints ?? [],
+								role: message.dtlsParameters?.role ?? "auto",
 							},
 						},
 					},
@@ -784,18 +598,15 @@ export class GrpcSignalingAdapter {
 				return {
 					message: {
 						produce: {
-							kind: message.kind === "audio" ? 1 : 2, // AUDIO = 1, VIDEO = 2
+							kind: message.kind === "audio" ? 1 : 2,
 							rtpParameters: {
 								mid: JSON.stringify(message.rtpParameters),
 								codecs: [],
 								headerExtensions: [],
 								encodings: [],
-								rtcp: {
-									cname: "",
-									reducedSize: false,
-								},
+								rtcp: { cname: "", reducedSize: false },
 							},
-							appData: JSON.stringify(message.appData || {}),
+							appData: JSON.stringify(message.appData ?? {}),
 						},
 					},
 				};
@@ -805,7 +616,7 @@ export class GrpcSignalingAdapter {
 					message: {
 						consume: {
 							producerId: message.producerId,
-							rtpCapabilities: JSON.stringify(message.rtpCapabilities || {}),
+							rtpCapabilities: JSON.stringify(message.rtpCapabilities ?? {}),
 						},
 					},
 				};
@@ -814,29 +625,13 @@ export class GrpcSignalingAdapter {
 				return {
 					message: {
 						consumerResume: {
-							consumerId: (message as any).id,
-						},
-					},
-				};
-
-			case "VoiceData":
-				return {
-					message: {
-						voiceData: {
-							voiceId: (message as any).voiceId,
-							data: (message as any).data,
+							consumerId: (message as ClientMessage & { id: string }).id,
 						},
 					},
 				};
 
 			default:
-				return baseMessage;
+				return { action: message.action };
 		}
-	}
-
-	// Обработка сообщения инициализации
-	private handleInitMessage(initMessage: ServerInit): void {
-		this.addLog("Получено сообщение Init от сервера", "success");
-		// Инициализация обрабатывается в WebRTCConnectionManager
 	}
 }

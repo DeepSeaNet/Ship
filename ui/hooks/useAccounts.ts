@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Account } from "./types";
+import { toast } from "@heroui/react";
 
 // Mock API functions - Replace with actual Tauri invoke calls
 export const getAccountList = async (): Promise<Account[]> => {
@@ -24,7 +25,13 @@ export const loginWithAccount = async (
 			"Password:",
 			password ? "******" : "None",
 		);
-		const result = await invoke("login", { username: account.username });
+		try {
+			const result = await invoke("login", { username: account.username });
+		} catch (error) {
+			console.error("Failed to login:", error);
+			toast.danger("Failed to login: " + error);
+			throw error;
+		}
 		localStorage.setItem("userId", account.user_id.toString());
 		localStorage.setItem("username", account.username);
 		localStorage.setItem("publicAddress", account.public_address);

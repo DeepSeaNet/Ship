@@ -188,9 +188,8 @@ pub fn get_default_db_path() -> std::path::PathBuf {
     }
     #[cfg(target_os = "ios")]
     {
-        let mut path = dirs::home_dir().expect("Could not find home directory");
-        path.push("Documents");
-        path.push(".ship");
+        let mut path = dirs::document_dir().expect("Could not find home directory");
+        path.push("ship");
         std::fs::create_dir_all(&path).expect("Could not create .ship directory");
         path.push("accounts.db");
         path

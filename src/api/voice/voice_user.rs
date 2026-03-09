@@ -57,14 +57,19 @@ pub struct VoiceUser {
 }
 
 impl VoiceUser {
-    pub async fn new(user_id: i64) -> Self {
+    pub async fn new(user_id: i64) -> Result<Self, anyhow::Error> {
         Self::new_with_app_handle(user_id, None).await
     }
 
-    pub async fn new_with_app_handle(user_id: i64, app_handle: Option<AppHandle>) -> Self {
+    pub async fn new_with_app_handle(
+        user_id: i64,
+        app_handle: Option<AppHandle>,
+    ) -> Result<Self, anyhow::Error> {
         let crypto_provider = AwsLcCryptoProvider::default();
-        let cipher_suite = crypto_provider.cipher_suite_provider(CIPHERSUITE).unwrap();
-        let (secret, public) = cipher_suite.signature_key_generate().await.unwrap();
+        let cipher_suite = crypto_provider
+            .cipher_suite_provider(CIPHERSUITE)
+            .ok_or_else(|| anyhow::anyhow!("Cipher suite not supported"))?;
+        let (secret, public) = cipher_suite.signature_key_generate().await?;
         let basic_identity = BasicCredential::new(user_id.to_le_bytes().to_vec());
         let signing_identity = SigningIdentity::new(basic_identity.into_credential(), public);
 
@@ -90,7 +95,7 @@ impl VoiceUser {
             app_handle,
         };
         voice_user.save().await;
-        voice_user
+        Ok(voice_user)
     }
 
     pub async fn save(&self) {
@@ -179,9 +184,7 @@ impl VoiceUser {
         let server_identity = SigningIdentity::mls_decode(&mut &*server_identity_bytes)?;
 
         let mut extension_list = ExtensionList::new();
-        extension_list
-            .set_from(ExternalSendersExt::new(vec![server_identity]))
-            .unwrap();
+        extension_list.set_from(ExternalSendersExt::new(vec![server_identity]))?;
 
         let group = self
             .client

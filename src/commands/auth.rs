@@ -68,7 +68,7 @@ pub async fn login(app_handle: AppHandle, username: String) -> Result<serde_json
         log::error!("Failed to manage user status")
     };
 
-    let voice_client = voice_client_result;
+    let voice_client = voice_client_result.map_err(|e| e.to_string())?;
     let safe_voice_client = Arc::new(RwLock::new(voice_client));
     if !app_handle.manage(safe_voice_client) {
         log::error!("Failed to manage voice client")
@@ -92,7 +92,7 @@ pub async fn register(
     let account = Account::register(username, avatar_url)
         .await
         .map_err(|e| e.to_string())?;
-
+    println!("Account registered: {:?}", account.user_id);
     let device_id = uuid::Uuid::new_v4().to_string();
 
     let account = Arc::new(account);
