@@ -5,163 +5,15 @@ import type {
 	ClientMessage,
 	LoggerFunction,
 	ServerConsumed,
+	ServerError,
 	ServerInit,
 	ServerMessage,
 	ServerProducerAdded,
 	ServerProducerRemoved,
 } from "../types/mediasoup";
 import { minimalCapabilities } from "../utils/rtpCapabilities";
-import type { IceCandidate } from "mediasoup-client/types";
-
-// ─── Proto types ─────────────────────────────────────────────────────────────
-
-interface ProtoFingerprint {
-	algorithm: string;
-	value: string;
-}
-
-interface ProtoDtlsParameters {
-	fingerprints?: ProtoFingerprint[];
-	role?: string;
-}
-
-interface ProtoIceParameters {
-	usernameFragment?: string;
-	username_fragment?: string;
-	password?: string;
-	iceLite?: boolean;
-	ice_lite?: boolean;
-}
-
-interface ProtoIceCandidate {
-	foundation: string;
-	priority: number;
-	address: string;
-	protocol?: string;
-	port: number;
-	type?: string;
-	tcpType?: string;
-}
-
-interface ProtoTransportOptions {
-	id: string;
-	iceParameters?: ProtoIceParameters;
-	ice_parameters?: ProtoIceParameters;
-	iceCandidates?: ProtoIceCandidate[];
-	ice_candidates?: ProtoIceCandidate[];
-	dtlsParameters?: ProtoDtlsParameters;
-	dtls_parameters?: ProtoDtlsParameters;
-}
-
-interface ProtoCodec {
-	mimeType?: string;
-	mime_type?: string;
-}
-
-interface ProtoRtpCapabilities {
-	codecs?: ProtoCodec[];
-}
-
-interface ProtoRtpParameters {
-	mid?: string;
-}
-
-interface ProtoConsumed {
-	consumerId?: string;
-	consumer_id?: string;
-	producerId?: string;
-	producer_id?: string;
-	kind?: number;
-	rtpParameters?: ProtoRtpParameters;
-	rtp_parameters?: ProtoRtpParameters;
-}
-
-interface ProtoProducerAdded {
-	producerId?: string;
-	producer_id?: string;
-	participantId?: string;
-	participant_id?: string;
-	appData?: string;
-	app_data?: string;
-}
-
-interface ProtoProducerRemoved {
-	producerId?: string;
-	producer_id?: string;
-	participantId?: string;
-	participant_id?: string;
-}
-
-interface ProtoInitMessage {
-	routerRtpCapabilities?: ProtoRtpCapabilities;
-	router_rtp_capabilities?: ProtoRtpCapabilities;
-	producerTransportOptions?: ProtoTransportOptions;
-	producer_transport_options?: ProtoTransportOptions;
-	consumerTransportOptions?: ProtoTransportOptions;
-	consumer_transport_options?: ProtoTransportOptions;
-}
-
-interface ProtoErrorMessage {
-	errorMessage?: string;
-	error_message?: string;
-}
-
-interface ProtoVoiceData {
-	userId?: string;
-	user_id?: string;
-	voiceId?: string;
-	voice_id?: string;
-	data?: Uint8Array;
-}
-
-interface ProtoServerCommit {
-	voiceId?: string;
-	voice_id?: string;
-	commit?: unknown;
-	commitId?: string;
-	commit_id?: string;
-}
-
-interface ProtoAddProposal {
-	voiceId?: string;
-	voice_id?: string;
-	proposal?: unknown;
-}
-
-interface ProtoServerMessage {
-	message?: {
-		init?: ProtoInitMessage;
-		producerAdded?: ProtoProducerAdded;
-		producer_added?: ProtoProducerAdded;
-		producerRemoved?: ProtoProducerRemoved;
-		producer_removed?: ProtoProducerRemoved;
-		consumed?: ProtoConsumed;
-		connectedProducerTransport?: object;
-		connected_producer_transport?: object;
-		connectedConsumerTransport?: object;
-		connected_consumer_transport?: object;
-		produced?: { producerId?: string; producer_id?: string };
-		error?: ProtoErrorMessage;
-		voiceData?: ProtoVoiceData;
-		voice_data?: ProtoVoiceData;
-		serverCommit?: ProtoServerCommit;
-		server_commit?: ProtoServerCommit;
-		addProposal?: ProtoAddProposal;
-		add_proposal?: ProtoAddProposal;
-	};
-}
-
-interface VoiceEventPayload {
-	type: string;
-	data: ProtoServerMessage;
-}
-
-// ─── Extended server message types ───────────────────────────────────────────
-
-interface ServerError extends ServerMessage {
-	action: "Error";
-	message: string;
-}
+import type { AppData, IceCandidate } from "mediasoup-client/types";
+import type { ProtoFingerprint, ProtoRtpCapabilities, ProtoRtpParameters, ProtoServerMessage, ProtoTransportOptions, VoiceEventPayload } from "../types/proto";
 
 // ─── Adapter options ──────────────────────────────────────────────────────────
 
@@ -171,7 +23,7 @@ export interface GrpcSignalingAdapterOptions {
 	onProducerAdded: (
 		producerId: string,
 		participantId: string,
-		appData: Record<string, unknown>,
+		appData: AppData,
 	) => void;
 	onProducerRemoved: (producerId: string, participantId: string) => void;
 	onConnectionStateChange: (connected: boolean) => void;
@@ -472,7 +324,7 @@ export class GrpcSignalingAdapter {
 				protocol: (candidate.protocol?.toLowerCase() === "tcp" ? "tcp" : "udp"),
 				port: candidate.port,
 				type: this.parseCandidateType(candidate.type),
-				tcpType: candidate.tcpType ?? undefined,
+				tcpType: candidate.tcpType as 'passive' | 'active' | 'so',
 			})),
 			dtlsParameters: {
 				role: this.parseDtlsRole(dtlsParams?.role),

@@ -41,7 +41,7 @@ export interface ClientMessage extends BaseMessage {
 	dtlsParameters?: any;
 	rtpCapabilities?: any;
 	kind?: string;
-	appData?: any;
+	appData?: AppData;
 	producerId?: string;
 }
 
@@ -78,6 +78,11 @@ export interface ServerConsumed extends ServerMessage {
 	appData?: {
 		source?: MediaSourceType;
 	};
+}
+
+export interface ServerError extends ServerMessage {
+	action: "Error";
+	message: string;
 }
 
 export type AppData = {

@@ -2,9 +2,10 @@ import { GrpcSignalingAdapter } from "./GrpcSignalingAdapter";
 import { MediaManager } from "./MediaManager";
 import { MediasoupService } from "./MediasoupService";
 import { WorkerManager } from "./WorkerManager";
-import type { LogEntry, LogEntryType, MediaTrackInfo } from "../types/mediasoup";
+import type { ClientMessage, LogEntry, LogEntryType, MediaTrackInfo, ServerInit, ServerMessage } from "../types/mediasoup";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "@heroui/react";
+import type { Consumer } from "mediasoup-client/types";
 
 export type CallStatus = "idle" | "calling" | "connected" | "error" | "ended";
 
@@ -158,13 +159,13 @@ export class VoiceSessionManager {
 				return;
 			}
 
-			this.addLog(`Joined session: ${newSessionId}`, "error");
+			this.addLog(`Joined session: ${newSessionId}`, "info");
 			// 1. Initialize Signaling
 			this.signaling = new GrpcSignalingAdapter({
 				sessionId: newSessionId,
 				addLog: this.addLog,
 				onProducerAdded: async (producerId, participantId, appData) => {
-					if (appData?.userId) {
+					if (typeof appData?.userId === "string") {
 						this.updateState({
 							participants: {
 								...this.state.participants,
@@ -202,14 +203,14 @@ export class VoiceSessionManager {
 											appData,
 										);
 									},
-									(m: any) => this.signaling!.sendMessage(m as any),
+									(m: ClientMessage) => this.signaling!.sendMessage(m),
 								);
 							},
 						);
 					}
 				},
 				onProducerRemoved: (producerId, _participantId) => {
-					this.mediasoupService?.getConsumers().forEach((consumer: any) => {
+					this.mediasoupService?.getConsumers().forEach((consumer: Consumer) => {
 						if (consumer.producerId === producerId) {
 							this.mediasoupService?.removeConsumer(
 								consumer.id,
@@ -224,12 +225,12 @@ export class VoiceSessionManager {
 					}
 				},
 				onMessage: async (msg) => {
-					if (this.mediasoupService?.handleCallback(msg.action, msg as any)) {
+					if (this.mediasoupService?.handleCallback(msg.action, msg)) {
 						return;
 					}
 					
 					if (msg.action === "Init") {
-						const initMsg = msg as any;
+						const initMsg = msg as ServerInit;
 						try {
 							await this.mediasoupService?.initializeDevice(
 								initMsg.routerRtpCapabilities,
@@ -237,7 +238,7 @@ export class VoiceSessionManager {
 							await this.mediasoupService?.createTransports(
 								initMsg.producerTransportOptions,
 								initMsg.consumerTransportOptions,
-								(m: any) => this.signaling!.sendMessage(m as any),
+								(m: ClientMessage) => this.signaling!.sendMessage(m),
 							);
 							this.updateState({ status: "connected" });
 							this.addLog("Call connected & initialized!", "success");
