@@ -18,13 +18,6 @@ export const loginWithAccount = async (
 	password?: string,
 ): Promise<void> => {
 	try {
-		// Replace this with: await invoke('login_account', { account, password })
-		console.log(
-			"Logging in with account:",
-			account,
-			"Password:",
-			password ? "******" : "None",
-		);
 		try {
 			const result = await invoke("login", { username: account.username });
 		} catch (error) {

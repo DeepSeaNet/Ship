@@ -92,7 +92,7 @@ pub async fn register(
     let account = Account::register(username, avatar_url)
         .await
         .map_err(|e| e.to_string())?;
-    println!("Account registered: {:?}", account.user_id);
+
     let device_id = uuid::Uuid::new_v4().to_string();
 
     let account = Arc::new(account);

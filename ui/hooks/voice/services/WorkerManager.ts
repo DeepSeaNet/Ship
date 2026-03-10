@@ -9,6 +9,7 @@ import {
 	getEncodedStreamWorker,
 	terminateEncodedStreamWorker,
 } from "../utils/encodedStreamsTransform";
+import { listen } from "@tauri-apps/api/event";
 
 export interface WorkerManagerOptions {
 	sessionId: string;
@@ -21,10 +22,6 @@ export class WorkerManager {
 
 	// Unified worker for WebRTC Encoded Transforms
 	private encodedStreamWorker: Worker | null = null;
-
-	// Key refresh interval
-	private keyRefreshInterval: ReturnType<typeof setInterval> | null = null;
-	private static KEY_REFRESH_MS = 5000; // Refresh keys every 5 seconds
 
 	constructor(options: WorkerManagerOptions) {
 		this.sessionId = options.sessionId;
@@ -60,8 +57,8 @@ export class WorkerManager {
 			// 4. Fetch key material from Rust and send to worker
 			this.fetchAndSyncKeys();
 
-			// 5. Start periodic key refresh (for epoch changes)
-			this.startKeyRefresh();
+			// 5. Listen for key refresh events from Rust
+			this.listenVoiceEvenets();
 
 			this.addLog("Worker initialized (SubtleCrypto mode)", "success");
 		} catch (error) {
@@ -93,24 +90,12 @@ export class WorkerManager {
 		}
 	}
 
-	/**
-	 * Starts periodic key refresh to pick up epoch changes.
-	 */
-	private startKeyRefresh(): void {
-		this.stopKeyRefresh();
-		this.keyRefreshInterval = setInterval(() => {
-			this.fetchAndSyncKeys();
-		}, WorkerManager.KEY_REFRESH_MS);
-	}
-
-	/**
-	 * Stops periodic key refresh.
-	 */
-	private stopKeyRefresh(): void {
-		if (this.keyRefreshInterval) {
-			clearInterval(this.keyRefreshInterval);
-			this.keyRefreshInterval = null;
-		}
+	private async listenVoiceEvenets(): Promise<void> {
+		const unlisten = await listen<any>("voice-event", (event) => {
+			if (event.payload.type == "server_commit") {
+				this.fetchAndSyncKeys();
+			}
+		});
 	}
 
 	/**
@@ -139,8 +124,6 @@ export class WorkerManager {
 	 */
 	public cleanup(): void {
 		this.addLog("Cleaning up worker resources...", "info");
-
-		this.stopKeyRefresh();
 
 		if (this.encodedStreamWorker) {
 			terminateEncodedStreamWorker();

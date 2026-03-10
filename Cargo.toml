@@ -58,6 +58,7 @@ tauri = { version = "2.10.0", features = [] }
 tauri-plugin-fs = "2.4.5"
 tauri-plugin-dialog = "2.6.0"
 moka = { version = "0.12.13", features = ["future"] }
+rustls-platform-verifier = "0.6.2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = "2.0.2"

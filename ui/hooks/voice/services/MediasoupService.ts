@@ -1,10 +1,5 @@
 import { Device, type types as mediasoupTypes } from "mediasoup-client";
 import type { Consumer, Producer, Transport } from "mediasoup-client/types";
-import {
-	DtlsParameters,
-	MediaKind,
-	RtpParameters,
-} from "mediasoup-client/types";
 import type {
 	ConsumerId,
 	LoggerFunction,
@@ -16,8 +11,6 @@ import type {
 import {
 	applyDecryptionToReceiver,
 	applyEncryptionToSender,
-	initEncodedStreamWorker,
-	terminateEncodedStreamWorker,
 } from "../utils/encodedStreamsTransform";
 import type { WorkerManager } from "./WorkerManager";
 

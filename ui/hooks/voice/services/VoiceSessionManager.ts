@@ -4,6 +4,7 @@ import { MediasoupService } from "./MediasoupService";
 import { WorkerManager } from "./WorkerManager";
 import type { LogEntry, LogEntryType, MediaTrackInfo } from "../types/mediasoup";
 import { invoke } from "@tauri-apps/api/core";
+import { toast } from "@heroui/react";
 
 export type CallStatus = "idle" | "calling" | "connected" | "error" | "ended";
 
@@ -67,6 +68,7 @@ export class VoiceSessionManager {
 		// Limit logs size appropriately if needed, here we just append
 		this.updateState({ logs: [...this.state.logs, entry] });
 		console.log(`[VoiceSessionManager] [${type.toUpperCase()}] ${message}`);
+		if (type === "error" || type === "warning") toast.danger(`[VoiceSessionManager] [${type.toUpperCase()}] ${message}`);
 	};
 
 	public cleanup = () => {
@@ -143,9 +145,20 @@ export class VoiceSessionManager {
 				`Starting call initialization... SessionID: ${newSessionId}`,
 				"info",
 			);
-			await invoke("join_session", { sessionId: newSessionId });
-			console.log("Joined session");
 
+			try { 
+				await Promise.race([
+					invoke("join_session", { sessionId: newSessionId }),
+					new Promise((_, reject) =>
+						setTimeout(() => reject(new Error("Timeout")), 5000),
+					),
+				]);
+			} catch (error) {
+				this.addLog(`Failed to join session: ${error}`, "error");
+				return;
+			}
+
+			this.addLog(`Joined session: ${newSessionId}`, "error");
 			// 1. Initialize Signaling
 			this.signaling = new GrpcSignalingAdapter({
 				sessionId: newSessionId,
@@ -214,7 +227,7 @@ export class VoiceSessionManager {
 					if (this.mediasoupService?.handleCallback(msg.action, msg as any)) {
 						return;
 					}
-
+					
 					if (msg.action === "Init") {
 						const initMsg = msg as any;
 						try {

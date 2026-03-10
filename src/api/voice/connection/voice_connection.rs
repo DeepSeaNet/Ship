@@ -447,6 +447,16 @@ impl Backend {
                                     } else {
                                         log::warn!("ServerCommit received but no MLS handler set");
                                     }
+                                    if let Some(app_handle) = &app_handle {
+                                        let event_payload = serde_json::json!({
+                                            "type": "server_commit",
+                                            "data": server_message
+                                        });
+
+                                        if let Err(e) = app_handle.emit("voice-event", event_payload) {
+                                            log::error!("Failed to emit voice-event: {}", e);
+                                        }
+                                    }
                                     continue;
                                 }
                                 crate::api::voice::grpc_generated::echolocator::server_message::Message::ServerCommitResponse(commit_response) => {
@@ -458,6 +468,18 @@ impl Backend {
                                         handler(commit_response.voice_id.clone(), commit_response.accepted, commit_response.error_message.clone());
                                     } else {
                                         log::warn!("ServerCommitResponse received but no handler set");
+                                    }
+                                    if commit_response.accepted {
+                                        if let Some(app_handle) = &app_handle {
+                                            let event_payload = serde_json::json!({
+                                                "type": "server_commit",
+                                                "data": server_message
+                                            });
+
+                                            if let Err(e) = app_handle.emit("voice-event", event_payload) {
+                                                log::error!("Failed to emit voice-event: {}", e);
+                                            }
+                                        }
                                     }
                                     continue;
                                 }
