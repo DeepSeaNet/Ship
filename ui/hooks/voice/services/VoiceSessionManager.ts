@@ -192,20 +192,22 @@ export class VoiceSessionManager {
 						this.mediasoupService.setResponseCallback(
 							`consumed:${producerId}`,
 							async (data: any) => {
-								await this.mediasoupService?.createConsumer(
-									data,
-									appData?.userId,
-									(track, consumerId, newProducerId) => {
-										this.handleTrackAdded(
-											track,
-											consumerId,
-											newProducerId,
-											participantId,
-											appData,
-										);
-									},
-									(m: ClientMessage) => this.signaling!.sendMessage(m),
-								);
+								if (typeof appData?.userId === "string") {
+									await this.mediasoupService?.createConsumer(
+										data,
+										appData?.userId,
+										(track, consumerId, newProducerId) => {
+											this.handleTrackAdded(
+												track,
+												consumerId,
+												newProducerId,
+												participantId,
+												appData,
+											);
+										},
+										(m: ClientMessage) => this.signaling!.sendMessage(m),
+									);
+								}
 							},
 						);
 					}
