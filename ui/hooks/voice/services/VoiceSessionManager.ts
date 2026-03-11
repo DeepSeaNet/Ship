@@ -194,6 +194,7 @@ export class VoiceSessionManager {
 							async (data: any) => {
 								await this.mediasoupService?.createConsumer(
 									data,
+									appData?.userId,
 									(track, consumerId, newProducerId) => {
 										this.handleTrackAdded(
 											track,
@@ -258,7 +259,7 @@ export class VoiceSessionManager {
 
 			this.mediasoupService = new MediasoupService({
 				sessionId: newSessionId,
-				userId: this.userId || undefined,
+				userId: this.userId || '',
 				addLog: this.addLog,
 				transformApi: "encodedStreams",
 				workerManager: this.workerManager,

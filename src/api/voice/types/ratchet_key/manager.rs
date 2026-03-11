@@ -12,161 +12,161 @@ use super::sender::SenderRatchet;
 use crate::api::voice::types::basic_types::{EXPORT_SECRET_LABEL, EXPORT_SECRET_LENGTH};
 use crate::api::voice::voice_user::MlsGroup;
 
-/// Exported receiver key info for TypeScript crypto
+// ── Key-material export types ─────────────────────────────────────────────────
+
 #[derive(Debug, Clone, Serialize)]
 pub struct ReceiverKeyInfo {
     pub user_id: u64,
     pub public_key: Vec<u8>,
+    /// epoch → raw MLS-exported base secret (16 bytes).
     pub epoch_secrets: HashMap<u32, Vec<u8>>,
     pub current_epoch: u32,
 }
 
-/// Full key material payload for export to TypeScript
 #[derive(Debug, Clone, Serialize)]
 pub struct VoiceKeysPayload {
-    pub sender_root_key: Vec<u8>,
-    pub sender_chain_key: Vec<u8>,
+    /// Current ratchet secret for the sender (32 bytes).
+    /// TypeScript calls deriveInitialSecret() only once (at epoch start);
+    /// after that it reconstructs from this 32-byte value + generation.
+    pub sender_secret: Vec<u8>,
     pub sender_public_key: Vec<u8>,
     pub sender_user_id: u64,
     pub sender_epoch: u32,
+    /// Generation the TypeScript ratchet should start from.
     pub sender_generation: u32,
     pub group_epoch: u64,
     pub receivers: Vec<ReceiverKeyInfo>,
 }
 
-/// Менеджер рачет-ключей для группового общения
+// ── GroupRatchetManager ───────────────────────────────────────────────────────
+
 pub struct GroupRatchetManager {
-    // Храповик для отправки сообщений
     sender_ratchet: Arc<RwLock<SenderRatchet>>,
-
-    // Храповики для приема сообщений от других участников
     receiver_ratchets: Arc<RwLock<HashMap<u64, Arc<RwLock<ReceiverRatchet>>>>>,
-
-    // Конфигурация
     config: RatchetConfig,
-
     group_epoch: u64,
 }
 
 impl GroupRatchetManager {
-    /// Создает нового менеджера рачет-ключей
     pub fn new(
-        shared_secret: [u8; AES_KEY_SIZE],
+        sender_base_secret: [u8; AES_KEY_SIZE],
         public_key: Vec<u8>,
         user_id: u64,
         config: Option<RatchetConfig>,
         group_epoch: u64,
     ) -> Self {
         let config = config.unwrap_or_default();
-        let sender_ratchet = SenderRatchet::new(&shared_secret, public_key, user_id, group_epoch);
-
+        let sender = SenderRatchet::new(&sender_base_secret, public_key, user_id, group_epoch);
         Self {
-            sender_ratchet: Arc::new(RwLock::new(sender_ratchet)),
+            sender_ratchet: Arc::new(RwLock::new(sender)),
             receiver_ratchets: Arc::new(RwLock::new(HashMap::new())),
             config,
             group_epoch,
         }
     }
 
-    /// Шифрует сообщение для отправки группе
-    pub async fn encrypt(&self, plaintext: &[u8]) -> Result<Vec<u8>, RatchetError> {
-        let mut sender_ratchet = self.sender_ratchet.write().await;
-        sender_ratchet.encrypt(plaintext)
-    }
+    // ── Participant management ────────────────────────────────────────────────
 
-    /// Добавляет участника группы
     pub async fn add_participant(
         &mut self,
         user_id: u64,
         public_key: Vec<u8>,
-        initial_secret: Option<[u8; AES_KEY_SIZE]>,
+        base_secret: Option<[u8; AES_KEY_SIZE]>,
     ) -> Result<(), RatchetError> {
-        let current_group_epoch = self.group_epoch;
-
-        // Check if participant exists
-        let receiver_ratchets_guard = self.receiver_ratchets.read().await;
-        if receiver_ratchets_guard.get(&user_id).is_some() {
-            if let Some(secret) = initial_secret {
-                self.update_receiver_epoch_secret(user_id, current_group_epoch, secret)
-                    .await?;
+        let epoch = self.group_epoch;
+        {
+            let guard = self.receiver_ratchets.read().await;
+            if guard.contains_key(&user_id) {
+                drop(guard);
+                if let Some(s) = base_secret {
+                    self.update_receiver_epoch_secret(user_id, epoch, s).await?;
+                }
+                return Ok(());
             }
-            Ok(()) // Participant updated or already exists
-        } else {
-            // Participant does not exist, create a new one
-            // Drop the write guard before potentially blocking on new receiver creation
-            drop(receiver_ratchets_guard);
-
-            // Проверяем, что начальный секрет предоставлен for new participant
-            let shared_secret = match initial_secret {
-                Some(secret) => secret,
-                None => return Err(RatchetError::MissingSharedSecret), // Cannot create without initial secret
-            };
-
-            let mut receiver = ReceiverRatchet::new(
-                &shared_secret,
-                public_key,
-                user_id,
-                Some(self.config.clone()),
-                current_group_epoch,
-            );
-
-            // Add epoch secret explicitly (though `new` already does it for the initial epoch)
-            receiver.add_epoch_secret(current_group_epoch as u32, shared_secret);
-
-            // Re-acquire write lock to insert the new receiver
-            self.receiver_ratchets
-                .write()
-                .await
-                .insert(user_id, Arc::new(RwLock::new(receiver)));
-            Ok(())
         }
+        let secret = base_secret.ok_or(RatchetError::MissingSharedSecret)?;
+        let mut r = ReceiverRatchet::new(
+            &secret,
+            public_key,
+            user_id,
+            Some(self.config.clone()),
+            epoch,
+        );
+        r.add_epoch_secret(epoch as u32, secret);
+        self.receiver_ratchets
+            .write()
+            .await
+            .insert(user_id, Arc::new(RwLock::new(r)));
+        Ok(())
     }
 
-    pub async fn update_group_epoch(&mut self, group_epoch: u64) {
-        self.group_epoch = group_epoch;
+    // ── Epoch management ──────────────────────────────────────────────────────
+
+    pub async fn update_group_epoch(&mut self, epoch: u64) {
+        self.group_epoch = epoch;
     }
 
-    /// Обновляет эпох для отправителя
-    pub async fn update_sender_epoch(&mut self, new_secret: &[u8; AES_KEY_SIZE], group_epoch: u64) {
-        let mut sender_ratchet = self.sender_ratchet.write().await;
-        sender_ratchet.update_epoch(new_secret, group_epoch);
+    pub async fn update_sender_epoch(&mut self, new_base: &[u8; AES_KEY_SIZE], epoch: u64) {
+        self.sender_ratchet
+            .write()
+            .await
+            .update_epoch(new_base, epoch);
     }
 
+    pub async fn update_receiver_epoch_secret(
+        &self,
+        user_id: u64,
+        epoch: u64,
+        secret: [u8; AES_KEY_SIZE],
+    ) -> Result<(), RatchetError> {
+        let guard = self.receiver_ratchets.read().await;
+        let lock = guard.get(&user_id).ok_or_else(|| {
+            RatchetError::DecryptError(format!("Receiver not found for user {}", user_id))
+        })?;
+        lock.write().await.add_epoch_secret(epoch as u32, secret);
+        Ok(())
+    }
+
+    // ── MLS export ────────────────────────────────────────────────────────────
+
+    /// DAVE §Sender Key Derivation:
+    ///   sender_base_secret = MLS-Exporter("Discord Secure Frames v0", LE(user_id), 16)
     pub async fn export_secret(
         &self,
         voice: &MlsGroup,
-        user_id: &[u8],
+        user_id_le_bytes: &[u8],
     ) -> Result<[u8; EXPORT_SECRET_LENGTH], RatchetError> {
-        let secret = voice
+        let s = voice
             .export_secret(
                 EXPORT_SECRET_LABEL.as_bytes(),
-                user_id,
+                user_id_le_bytes,
                 EXPORT_SECRET_LENGTH,
             )
             .await
-            .unwrap();
-
-        let secret_array: [u8; EXPORT_SECRET_LENGTH] = secret
-            .as_bytes()
+            .map_err(|e| RatchetError::ExportError(e.to_string()))?;
+        s.as_bytes()
             .try_into()
-            .expect("Secret must be exactly 16 bytes");
-
-        Ok(secret_array)
+            .map_err(|_| RatchetError::ExportError("Secret length mismatch".into()))
     }
 
+    /// Refreshes all ratchet state after an MLS epoch transition.
     pub async fn update_voice_ratchet(
         &mut self,
         voice: &MlsGroup,
-        user_id: u64,
+        local_user_id: u64,
     ) -> Result<(), RatchetError> {
         let group_epoch = voice.context().epoch;
         log::info!(
-            "Updating voice ratchet for user {} with group epoch {}",
-            user_id,
+            "update_voice_ratchet: user={} epoch={}",
+            local_user_id,
             group_epoch
         );
+
         self.update_group_epoch(group_epoch).await;
-        let sender_secret = self.export_secret(voice, &user_id.to_le_bytes()).await?;
+
+        let sender_secret = self
+            .export_secret(voice, &local_user_id.to_le_bytes())
+            .await?;
         self.update_sender_epoch(&sender_secret, group_epoch).await;
 
         for member in voice.roster().members() {
@@ -176,14 +176,19 @@ impl GroupRatchetManager {
                 .as_basic()
                 .unwrap()
                 .clone();
-            let member_id_bytes = credential.identifier;
-            let member_id = u64::from_le_bytes(member_id_bytes.clone().try_into().unwrap());
-            log::info!(
-                "Updating voice ratchet for member {} with group epoch {}",
+            let id_bytes = credential.identifier;
+            let member_id = u64::from_le_bytes(
+                id_bytes
+                    .clone()
+                    .try_into()
+                    .map_err(|_| RatchetError::ExportError("Invalid member ID".into()))?,
+            );
+            log::debug!(
+                "update_voice_ratchet: member={} epoch={}",
                 member_id,
                 group_epoch
             );
-            let secret = self.export_secret(voice, &member_id_bytes).await?;
+            let secret = self.export_secret(voice, &id_bytes).await?;
             self.add_participant(
                 member_id,
                 member.signing_identity.signature_key.to_vec(),
@@ -194,87 +199,33 @@ impl GroupRatchetManager {
         Ok(())
     }
 
-    /// Обновляет секрет эпохи для конкретного получателя
-    pub async fn update_receiver_epoch_secret(
-        &self,
-        user_id: u64,
-        epoch: u64,
-        secret: [u8; AES_KEY_SIZE],
-    ) -> Result<(), RatchetError> {
-        let receiver_ratchets = self.receiver_ratchets.read().await;
-        if let Some(receiver_lock) = receiver_ratchets.get(&user_id) {
-            let mut receiver = receiver_lock.write().await;
-            receiver.add_epoch_secret(epoch as u32, secret);
-            Ok(())
-        } else {
-            Err(RatchetError::DecryptError(
-                "Receiver ratchet not found".into(),
-            ))
-        }
-    }
+    // ── Key material export ───────────────────────────────────────────────────
 
-    /// Simplified decrypt method
-    pub async fn decrypt(&self, ciphertext: &[u8]) -> Result<Vec<u8>, RatchetError> {
-        if ciphertext.len() < 4 {
-            // Need at least key_len
-            return Err(RatchetError::InvalidFormat);
-        }
-
-        // Extract header info
-        let key_len = u32::from_le_bytes(ciphertext[0..4].try_into().unwrap()) as usize;
-        let min_len = 4 + key_len + 8 + 4 + 4; // key_len + key + user_id + epoch + generation
-        if ciphertext.len() < min_len {
-            // Ensure enough bytes for header before nonce/ciphertext
-            return Err(RatchetError::InvalidFormat);
-        }
-
-        let sender_id_offset = 4 + key_len;
-        let sender_id = u64::from_le_bytes(
-            ciphertext[sender_id_offset..sender_id_offset + 8]
-                .try_into()
-                .unwrap(),
-        );
-
-        // Get the appropriate receiver
-        let receiver_ratchets = self.receiver_ratchets.read().await;
-        let receiver_lock = receiver_ratchets.get(&sender_id).ok_or_else(|| {
-            RatchetError::DecryptError(format!("Sender ratchet for user {} not found", sender_id))
-        })?;
-
-        // Clone Arc to drop the read lock on the map before acquiring write lock on the receiver
-        let receiver_lock_clone = Arc::clone(receiver_lock);
-        drop(receiver_ratchets);
-
-        // Let the receiver handle the rest
-        let mut receiver = receiver_lock_clone.write().await;
-        receiver.decrypt(ciphertext)
-    }
-
-    /// Exports all key material for the TypeScript SubtleCrypto layer
     pub async fn export_key_material(&self) -> VoiceKeysPayload {
         let sender = self.sender_ratchet.read().await;
 
-        let mut receivers = Vec::new();
-        let receiver_ratchets = self.receiver_ratchets.read().await;
-        for (_, receiver_lock) in receiver_ratchets.iter() {
-            let receiver = receiver_lock.read().await;
-            let epoch_secrets: HashMap<u32, Vec<u8>> = receiver
-                .epoch_secrets()
-                .iter()
-                .map(|(k, v)| (*k, v.to_vec()))
-                .collect();
-
-            receivers.push(ReceiverKeyInfo {
-                user_id: receiver.sender_id(),
-                public_key: receiver.sender_public_key().to_vec(),
-                epoch_secrets,
-                current_epoch: receiver.current_epoch(),
-            });
-        }
+        let receivers = {
+            let guard = self.receiver_ratchets.read().await;
+            let mut out = Vec::with_capacity(guard.len());
+            for lock in guard.values() {
+                let r = lock.read().await;
+                let epoch_secrets = r
+                    .epoch_secrets()
+                    .iter()
+                    .map(|(&k, v)| (k, v.to_vec()))
+                    .collect();
+                out.push(ReceiverKeyInfo {
+                    user_id: r.sender_id(),
+                    public_key: r.sender_public_key().to_vec(),
+                    epoch_secrets,
+                    current_epoch: r.current_epoch(),
+                });
+            }
+            out
+        };
 
         VoiceKeysPayload {
-            sender_root_key: sender.root_key().to_vec(),
-            sender_chain_key: sender.chain_key().to_vec(),
+            sender_secret: sender.secret().to_vec(),
             sender_public_key: sender.public_key().to_vec(),
             sender_user_id: sender.user_id(),
             sender_epoch: sender.current_epoch(),

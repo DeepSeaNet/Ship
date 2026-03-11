@@ -4,9 +4,6 @@ export { GroupCryptoManager } from "./groupCryptoManager";
 export {
 	aesGcmDecrypt,
 	aesGcmEncrypt,
-	deriveMessageKey,
-	deriveRatchetKeys,
-	hkdfDerive,
 } from "./hkdf";
 export { ReceiverCryptoRatchet } from "./receiverRatchet";
 export { SenderCryptoRatchet } from "./senderRatchet";

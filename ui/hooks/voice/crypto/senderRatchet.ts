@@ -1,125 +1,99 @@
 /**
- * SenderCryptoRatchet — TypeScript port of Rust SenderRatchet.
- * Uses SubtleCrypto for HKDF key derivation and AES-128-GCM encryption.
+ * senderRatchet.ts — MLS sender ratchet for AEAD (RFC 9420 §9.1).
  *
- * Wire format (must match Rust sender.rs exactly):
- *   [pub_key_len: u32 LE][pub_key][user_id: u64 LE][epoch: u32 LE][generation: u32 LE][nonce: 12 bytes][ciphertext]
+ * Wire format:
+ *   [epoch: u32 LE][generation: u32 LE][nonce: 12 bytes][ciphertext][tag: 8 bytes]
+ *
+ * Both key and nonce are derived from the ratchet secret at each step —
+ * the nonce is NOT a counter.  It is included in the frame so the receiver
+ * can verify it independently (nonce mismatch = ratchet desync).
  */
 
-import { AES_KEY_SIZE, NONCE_SIZE } from "./constants";
-import { aesGcmEncrypt, deriveMessageKey, deriveRatchetKeys } from "./hkdf";
+import {
+    AEAD_NONCE_LEN,
+    AUTH_TAG_BYTES,
+    aesGcmEncrypt,
+    deriveInitialSecret,
+    mlsRatchetStep,
+} from "./hkdf";
 
 export class SenderCryptoRatchet {
-	private currentEpoch: number;
-	private rootKey: Uint8Array;
-	private chainKey: Uint8Array;
-	private generation: number;
-	private publicKey: Uint8Array;
-	private userId: bigint; // u64
+    private currentEpoch: number;
+    /** Current ratchet secret (32 bytes = SHA-256 hash_len). */
+    private secret:     Uint8Array;
+    private generation: number;
+    private publicKey:  Uint8Array;
+    private userId:     bigint;
 
-	constructor(
-		rootKey: Uint8Array,
-		chainKey: Uint8Array,
-		publicKey: Uint8Array,
-		userId: bigint,
-		epoch: number,
-		generation: number,
-	) {
-		this.rootKey = rootKey;
-		this.chainKey = chainKey;
-		this.publicKey = publicKey;
-		this.userId = userId;
-		this.currentEpoch = epoch;
-		this.generation = generation;
-	}
+    constructor(
+        secret: Uint8Array,
+        publicKey: Uint8Array,
+        userId: bigint,
+        epoch: number,
+        generation: number,
+    ) {
+        this.secret       = secret;
+        this.publicKey    = publicKey;
+        this.userId       = userId;
+        this.currentEpoch = epoch;
+        this.generation   = generation;
+    }
 
-	/**
-	 * Create from an initial shared secret (mirrors SenderRatchet::new in Rust).
-	 */
-	static async fromSecret(
-		sharedSecret: Uint8Array,
-		publicKey: Uint8Array,
-		userId: bigint,
-		groupEpoch: number,
-	): Promise<SenderCryptoRatchet> {
-		const { rootKey, chainKey } = await deriveRatchetKeys(sharedSecret);
-		return new SenderCryptoRatchet(
-			rootKey,
-			chainKey,
-			publicKey,
-			userId,
-			groupEpoch,
-			0,
-		);
-	}
+    /**
+     * Creates a sender ratchet from an MLS-exported base secret (16 bytes).
+     * Expands it to a 32-byte ratchet secret via ExpandWithLabel(..., "init", [], 32).
+     */
+    static async fromSecret(
+        baseSecret: Uint8Array,
+        publicKey: Uint8Array,
+        userId: bigint,
+        groupEpoch: number,
+    ): Promise<SenderCryptoRatchet> {
+        const secret = await deriveInitialSecret(baseSecret);
+        return new SenderCryptoRatchet(secret, publicKey, userId, groupEpoch, 0);
+    }
 
-	/**
-	 * Derives the next message key and advances the chain.
-	 */
-	private async nextMessageKey(): Promise<Uint8Array> {
-		const { newChainKey, messageKey } = await deriveMessageKey(
-			this.rootKey,
-			this.chainKey,
-		);
-		this.chainKey = newChainKey;
-		this.generation += 1;
-		return messageKey;
-	}
+    /** Resets the ratchet for a new MLS epoch. */
+    async updateEpoch(newBaseSecret: Uint8Array, groupEpoch: number): Promise<void> {
+        this.secret       = await deriveInitialSecret(newBaseSecret);
+        this.currentEpoch = groupEpoch;
+        this.generation   = 0;
+    }
 
-	/**
-	 * Updates epoch with a new secret (mirrors SenderRatchet::update_epoch).
-	 */
-	async updateEpoch(newSecret: Uint8Array, groupEpoch: number): Promise<void> {
-		const { rootKey, chainKey } = await deriveRatchetKeys(newSecret);
-		this.rootKey = rootKey;
-		this.chainKey = chainKey;
-		this.currentEpoch = groupEpoch;
-		this.generation = 0;
-	}
+    /**
+     * Encrypts plaintext and returns the full wire-format frame.
+     *
+     * Wire format: [epoch(4 LE)][generation(4 LE)][nonce(12)][ciphertext][tag(8)]
+     */
+    async encrypt(plaintext: Uint8Array): Promise<Uint8Array> {
+        const generation = this.generation;
+        const { key, nonce, nextSecret } = await mlsRatchetStep(this.secret, generation);
 
-	/**
-	 * Encrypts plaintext. Returns the full wire-format message.
-	 */
-	async encrypt(plaintext: Uint8Array): Promise<Uint8Array> {
-		const messageKey = await this.nextMessageKey();
-		const generation = this.generation - 1; // After increment
+        // Advance ratchet state atomically before any further awaits.
+        this.secret     = nextSecret;
+        this.generation = generation + 1;
 
-		const { nonce, ciphertext } = await aesGcmEncrypt(messageKey, plaintext);
+        const { ciphertext, tag } = await aesGcmEncrypt(key, nonce, plaintext);
 
-		// Build wire format: [key_len(4)][pub_key][user_id(8)][epoch(4)][generation(4)][nonce(12)][ciphertext]
-		const keyLen = this.publicKey.length;
-		const totalLen = 4 + keyLen + 8 + 4 + 4 + NONCE_SIZE + ciphertext.length;
-		const result = new Uint8Array(totalLen);
-		const view = new DataView(result.buffer);
+        const totalLen = 4 + 4 + AEAD_NONCE_LEN + ciphertext.length + tag.length;
+        const result   = new Uint8Array(totalLen);
+        const view     = new DataView(result.buffer);
+        let   offset   = 0;
 
-		let offset = 0;
+        view.setUint32(offset, this.currentEpoch, true); offset += 4;
+        view.setUint32(offset, generation,         true); offset += 4;
+        result.set(nonce,      offset); offset += AEAD_NONCE_LEN;
+        result.set(ciphertext, offset); offset += ciphertext.length;
+        result.set(tag,        offset);
 
-		// pub_key_len (u32 LE)
-		view.setUint32(offset, keyLen, true);
-		offset += 4;
+        return result;
 
-		// pub_key
-		result.set(this.publicKey, offset);
-		offset += keyLen;
+        return result;
+    }
 
-		// user_id (u64 LE)
-		view.setBigUint64(offset, this.userId, true);
-		offset += 8;
+    // ── Accessors (used by GroupCryptoManager to reconstruct from Rust export) ─
 
-		// epoch (u32 LE)
-		view.setUint32(offset, this.currentEpoch, true);
-		offset += 4;
-
-		// generation (u32 LE)
-		view.setUint32(offset, generation, true);
-		offset += 4;
-
-		// nonce (12 bytes)
-		result.set(nonce, offset);
-		offset += NONCE_SIZE;
-
-		// ciphertext
-		result.set(ciphertext, offset);
-		return result;
-	}
+    getSecret():     Uint8Array { return this.secret; }
+    getGeneration(): number     { return this.generation; }
+    getEpoch():      number     { return this.currentEpoch; }
 }

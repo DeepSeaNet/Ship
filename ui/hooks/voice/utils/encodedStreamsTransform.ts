@@ -20,7 +20,7 @@ declare class RTCRtpScriptTransform {
  */
 export const initEncodedStreamWorker = (): Worker => {
 	if (encodedStreamWorker === null) {
-		encodedStreamWorker = new Worker(new URL("../worker.js", import.meta.url), {
+		encodedStreamWorker = new Worker(new URL("../worker.ts", import.meta.url), {
 			type: "module",
 		});
 
@@ -58,6 +58,7 @@ export const terminateEncodedStreamWorker = (): void => {
  */
 export const applyEncryptionToSender = (
 	sender: RTCRtpSender,
+	userId: string,
 	_sessionId: string,
 ): void => {
 	try {
@@ -65,6 +66,7 @@ export const applyEncryptionToSender = (
 
 		sender.transform = new RTCRtpScriptTransform(worker, {
 			name: "senderTransform",
+			senderId: userId,
 		});
 
 		console.log("Encryption transform applied to sender");
@@ -78,6 +80,7 @@ export const applyEncryptionToSender = (
  */
 export const applyDecryptionToReceiver = (
 	receiver: RTCRtpReceiver,
+	userId: string,
 	_sessionId: string,
 ): void => {
 	try {
@@ -85,6 +88,7 @@ export const applyDecryptionToReceiver = (
 
 		receiver.transform = new RTCRtpScriptTransform(worker, {
 			name: "receiverTransform",
+			senderId: userId,
 		});
 
 		console.log("Decryption transform applied to receiver");

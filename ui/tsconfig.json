@@ -30,7 +30,7 @@
 		".next/dev/types/**/*.ts",
 		"**/*.mts",
 		"hooks/voice/workers/encodedStreamWorker.js",
-		"hooks/voice/worker.js"
+		"hooks/voice/worker.ts"
 	],
 	"exclude": ["node_modules"]
 }

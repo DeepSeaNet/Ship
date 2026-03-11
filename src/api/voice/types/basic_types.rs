@@ -27,7 +27,7 @@ pub struct Voice {
     pub voice_ratchet_manager: Arc<RwLock<GroupRatchetManager>>,
 }
 
-pub const EXPORT_SECRET_LABEL: &str = "SHIP Voice Channel";
+pub const EXPORT_SECRET_LABEL: &str = "SHIP Voice Channel V0";
 pub const EXPORT_SECRET_LENGTH: usize = 16;
 
 #[derive(Clone, MlsSize, MlsEncode, MlsDecode)]

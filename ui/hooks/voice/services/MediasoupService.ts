@@ -26,7 +26,7 @@ interface WebSocketMessage {
 
 export interface MediasoupServiceOptions {
 	sessionId: string;
-	userId?: string;
+	userId: string;
 	addLog: LoggerFunction;
 	onTransportsInitialized?: () => void;
 	transformApi: TransformApi;
@@ -47,7 +47,7 @@ export class MediasoupService {
 	private onTransportsInitialized?: () => void;
 	private transformApi: TransformApi;
 	private sessionId: string;
-	private userId?: string;
+	private userId: string;
 	private workerManager: WorkerManager;
 
 	constructor(options: MediasoupServiceOptions) {
@@ -252,7 +252,7 @@ export class MediasoupService {
 			try {
 				const worker = this.workerManager.getEncodedStreamWorker();
 				if (!worker) throw new Error("Worker not available");
-				await applyEncryptionToSender(producer.rtpSender, this.sessionId);
+				await applyEncryptionToSender(producer.rtpSender, this.userId, this.sessionId);
 				this.addLog(`Encryption applied to Producer ${producer.id}`, "success");
 			} catch (e) {
 				this.addLog(
@@ -270,6 +270,7 @@ export class MediasoupService {
 
 	public async createConsumer(
 		consumedMessage: ServerConsumed,
+		senderId: string,
 		onTrackAdded: (
 			track: MediaStreamTrack,
 			consumerId: ConsumerId,
@@ -294,7 +295,7 @@ export class MediasoupService {
 			this.consumers.set(consumer.id, consumer);
 
 			// Apply Transformation/Decryption
-			await this.applyDecryptionToConsumer(consumer);
+			await this.applyDecryptionToConsumer(consumer, senderId);
 
 			onTrackAdded(consumer.track, consumer.id, consumer.producerId);
 			sendMessage({ action: "ConsumerResume", id: consumer.id });
@@ -309,7 +310,7 @@ export class MediasoupService {
 		}
 	}
 
-	private async applyDecryptionToConsumer(consumer: Consumer): Promise<void> {
+	private async applyDecryptionToConsumer(consumer: Consumer, senderId: string): Promise<void> {
 		if (!consumer.rtpReceiver) return;
 
 		if (this.transformApi === "encodedStreams") {
@@ -320,7 +321,7 @@ export class MediasoupService {
 			try {
 				const worker = this.workerManager.getEncodedStreamWorker();
 				if (!worker) throw new Error("Worker not available");
-				await applyDecryptionToReceiver(consumer.rtpReceiver, this.sessionId);
+				await applyDecryptionToReceiver(consumer.rtpReceiver, senderId, this.sessionId);
 				this.addLog(`Decryption applied to Consumer ${consumer.id}`, "success");
 			} catch (e) {
 				this.addLog(
