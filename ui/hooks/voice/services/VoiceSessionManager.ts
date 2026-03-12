@@ -40,6 +40,11 @@ export class VoiceSessionManager {
 	private workerManager: WorkerManager | null = null;
 
 	private consumedProducers: Set<string> = new Set();
+	private pendingProducers: Array<{
+		producerId: string;
+		participantId: string;
+		appData: any;
+	}> = [];
 	private starting = false;
 
 	constructor(
@@ -91,6 +96,7 @@ export class VoiceSessionManager {
 		this.mediaManager = null;
 		this.workerManager = null;
 		this.consumedProducers.clear();
+		this.pendingProducers = [];
 		this.starting = false;
 
 		this.updateState({
@@ -185,42 +191,19 @@ export class VoiceSessionManager {
 					if (this.consumedProducers.has(producerId)) return;
 					this.consumedProducers.add(producerId);
 
-					if (this.mediasoupService?.getDevice()) {
+					if (!this.mediasoupService?.isInitialized()) {
 						this.addLog(
-							`Requesting consume for producer ${producerId} from participant ${participantId}`,
+							`Queuing producer ${producerId} - service not initialized yet`,
 							"info",
 						);
-						await this.signaling!.sendMessage({
-							action: "Consume",
-							producerId: producerId,
-							rtpCapabilities:
-								this.mediasoupService.getDevice()?.rtpCapabilities,
-						});
-
-						this.mediasoupService.setResponseCallback(
-							`consumed:${producerId}`,
-							async (data: any) => {
-								if (typeof appData?.userId === "string") {
-									await this.mediasoupService?.createConsumer(
-										data,
-										appData?.userId,
-										(track, consumerId, newProducerId) => {
-											this.handleTrackAdded(
-												track,
-												consumerId,
-												newProducerId,
-												participantId,
-												appData,
-											);
-										},
-										(m: ClientMessage) => this.signaling!.sendMessage(m),
-									);
-								}
-							},
-						);
+						this.pendingProducers.push({ producerId, participantId, appData });
+						return;
 					}
+
+					await this.requestConsume(producerId, participantId, appData);
 				},
 				onProducerRemoved: (producerId, _participantId) => {
+					this.consumedProducers.delete(producerId);
 					this.mediasoupService
 						?.getConsumers()
 						.forEach((consumer: Consumer) => {
@@ -255,6 +238,24 @@ export class VoiceSessionManager {
 							);
 							this.updateState({ status: "connected" });
 							this.addLog("Call connected & initialized!", "success");
+
+							// Process pending producers
+							if (this.pendingProducers.length > 0) {
+								this.addLog(
+									`Processing ${this.pendingProducers.length} pending producers...`,
+									"info",
+								);
+								const toProcess = [...this.pendingProducers];
+								this.pendingProducers = [];
+
+								for (const p of toProcess) {
+									await this.requestConsume(
+										p.producerId,
+										p.participantId,
+										p.appData,
+									);
+								}
+							}
 						} catch (error: any) {
 							this.addLog(`Initialization Error: ${error.message}`, "error");
 							this.updateState({ status: "error" });
@@ -370,5 +371,62 @@ export class VoiceSessionManager {
 				});
 			}
 		}
+	};
+
+	private requestConsume = async (
+		producerId: string,
+		participantId: string,
+		appData: any,
+	) => {
+		if (!this.mediasoupService || !this.signaling) return;
+
+		this.addLog(
+			`Requesting consume for producer ${producerId} from participant ${participantId}`,
+			"info",
+		);
+
+		// Set callback FIRST to avoid race condition
+		this.mediasoupService.setResponseCallback(
+			`consumed:${producerId}`,
+			async (data: any) => {
+				const userId = appData?.userId;
+				if (typeof userId === "string") {
+					this.addLog(`Creating consumer for producer ${producerId}...`, "info");
+					const consumer = await this.mediasoupService?.createConsumer(
+						data,
+						userId,
+						(track, consumerId, newProducerId) => {
+							this.handleTrackAdded(
+								track,
+								consumerId,
+								newProducerId,
+								participantId,
+								appData,
+							);
+						},
+						(m: ClientMessage) => this.signaling!.sendMessage(m),
+					);
+
+					if (!consumer) {
+						this.addLog(
+							`Failed to create consumer for producer ${producerId}`,
+							"error",
+						);
+					}
+				} else {
+					this.addLog(
+						`Cannot create consumer for producer ${producerId}: missing userId in appData`,
+						"warning",
+					);
+				}
+			},
+		);
+
+		const rtpCapabilities = this.mediasoupService.getDevice()?.rtpCapabilities;
+		await this.signaling.sendMessage({
+			action: "Consume",
+			producerId: producerId,
+			rtpCapabilities,
+		});
 	};
 }

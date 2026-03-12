@@ -79,8 +79,16 @@ export class MediasoupService {
 		return this.consumers;
 	}
 
+	public isDeviceLoaded(): boolean {
+		return !!this.device && this.device.loaded;
+	}
+
+	public isTransportsReady(): boolean {
+		return !!this.sendTransport && !!this.recvTransport;
+	}
+
 	public isInitialized(): boolean {
-		return this.initialized;
+		return this.initialized && this.isDeviceLoaded() && this.isTransportsReady();
 	}
 
 	public setResponseCallback(
@@ -103,6 +111,9 @@ export class MediasoupService {
 					"error",
 				);
 			}
+		} else {
+			// Only log as debug to avoid spamming the UI toast
+			console.debug(`[MediasoupService] No callback registered for action: ${action}`);
 		}
 		return false;
 	}
@@ -214,7 +225,13 @@ export class MediasoupService {
 		track: MediaStreamTrack,
 		sourceType: string,
 	): Promise<Producer | null> {
-		if (!this.sendTransport) return null;
+		if (!this.sendTransport) {
+			this.addLog(
+				`Cannot create producer for ${track.kind}: SendTransport not initialized`,
+				"error",
+			);
+			return null;
+		}
 
 		try {
 			const producer = await this.sendTransport.produce({
@@ -282,7 +299,13 @@ export class MediasoupService {
 		) => void,
 		sendMessage: (message: WebSocketMessage) => void,
 	): Promise<Consumer | null> {
-		if (!this.recvTransport) return null;
+		if (!this.recvTransport) {
+			this.addLog(
+				`Cannot create consumer for producer ${consumedMessage.producerId}: RecvTransport not initialized`,
+				"error",
+			);
+			return null;
+		}
 
 		try {
 			this.addLog(

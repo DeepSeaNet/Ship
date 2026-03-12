@@ -101,35 +101,35 @@ export class MediaManager {
 	 * Запустить камеру и создать видео producer
 	 */
 	public async startVideo(): Promise<Producer | null> {
-		if (!this.mediasoupService.getSendTransport()) {
+		if (!this.mediasoupService.isInitialized()) {
 			this.addLog(
-				"Невозможно запустить камеру: SendTransport не инициализирован",
+				"Cannot start camera: Mediasoup not initialized",
 				"error",
 			);
 			return null;
 		}
 
 		if (this.isVideoActive()) {
-			this.addLog("Камера уже запущена", "warning");
+			this.addLog("Camera already active", "warning");
 			return this.mediasoupService.getProducers().get("video") || null;
 		}
 
 		try {
-			this.addLog("Запуск камеры...", "info");
+			this.addLog("Starting camera...", "info");
 			const stream = await navigator.mediaDevices.getUserMedia({
 				video: { width: 640, height: 360 },
 			});
 
 			if (!stream || !stream.getVideoTracks().length) {
 				this.addLog(
-					"Не удалось получить видеопоток или нет видеотреков",
+					"Failed to get video stream or no video tracks",
 					"error",
 				);
 				return null;
 			}
 
 			this.addLog(
-				`Получен поток камеры: ${stream.id}, треков: ${stream.getVideoTracks().length}`,
+				`Video stream received: ${stream.id}, tracks: ${stream.getVideoTracks().length}`,
 				"success",
 			);
 
@@ -139,7 +139,7 @@ export class MediaManager {
 			this.localVideoStream = videoOnlyStream;
 
 			this.addLog(
-				`Создание Producer для видео трека ${videoTrack.id}...`,
+				`Creating Producer for video track ${videoTrack.id}...`,
 				"info",
 			);
 			const videoProducer = await this.mediasoupService.createProducer(
@@ -148,24 +148,24 @@ export class MediaManager {
 			);
 
 			if (!videoProducer) {
-				this.addLog("Не удалось создать видео Producer", "error");
+				this.addLog("Failed to create video Producer", "error");
 				this.stopVideoTracks();
 				return null;
 			}
 
 			// Логируем информацию о треке и потоке
 			this.addLog(
-				`Видео Producer создан: id=${videoProducer.id}, трек=${videoTrack.id}, активен=${videoTrack.enabled}`,
+				`Video Producer created: id=${videoProducer.id}, track=${videoTrack.id}, active=${videoTrack.enabled}`,
 				"success",
 			);
 			this.addLog(
-				`Локальный видеопоток: ${this.localVideoStream.id}, треков: ${this.localVideoStream.getTracks().length}`,
+				`Local video stream: ${this.localVideoStream.id}, tracks: ${this.localVideoStream.getTracks().length}`,
 				"info",
 			);
 
 			return videoProducer;
 		} catch (error) {
-			this.addLog(`Ошибка запуска камеры: ${error}`, "error");
+			this.addLog(`Error starting camera: ${error}`, "error");
 			this.stopVideoTracks();
 			return null;
 		}
@@ -177,7 +177,7 @@ export class MediaManager {
 	public stopVideo(): void {
 		const videoProducer = this.mediasoupService.getProducers().get("video");
 		if (videoProducer) {
-			this.addLog(`Остановка видео Producer ${videoProducer.id}...`, "info");
+			this.addLog(`Stopping video Producer ${videoProducer.id}...`, "info");
 			videoProducer.close();
 			this.mediasoupService.getProducers().delete("video");
 		}
@@ -191,16 +191,16 @@ export class MediaManager {
 	private stopVideoTracks(): void {
 		if (this.localVideoStream) {
 			this.addLog(
-				`Остановка локального видео потока ${this.localVideoStream.id}`,
+				`Stopping local video stream ${this.localVideoStream.id}`,
 				"info",
 			);
 
-			// Лучше явно перечислить треки, чтобы быть уверенным в их закрытии
+			// Better to explicitly enumerate tracks to ensure they are closed
 			const tracks = this.localVideoStream.getTracks();
-			this.addLog(`Остановка ${tracks.length} треков`, "info");
+			this.addLog(`Stopping ${tracks.length} tracks`, "info");
 
 			tracks.forEach((track) => {
-				this.addLog(`Остановка трека ${track.id} (тип: ${track.kind})`, "info");
+				this.addLog(`Stopping track ${track.id} (kind: ${track.kind})`, "info");
 				track.stop();
 			});
 
@@ -215,7 +215,7 @@ export class MediaManager {
 	 * @param producer аудио producer
 	 */
 	private async createMicrophoneController(producer: Producer): Promise<void> {
-		this.addLog("Инициализация контроллера микрофона...", "info");
+		this.addLog("Initializing microphone controller...", "info");
 		try {
 			const advancedController = await initializeAdvancedMicrophone(
 				producer,
@@ -223,10 +223,10 @@ export class MediaManager {
 			);
 			if (advancedController) {
 				this.microphoneController = advancedController;
-				this.addLog("Контроллер микрофона успешно инициализирован", "success");
+				this.addLog("Microphone controller initialized successfully", "success");
 			}
 		} catch (error) {
-			this.addLog(`Ошибка инициализации контроллера: ${error}`, "error");
+			this.addLog(`Error initializing microphone controller: ${error}`, "error");
 		}
 	}
 
@@ -234,33 +234,33 @@ export class MediaManager {
 	 * Запустить микрофон и создать аудио producer
 	 */
 	public async startAudio(): Promise<Producer | null> {
-		if (!this.mediasoupService.getSendTransport()) {
+		if (!this.mediasoupService.isInitialized()) {
 			this.addLog(
-				"Невозможно запустить микрофон: SendTransport не инициализирован",
+				"Cannot start microphone: Mediasoup not initialized",
 				"error",
 			);
 			return null;
 		}
 
 		if (this.isAudioActive() && this.microphoneController) {
-			this.addLog("Микрофон уже запущен", "warning");
+			this.addLog("Microphone already active", "warning");
 			return this.mediasoupService.getProducers().get("audio") || null;
 		}
 
 		try {
-			this.addLog("Запуск микрофона...", "info");
+			this.addLog("Starting microphone...", "info");
 			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
 			if (!stream || !stream.getAudioTracks().length) {
 				this.addLog(
-					"Не удалось получить аудиопоток или нет аудиотреков",
+					"Failed to get audio stream or no audio tracks",
 					"error",
 				);
 				return null;
 			}
 
 			this.addLog(
-				`Получен поток микрофона: ${stream.id}, треков: ${stream.getAudioTracks().length}`,
+				`Audio stream received: ${stream.id}, tracks: ${stream.getAudioTracks().length}`,
 				"success",
 			);
 
@@ -270,7 +270,7 @@ export class MediaManager {
 			this.localAudioStream = audioOnlyStream;
 
 			this.addLog(
-				`Создание Producer для аудио трека ${audioTrack.id}...`,
+				`Creating Producer for audio track ${audioTrack.id}...`,
 				"info",
 			);
 			const audioProducer = await this.mediasoupService.createProducer(
@@ -279,7 +279,7 @@ export class MediaManager {
 			);
 
 			if (!audioProducer) {
-				this.addLog("Не удалось создать аудио Producer", "error");
+				this.addLog("Failed to create audio Producer", "error");
 				this.stopAudioTracks();
 				return null;
 			}
@@ -289,13 +289,13 @@ export class MediaManager {
 
 			// Логируем информацию о треке и потоке
 			this.addLog(
-				`Аудио Producer создан: id=${audioProducer.id}, трек=${audioTrack.id}, активен=${audioTrack.enabled}`,
+				`Audio Producer created: id=${audioProducer.id}, track=${audioTrack.id}, active=${audioTrack.enabled}`,
 				"success",
 			);
 			this.audioActive = true;
 			return audioProducer;
 		} catch (error) {
-			this.addLog(`Ошибка запуска микрофона: ${error}`, "error");
+			this.addLog(`Error starting microphone: ${error}`, "error");
 			this.stopAudioTracks();
 			return null;
 		}
@@ -307,14 +307,14 @@ export class MediaManager {
 	public stopAudio(): void {
 		// Очищаем контроллер микрофона, если он есть
 		if (this.microphoneController) {
-			this.addLog("Очистка контроллера микрофона", "info");
+			this.addLog("Clearing microphone controller", "info");
 			this.microphoneController.cleanup();
 			this.microphoneController = null;
 		}
 
 		const audioProducer = this.mediasoupService.getProducers().get("audio");
 		if (audioProducer) {
-			this.addLog(`Остановка аудио Producer ${audioProducer.id}...`, "info");
+			this.addLog(`Stopping audio Producer ${audioProducer.id}...`, "info");
 			audioProducer.close();
 			this.mediasoupService.getProducers().delete("audio");
 		}
@@ -327,11 +327,11 @@ export class MediaManager {
 	 */
 	public async pauseAudio(): Promise<void> {
 		if (!this.microphoneController) {
-			this.addLog("Контроллер микрофона не инициализирован", "warning");
+			this.addLog("Microphone controller not initialized", "warning");
 			return;
 		}
 
-		this.addLog("Приостановка передачи аудио...", "info");
+		this.addLog("Pausing audio transmission...", "info");
 		await this.microphoneController.pause();
 	}
 
@@ -340,11 +340,11 @@ export class MediaManager {
 	 */
 	public async resumeAudio(): Promise<void> {
 		if (!this.microphoneController) {
-			this.addLog("Контроллер микрофона не инициализирован", "warning");
+			this.addLog("Microphone controller not initialized", "warning");
 			return;
 		}
 
-		this.addLog("Возобновление передачи аудио...", "info");
+		this.addLog("Resuming audio transmission...", "info");
 		await this.microphoneController.resume();
 	}
 
@@ -367,16 +367,16 @@ export class MediaManager {
 	 * Запустить демонстрацию экрана и создать поток демонстрации экрана
 	 */
 	public async startScreenShare(): Promise<MediaStream | null> {
-		if (!this.mediasoupService.getSendTransport()) {
+		if (!this.mediasoupService.isInitialized()) {
 			this.addLog(
-				"Невозможно запустить демонстрацию экрана: SendTransport не инициализирован",
+				"Cannot start screen share: Mediasoup not initialized",
 				"error",
 			);
 			return null;
 		}
 
 		try {
-			this.addLog("Запуск демонстрации экрана с аудио...", "info");
+			this.addLog("Starting screen share with audio...", "info");
 			const stream = await navigator.mediaDevices.getDisplayMedia({
 				video: {
 					displaySurface: "monitor",
@@ -389,14 +389,14 @@ export class MediaManager {
 
 			if (!stream || !stream.getVideoTracks().length) {
 				this.addLog(
-					"Не удалось получить поток демонстрации экрана или нет видеотреков",
+					"Failed to get screen share stream or no video tracks",
 					"error",
 				);
 				return null;
 			}
 
 			this.addLog(
-				`Получен поток демонстрации экрана: ${stream.id}, видеотреков: ${stream.getVideoTracks().length}, аудиотреков: ${stream.getAudioTracks().length}`,
+				`Screen share stream received: ${stream.id}, video tracks: ${stream.getVideoTracks().length}, audio tracks: ${stream.getAudioTracks().length}`,
 				"success",
 			);
 
@@ -406,7 +406,7 @@ export class MediaManager {
 			// Добавляем обработчик для отслеживания остановки демонстрации
 			stream.getVideoTracks()[0].onended = () => {
 				this.addLog(
-					"Видеотрек демонстрации экрана завершен, останавливаем демонстрацию",
+					"Screen share video track ended, stopping screen share",
 					"info",
 				);
 				this.stopScreenShare();
@@ -414,7 +414,7 @@ export class MediaManager {
 
 			return stream;
 		} catch (error) {
-			this.addLog(`Ошибка запуска демонстрации экрана: ${error}`, "error");
+			this.addLog(`Error starting screen share: ${error}`, "error");
 			this.screenShareActive = false;
 			return null;
 		}
@@ -425,7 +425,7 @@ export class MediaManager {
 	 */
 	public async publishScreenShare(): Promise<void> {
 		if (!this.screenShareStream) {
-			this.addLog("Поток демонстрации экрана не инициализирован", "error");
+			this.addLog("Screen share stream not initialized", "error");
 			return;
 		}
 
@@ -433,14 +433,14 @@ export class MediaManager {
 			// Публикуем видеотрек
 			const videoTrack = this.screenShareStream.getVideoTracks()[0];
 			if (videoTrack) {
-				this.addLog("Публикация видео демонстрации экрана...", "info");
+				this.addLog("Publishing screen share video...", "info");
 				const videoProducerId = await this.mediasoupService.createProducer(
 					videoTrack,
 					"screen-video",
 				);
 				this.screenShareProducerId = videoProducerId?.toString() ?? "";
 				this.addLog(
-					`Видео демонстрации экрана опубликовано, producerId: ${videoProducerId}`,
+					`Screen share video published, producerId: ${videoProducerId}`,
 					"success",
 				);
 			}
@@ -448,23 +448,23 @@ export class MediaManager {
 			// Публикуем аудиотрек, если он есть
 			const audioTracks = this.screenShareStream.getAudioTracks();
 			if (audioTracks.length > 0) {
-				this.addLog("Публикация аудио демонстрации экрана...", "info");
+				this.addLog("Publishing screen share audio...", "info");
 				const audioProducerId = await this.mediasoupService.createProducer(
 					audioTracks[0],
 					"screen-audio",
 				);
 				this.addLog(
-					`Аудио демонстрации экрана опубликовано, producerId: ${audioProducerId}`,
+					`Screen share audio published, producerId: ${audioProducerId}`,
 					"success",
 				);
 			} else {
-				this.addLog("Аудиотрек для демонстрации экрана отсутствует", "warning");
+				this.addLog("Audio track for screen share not found", "warning");
 			}
 
-			this.addLog("Демонстрация экрана опубликована успешно", "success");
+			this.addLog("Screen share published successfully", "success");
 		} catch (error) {
 			this.addLog(
-				`Ошибка при публикации демонстрации экрана: ${error}`,
+				`Error publishing screen share: ${error}`,
 				"error",
 			);
 			this.screenShareActive = false;
@@ -479,20 +479,20 @@ export class MediaManager {
 	public stopScreenShare(): void {
 		if (this.screenShareStream) {
 			this.addLog(
-				`Остановка демонстрации экрана ${this.screenShareStream.id}`,
+				`Stopping screen share ${this.screenShareStream.id}`,
 				"info",
 			);
 
 			// Останавливаем все треки
 			const tracks = this.screenShareStream.getTracks();
 			this.addLog(
-				`Остановка ${tracks.length} треков демонстрации экрана`,
+				`Stopping ${tracks.length} tracks of screen share`,
 				"info",
 			);
 
 			tracks.forEach((track) => {
 				this.addLog(
-					`Остановка трека ${track.id} (тип: ${track.kind}) демонстрации экрана`,
+					`Stopping track ${track.id} (type: ${track.kind}) of screen share`,
 					"info",
 				);
 				track.stop();
@@ -503,10 +503,10 @@ export class MediaManager {
 			this.screenShareActive = false;
 			this.screenShareProducerId = null;
 
-			this.addLog("Демонстрация экрана остановлена", "success");
+			this.addLog("Screen share stopped", "success");
 		} else {
 			this.addLog(
-				"Нет активного потока демонстрации экрана для остановки",
+				"No active screen share stream to stop",
 				"info",
 			);
 		}
@@ -521,22 +521,22 @@ export class MediaManager {
 	private stopAudioTracks(): void {
 		if (this.localAudioStream) {
 			this.addLog(
-				`Остановка локального аудио потока ${this.localAudioStream.id}`,
+				`Stopping local audio stream ${this.localAudioStream.id}`,
 				"info",
 			);
 
-			// Лучше явно перечислить треки, чтобы быть уверенным в их закрытии
+			// Better explicitly enumerate tracks to be sure they are closed
 			const tracks = this.localAudioStream.getTracks();
-			this.addLog(`Остановка ${tracks.length} треков`, "info");
+			this.addLog(`Stopping ${tracks.length} tracks of local audio stream`, "info");
 
 			tracks.forEach((track) => {
-				this.addLog(`Остановка трека ${track.id} (тип: ${track.kind})`, "info");
+				this.addLog(`Stopping track ${track.id} (type: ${track.kind}) of local audio stream`, "info");
 				track.stop();
 			});
 
 			this.localAudioStream = null;
 		} else {
-			this.addLog("Нет активного аудиопотока для остановки", "info");
+			this.addLog("No active audio stream to stop", "info");
 		}
 	}
 	/**
