@@ -29,10 +29,10 @@
  */
 
 // ── Sizes (MLS ciphersuite 2: DHKEMP256_AES128GCM_SHA256_P256) ───────────────
-export const AEAD_KEY_LEN   = 16; // AES-128-GCM key
+export const AEAD_KEY_LEN = 16; // AES-128-GCM key
 export const AEAD_NONCE_LEN = 12; // AES-128-GCM nonce (full, not truncated for wire)
-export const HASH_LEN       = 32; // SHA-256 output / next secret length
-export const AUTH_TAG_BYTES =  8; // DAVE truncated GCM tag (64-bit)
+export const HASH_LEN = 32; // SHA-256 output / next secret length
+export const AUTH_TAG_BYTES = 8; // DAVE truncated GCM tag (64-bit)
 
 // ── MLS ExpandWithLabel (RFC 9420 §8.1) ──────────────────────────────────────
 
@@ -43,25 +43,27 @@ export const AUTH_TAG_BYTES =  8; // DAVE truncated GCM tag (64-bit)
  *   context   : raw bytes
  */
 function encodeKdfLabel(
-    length: number,
-    label: string,
-    context: Uint8Array,
+	length: number,
+	label: string,
+	context: Uint8Array,
 ): Uint8Array {
-    const fullLabel    = "MLS 1.0 " + label;
-    const labelBytes   = new TextEncoder().encode(fullLabel);
+	const fullLabel = "MLS 1.0 " + label;
+	const labelBytes = new TextEncoder().encode(fullLabel);
 
-    // KDFLabel = u16(length) || u8(labelLen) || label || u8(contextLen) || context
-    const buf = new Uint8Array(2 + 1 + labelBytes.length + 1 + context.length);
-    const dv  = new DataView(buf.buffer);
-    let   off = 0;
+	// KDFLabel = u16(length) || u8(labelLen) || label || u8(contextLen) || context
+	const buf = new Uint8Array(2 + 1 + labelBytes.length + 1 + context.length);
+	const dv = new DataView(buf.buffer);
+	let off = 0;
 
-    dv.setUint16(off, length, false /* BE */); off += 2;
-    buf[off++] = labelBytes.length;
-    buf.set(labelBytes, off); off += labelBytes.length;
-    buf[off++] = context.length;
-    buf.set(context, off);
+	dv.setUint16(off, length, false /* BE */);
+	off += 2;
+	buf[off++] = labelBytes.length;
+	buf.set(labelBytes, off);
+	off += labelBytes.length;
+	buf[off++] = context.length;
+	buf.set(context, off);
 
-    return buf;
+	return buf;
 }
 
 /**
@@ -69,34 +71,38 @@ function encodeKdfLabel(
  * RFC 9420 §8.1 — uses HKDF-Expand (no extract; secret is already the IKM).
  */
 async function expandWithLabel(
-    secret: Uint8Array,
-    label: string,
-    context: Uint8Array,
-    length: number,
+	secret: Uint8Array,
+	label: string,
+	context: Uint8Array,
+	length: number,
 ): Promise<Uint8Array> {
-    const kdfLabel = encodeKdfLabel(length, label, context);
-    const key = await crypto.subtle.importKey(
-        "raw", secret as BufferSource, "HKDF", false, ["deriveBits"],
-    );
-    const bits = await crypto.subtle.deriveBits(
-        {
-            name: "HKDF",
-            hash: "SHA-256",
-            salt: new Uint8Array(0), // expand-only
-            info: kdfLabel as BufferSource,
-        },
-        key,
-        length * 8,
-    );
-    return new Uint8Array(bits);
+	const kdfLabel = encodeKdfLabel(length, label, context);
+	const key = await crypto.subtle.importKey(
+		"raw",
+		secret as BufferSource,
+		"HKDF",
+		false,
+		["deriveBits"],
+	);
+	const bits = await crypto.subtle.deriveBits(
+		{
+			name: "HKDF",
+			hash: "SHA-256",
+			salt: new Uint8Array(0), // expand-only
+			info: kdfLabel as BufferSource,
+		},
+		key,
+		length * 8,
+	);
+	return new Uint8Array(bits);
 }
 
 // ── MLS sender ratchet step (RFC 9420 §9.1) ──────────────────────────────────
 
 export interface RatchetStep {
-    key:        Uint8Array; // AES-128-GCM key   (16 bytes)
-    nonce:      Uint8Array; // AES-128-GCM nonce (12 bytes)
-    nextSecret: Uint8Array; // secret for generation n+1 (32 bytes)
+	key: Uint8Array; // AES-128-GCM key   (16 bytes)
+	nonce: Uint8Array; // AES-128-GCM nonce (12 bytes)
+	nextSecret: Uint8Array; // secret for generation n+1 (32 bytes)
 }
 
 /**
@@ -111,20 +117,20 @@ export interface RatchetStep {
  * They are run in parallel via Promise.all for minimum latency.
  */
 export async function mlsRatchetStep(
-    secret: Uint8Array,
-    generation: number,
+	secret: Uint8Array,
+	generation: number,
 ): Promise<RatchetStep> {
-    // Context = generation as u32 big-endian (MLS convention)
-    const ctx = new Uint8Array(4);
-    new DataView(ctx.buffer).setUint32(0, generation >>> 0, false /* BE */);
+	// Context = generation as u32 big-endian (MLS convention)
+	const ctx = new Uint8Array(4);
+	new DataView(ctx.buffer).setUint32(0, generation >>> 0, false /* BE */);
 
-    const [key, nonce, nextSecret] = await Promise.all([
-        expandWithLabel(secret, "key",    ctx, AEAD_KEY_LEN),
-        expandWithLabel(secret, "nonce",  ctx, AEAD_NONCE_LEN),
-        expandWithLabel(secret, "secret", ctx, HASH_LEN),
-    ]);
+	const [key, nonce, nextSecret] = await Promise.all([
+		expandWithLabel(secret, "key", ctx, AEAD_KEY_LEN),
+		expandWithLabel(secret, "nonce", ctx, AEAD_NONCE_LEN),
+		expandWithLabel(secret, "secret", ctx, HASH_LEN),
+	]);
 
-    return { key, nonce, nextSecret };
+	return { key, nonce, nextSecret };
 }
 
 // ── Initial secret derivation ─────────────────────────────────────────────────
@@ -139,8 +145,10 @@ export async function mlsRatchetStep(
  * 32 bytes (SHA-256 hash length) per RFC 9420 §9.1.  We expand it once:
  *   ratchet_secret[0] = ExpandWithLabel(base_secret, "init", [], 32)
  */
-export async function deriveInitialSecret(baseSecret: Uint8Array): Promise<Uint8Array> {
-    return expandWithLabel(baseSecret, "init", new Uint8Array(0), HASH_LEN);
+export async function deriveInitialSecret(
+	baseSecret: Uint8Array,
+): Promise<Uint8Array> {
+	return expandWithLabel(baseSecret, "init", new Uint8Array(0), HASH_LEN);
 }
 
 // ── AES-128-GCM with DAVE truncated tag ──────────────────────────────────────
@@ -150,29 +158,32 @@ export async function deriveInitialSecret(baseSecret: Uint8Array): Promise<Uint8
  * The 128-bit GCM tag is truncated to 8 bytes per DAVE spec.
  */
 export async function aesGcmEncrypt(
-    key: Uint8Array,
-    nonce: Uint8Array,
-    plaintext: Uint8Array,
+	key: Uint8Array,
+	nonce: Uint8Array,
+	plaintext: Uint8Array,
 ): Promise<{ ciphertext: Uint8Array; tag: Uint8Array }> {
+	const cryptoKey = await crypto.subtle.importKey(
+		"raw",
+		key as BufferSource,
+		"AES-GCM",
+		false,
+		["encrypt"],
+	);
 
-    const cryptoKey = await crypto.subtle.importKey(
-        "raw", key as BufferSource, "AES-GCM", false, ["encrypt"],
-    );
+	const encrypted = new Uint8Array(
+		await crypto.subtle.encrypt(
+			{ name: "AES-GCM", iv: nonce as BufferSource },
+			cryptoKey,
+			plaintext as BufferSource,
+		),
+	);
 
-    const encrypted = new Uint8Array(
-        await crypto.subtle.encrypt(
-            { name: "AES-GCM", iv: nonce as BufferSource },
-            cryptoKey,
-            plaintext as BufferSource,
-        ),
-    );
+	const dataLen = encrypted.length - 16;
 
-    const dataLen = encrypted.length - 16;
-
-    return {
-        ciphertext: encrypted.slice(0, dataLen),
-        tag: encrypted.slice(dataLen),
-    };
+	return {
+		ciphertext: encrypted.slice(0, dataLen),
+		tag: encrypted.slice(dataLen),
+	};
 }
 
 /**
@@ -180,25 +191,28 @@ export async function aesGcmEncrypt(
  * The 8-byte truncated tag is zero-padded to 16 bytes for SubtleCrypto.
  */
 export async function aesGcmDecrypt(
-    key: Uint8Array,
-    nonce: Uint8Array,
-    ciphertext: Uint8Array,
-    tag: Uint8Array,
+	key: Uint8Array,
+	nonce: Uint8Array,
+	ciphertext: Uint8Array,
+	tag: Uint8Array,
 ): Promise<Uint8Array> {
+	const combined = new Uint8Array(ciphertext.length + tag.length);
+	combined.set(ciphertext);
+	combined.set(tag, ciphertext.length);
 
-    const combined = new Uint8Array(ciphertext.length + tag.length);
-    combined.set(ciphertext);
-    combined.set(tag, ciphertext.length);
+	const cryptoKey = await crypto.subtle.importKey(
+		"raw",
+		key as BufferSource,
+		"AES-GCM",
+		false,
+		["decrypt"],
+	);
 
-    const cryptoKey = await crypto.subtle.importKey(
-        "raw", key as BufferSource, "AES-GCM", false, ["decrypt"],
-    );
-
-    return new Uint8Array(
-        await crypto.subtle.decrypt(
-            { name: "AES-GCM", iv: nonce as BufferSource },
-            cryptoKey,
-            combined,
-        ),
-    );
+	return new Uint8Array(
+		await crypto.subtle.decrypt(
+			{ name: "AES-GCM", iv: nonce as BufferSource },
+			cryptoKey,
+			combined,
+		),
+	);
 }

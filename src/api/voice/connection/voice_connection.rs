@@ -469,8 +469,8 @@ impl Backend {
                                     } else {
                                         log::warn!("ServerCommitResponse received but no handler set");
                                     }
-                                    if commit_response.accepted {
-                                        if let Some(app_handle) = &app_handle {
+                                    if commit_response.accepted
+                                        && let Some(app_handle) = &app_handle {
                                             let event_payload = serde_json::json!({
                                                 "type": "server_commit",
                                                 "data": server_message
@@ -480,7 +480,6 @@ impl Backend {
                                                 log::error!("Failed to emit voice-event: {}", e);
                                             }
                                         }
-                                    }
                                     continue;
                                 }
                                 _ => {

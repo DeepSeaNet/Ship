@@ -19,7 +19,7 @@ export const register = async (
 		return result;
 	} catch (error) {
 		console.error("Failed to register:", error);
-		toast.danger("Failed to register" + error)
+		toast.danger("Failed to register" + error);
 		throw error;
 	}
 };

@@ -2,7 +2,14 @@ import { GrpcSignalingAdapter } from "./GrpcSignalingAdapter";
 import { MediaManager } from "./MediaManager";
 import { MediasoupService } from "./MediasoupService";
 import { WorkerManager } from "./WorkerManager";
-import type { ClientMessage, LogEntry, LogEntryType, MediaTrackInfo, ServerInit, ServerMessage } from "../types/mediasoup";
+import type {
+	ClientMessage,
+	LogEntry,
+	LogEntryType,
+	MediaTrackInfo,
+	ServerInit,
+	ServerMessage,
+} from "../types/mediasoup";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "@heroui/react";
 import type { Consumer } from "mediasoup-client/types";
@@ -69,7 +76,8 @@ export class VoiceSessionManager {
 		// Limit logs size appropriately if needed, here we just append
 		this.updateState({ logs: [...this.state.logs, entry] });
 		console.log(`[VoiceSessionManager] [${type.toUpperCase()}] ${message}`);
-		if (type === "error" || type === "warning") toast.danger(`[VoiceSessionManager] [${type.toUpperCase()}] ${message}`);
+		if (type === "error" || type === "warning")
+			toast.danger(`[VoiceSessionManager] [${type.toUpperCase()}] ${message}`);
 	};
 
 	public cleanup = () => {
@@ -147,7 +155,7 @@ export class VoiceSessionManager {
 				"info",
 			);
 
-			try { 
+			try {
 				await Promise.race([
 					invoke("join_session", { sessionId: newSessionId }),
 					new Promise((_, reject) =>
@@ -213,14 +221,16 @@ export class VoiceSessionManager {
 					}
 				},
 				onProducerRemoved: (producerId, _participantId) => {
-					this.mediasoupService?.getConsumers().forEach((consumer: Consumer) => {
-						if (consumer.producerId === producerId) {
-							this.mediasoupService?.removeConsumer(
-								consumer.id,
-								this.handleTrackRemoved,
-							);
-						}
-					});
+					this.mediasoupService
+						?.getConsumers()
+						.forEach((consumer: Consumer) => {
+							if (consumer.producerId === producerId) {
+								this.mediasoupService?.removeConsumer(
+									consumer.id,
+									this.handleTrackRemoved,
+								);
+							}
+						});
 				},
 				onConnectionStateChange: (connected) => {
 					if (!connected && this.state.status === "connected") {
@@ -231,7 +241,7 @@ export class VoiceSessionManager {
 					if (this.mediasoupService?.handleCallback(msg.action, msg)) {
 						return;
 					}
-					
+
 					if (msg.action === "Init") {
 						const initMsg = msg as ServerInit;
 						try {
@@ -261,7 +271,7 @@ export class VoiceSessionManager {
 
 			this.mediasoupService = new MediasoupService({
 				sessionId: newSessionId,
-				userId: this.userId || '',
+				userId: this.userId || "",
 				addLog: this.addLog,
 				transformApi: "encodedStreams",
 				workerManager: this.workerManager,

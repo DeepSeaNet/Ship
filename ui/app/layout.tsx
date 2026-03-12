@@ -18,7 +18,8 @@ export default function RootLayout({
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
-	const theme = typeof window !== "undefined" ? localStorage.getItem("theme") : "default";
+	const theme =
+		typeof window !== "undefined" ? localStorage.getItem("theme") : "default";
 	return (
 		<html lang="en" data-theme={theme}>
 			<body

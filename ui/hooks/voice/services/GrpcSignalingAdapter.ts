@@ -13,7 +13,14 @@ import type {
 } from "../types/mediasoup";
 import { minimalCapabilities } from "../utils/rtpCapabilities";
 import type { AppData, IceCandidate } from "mediasoup-client/types";
-import type { ProtoFingerprint, ProtoRtpCapabilities, ProtoRtpParameters, ProtoServerMessage, ProtoTransportOptions, VoiceEventPayload } from "../types/proto";
+import type {
+	ProtoFingerprint,
+	ProtoRtpCapabilities,
+	ProtoRtpParameters,
+	ProtoServerMessage,
+	ProtoTransportOptions,
+	VoiceEventPayload,
+} from "../types/proto";
 
 // ─── Adapter options ──────────────────────────────────────────────────────────
 
@@ -60,7 +67,10 @@ export class GrpcSignalingAdapter {
 			return;
 		}
 
-		this.addLog(`Connecting to gRPC SignalingStream: ${this.sessionId}`, "info");
+		this.addLog(
+			`Connecting to gRPC SignalingStream: ${this.sessionId}`,
+			"info",
+		);
 
 		try {
 			await this.setupEventListener();
@@ -195,10 +205,12 @@ export class GrpcSignalingAdapter {
 					msg.init.routerRtpCapabilities ?? msg.init.router_rtp_capabilities,
 				),
 				producerTransportOptions: this.parseTransportOptions(
-					msg.init.producerTransportOptions ?? msg.init.producer_transport_options,
+					msg.init.producerTransportOptions ??
+						msg.init.producer_transport_options,
 				),
 				consumerTransportOptions: this.parseTransportOptions(
-					msg.init.consumerTransportOptions ?? msg.init.consumer_transport_options,
+					msg.init.consumerTransportOptions ??
+						msg.init.consumer_transport_options,
 				),
 			} as ServerInit;
 		}
@@ -286,13 +298,20 @@ export class GrpcSignalingAdapter {
 		}
 	}
 
-	private parseCandidateType(raw?: string): "host" | "srflx" | "prflx" | "relay" {
+	private parseCandidateType(
+		raw?: string,
+	): "host" | "srflx" | "prflx" | "relay" {
 		if (!raw) return "host";
 
 		const match = raw.match(/type:\s*(\w+)/i);
 		const type = match?.[1]?.toLowerCase();
 
-		if (type === "host" || type === "srflx" || type === "prflx" || type === "relay") {
+		if (
+			type === "host" ||
+			type === "srflx" ||
+			type === "prflx" ||
+			type === "relay"
+		) {
 			return type;
 		}
 
@@ -316,16 +335,18 @@ export class GrpcSignalingAdapter {
 				password: iceParams?.password ?? "",
 				iceLite: iceParams?.iceLite ?? iceParams?.ice_lite ?? false,
 			},
-			iceCandidates: iceCandidates.map((candidate): IceCandidate => ({
-				foundation: candidate.foundation,
-				priority: candidate.priority,
-				address: candidate.address,
-				ip: candidate.address,
-				protocol: (candidate.protocol?.toLowerCase() === "tcp" ? "tcp" : "udp"),
-				port: candidate.port,
-				type: this.parseCandidateType(candidate.type),
-				tcpType: candidate.tcpType as 'passive' | 'active' | 'so',
-			})),
+			iceCandidates: iceCandidates.map(
+				(candidate): IceCandidate => ({
+					foundation: candidate.foundation,
+					priority: candidate.priority,
+					address: candidate.address,
+					ip: candidate.address,
+					protocol: candidate.protocol?.toLowerCase() === "tcp" ? "tcp" : "udp",
+					port: candidate.port,
+					type: this.parseCandidateType(candidate.type),
+					tcpType: candidate.tcpType as "passive" | "active" | "so",
+				}),
+			),
 			dtlsParameters: {
 				role: this.parseDtlsRole(dtlsParams?.role),
 				fingerprints: (dtlsParams?.fingerprints ?? []).map((fp) =>
@@ -354,7 +375,10 @@ export class GrpcSignalingAdapter {
 		}
 
 		if (value.includes('"')) {
-			value = value.replace(/"/g, "").replace(/\s*}\s*$/, "").trim();
+			value = value
+				.replace(/"/g, "")
+				.replace(/\s*}\s*$/, "")
+				.trim();
 		}
 
 		this.addLog(

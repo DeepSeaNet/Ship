@@ -3,7 +3,6 @@ use sha2::Sha256;
 use std::convert::TryInto;
 
 use super::constants::{AES_KEY_SIZE, HASH_LEN};
-use super::error::RatchetError;
 
 /// MLS sender ratchet (RFC 9420 §9.1).
 ///

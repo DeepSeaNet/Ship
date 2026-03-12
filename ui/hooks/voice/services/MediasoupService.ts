@@ -252,7 +252,11 @@ export class MediasoupService {
 			try {
 				const worker = this.workerManager.getEncodedStreamWorker();
 				if (!worker) throw new Error("Worker not available");
-				await applyEncryptionToSender(producer.rtpSender, this.userId, this.sessionId);
+				await applyEncryptionToSender(
+					producer.rtpSender,
+					this.userId,
+					this.sessionId,
+				);
 				this.addLog(`Encryption applied to Producer ${producer.id}`, "success");
 			} catch (e) {
 				this.addLog(
@@ -310,7 +314,10 @@ export class MediasoupService {
 		}
 	}
 
-	private async applyDecryptionToConsumer(consumer: Consumer, senderId: string): Promise<void> {
+	private async applyDecryptionToConsumer(
+		consumer: Consumer,
+		senderId: string,
+	): Promise<void> {
 		if (!consumer.rtpReceiver) return;
 
 		if (this.transformApi === "encodedStreams") {
@@ -321,7 +328,11 @@ export class MediasoupService {
 			try {
 				const worker = this.workerManager.getEncodedStreamWorker();
 				if (!worker) throw new Error("Worker not available");
-				await applyDecryptionToReceiver(consumer.rtpReceiver, senderId, this.sessionId);
+				await applyDecryptionToReceiver(
+					consumer.rtpReceiver,
+					senderId,
+					this.sessionId,
+				);
 				this.addLog(`Decryption applied to Consumer ${consumer.id}`, "success");
 			} catch (e) {
 				this.addLog(

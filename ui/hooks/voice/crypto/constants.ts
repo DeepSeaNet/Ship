@@ -24,7 +24,7 @@ export const AEAD_NONCE_LEN = 12;
  *
  * Must match EXPORT_SECRET_LABEL in Rust (basic_types.rs).
  */
-export const EXPORT_SECRET_LABEL  = "SHIP Voice Channel V0";
+export const EXPORT_SECRET_LABEL = "SHIP Voice Channel V0";
 
 /** Length of the MLS-exported base secret (= AES_KEY_SIZE). */
 export const EXPORT_SECRET_LENGTH = 16;

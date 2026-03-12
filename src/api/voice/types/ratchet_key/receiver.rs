@@ -1,9 +1,7 @@
 use std::collections::HashMap;
-use std::convert::TryInto;
 
 use super::config::RatchetConfig;
-use super::constants::{AES_KEY_SIZE, HASH_LEN};
-use super::sender::expand_with_label;
+use super::constants::AES_KEY_SIZE;
 
 /// MLS receiver ratchet (RFC 9420 §9.1).
 ///
@@ -46,13 +44,11 @@ impl ReceiverRatchet {
     pub fn add_epoch_secret(&mut self, epoch: u32, secret: [u8; AES_KEY_SIZE]) {
         self.epoch_base_secrets.insert(epoch, secret);
 
-        if self.epoch_base_secrets.len() > self.config.max_previous_epochs {
-            if let Some(&min_epoch) = self.epoch_base_secrets.keys().min().copied().as_ref() {
-                if epoch > min_epoch + self.config.max_previous_epochs as u32 {
+        if self.epoch_base_secrets.len() > self.config.max_previous_epochs
+            && let Some(&min_epoch) = self.epoch_base_secrets.keys().min().copied().as_ref()
+                && epoch > min_epoch + self.config.max_previous_epochs as u32 {
                     self.epoch_base_secrets.remove(&min_epoch);
                 }
-            }
-        }
 
         if epoch > self.current_epoch {
             self.current_epoch = epoch;

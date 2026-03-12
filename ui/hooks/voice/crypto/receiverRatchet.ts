@@ -10,155 +10,163 @@
  */
 
 import {
-    AEAD_NONCE_LEN,
-    AUTH_TAG_BYTES,
-    aesGcmDecrypt,
-    deriveInitialSecret,
-    mlsRatchetStep,
+	AEAD_NONCE_LEN,
+	AUTH_TAG_BYTES,
+	aesGcmDecrypt,
+	deriveInitialSecret,
+	mlsRatchetStep,
 } from "./hkdf";
 
-export const DEFAULT_MAX_EPOCHS = 3;  // DAVE retains keys for ~10 s during transitions
-export const MAX_SKIP           = 500;
+export const DEFAULT_MAX_EPOCHS = 3; // DAVE retains keys for ~10 s during transitions
+export const MAX_SKIP = 500;
 
 interface CachedGeneration {
-    key:   Uint8Array;
-    nonce: Uint8Array;
+	key: Uint8Array;
+	nonce: Uint8Array;
 }
 
 interface EpochState {
-    secret:     Uint8Array; // current ratchet secret (32 bytes)
-    generation: number;
-    cache:      Map<number, CachedGeneration>; // skipped key+nonce pairs
+	secret: Uint8Array; // current ratchet secret (32 bytes)
+	generation: number;
+	cache: Map<number, CachedGeneration>; // skipped key+nonce pairs
 }
 
 export class ReceiverCryptoRatchet {
-    private currentEpoch:      number;
-    private epochStates:       Map<number, EpochState> = new Map();
-    private epochBaseSecrets:  Map<number, Uint8Array> = new Map();
-    private senderId:          bigint;
-    private maxPreviousEpochs: number;
+	private currentEpoch: number;
+	private epochStates: Map<number, EpochState> = new Map();
+	private epochBaseSecrets: Map<number, Uint8Array> = new Map();
+	private senderId: bigint;
+	private maxPreviousEpochs: number;
 
-    constructor(senderId: bigint, maxPreviousEpochs = DEFAULT_MAX_EPOCHS) {
-        this.senderId          = senderId;
-        this.maxPreviousEpochs = maxPreviousEpochs;
-        this.currentEpoch      = 0;
-    }
+	constructor(senderId: bigint, maxPreviousEpochs = DEFAULT_MAX_EPOCHS) {
+		this.senderId = senderId;
+		this.maxPreviousEpochs = maxPreviousEpochs;
+		this.currentEpoch = 0;
+	}
 
-    // ── Epoch management ──────────────────────────────────────────────────────
+	// ── Epoch management ──────────────────────────────────────────────────────
 
-    /**
-     * Registers an MLS-exported base secret for an epoch.
-     * Ratchet state is derived lazily on first decrypt for that epoch.
-     */
-    addEpochSecret(epoch: number, baseSecret: Uint8Array): void {
-        this.epochBaseSecrets.set(epoch, new Uint8Array(baseSecret));
-        // Invalidate any previously derived state so a fresh ratchet is built.
-        this.epochStates.delete(epoch);
-    }
+	/**
+	 * Registers an MLS-exported base secret for an epoch.
+	 * Ratchet state is derived lazily on first decrypt for that epoch.
+	 */
+	addEpochSecret(epoch: number, baseSecret: Uint8Array): void {
+		this.epochBaseSecrets.set(epoch, new Uint8Array(baseSecret));
+		// Invalidate any previously derived state so a fresh ratchet is built.
+		this.epochStates.delete(epoch);
+	}
 
-    private async ensureEpochState(epoch: number): Promise<void> {
-        if (this.epochStates.has(epoch)) return;
+	private async ensureEpochState(epoch: number): Promise<void> {
+		if (this.epochStates.has(epoch)) return;
 
-        const base = this.epochBaseSecrets.get(epoch);
-        if (!base) throw new Error(`No base secret for epoch ${epoch}`);
+		const base = this.epochBaseSecrets.get(epoch);
+		if (!base) throw new Error(`No base secret for epoch ${epoch}`);
 
-        const secret = await deriveInitialSecret(base);
-        this.epochStates.set(epoch, { secret, generation: 0, cache: new Map() });
+		const secret = await deriveInitialSecret(base);
+		this.epochStates.set(epoch, { secret, generation: 0, cache: new Map() });
 
-        // Prune oldest derived epoch once over the retention window.
-        if (this.epochStates.size > this.maxPreviousEpochs) {
-            const oldest = [...this.epochStates.keys()].sort((a, b) => a - b)[0];
-            this.epochStates.delete(oldest);
-            this.epochBaseSecrets.delete(oldest);
-        }
+		// Prune oldest derived epoch once over the retention window.
+		if (this.epochStates.size > this.maxPreviousEpochs) {
+			const oldest = [...this.epochStates.keys()].sort((a, b) => a - b)[0];
+			this.epochStates.delete(oldest);
+			this.epochBaseSecrets.delete(oldest);
+		}
 
-        if (epoch > this.currentEpoch) this.currentEpoch = epoch;
-    }
+		if (epoch > this.currentEpoch) this.currentEpoch = epoch;
+	}
 
-    // ── Ratchet advancement ───────────────────────────────────────────────────
+	// ── Ratchet advancement ───────────────────────────────────────────────────
 
-    /**
-     * Returns (key, nonce) for the given epoch + generation, advancing the
-     * ratchet and caching skipped generations as needed.
-     *
-     * RFC 9420 §9.1: a receiver advances the ratchet as far as needed,
-     * caching skipped steps.  Consumed generations are removed from the cache.
-     */
-    private async getGenerationKeys(epoch: number, targetGeneration: number): Promise<CachedGeneration> {
-        await this.ensureEpochState(epoch);
-        const state = this.epochStates.get(epoch)!;
+	/**
+	 * Returns (key, nonce) for the given epoch + generation, advancing the
+	 * ratchet and caching skipped generations as needed.
+	 *
+	 * RFC 9420 §9.1: a receiver advances the ratchet as far as needed,
+	 * caching skipped steps.  Consumed generations are removed from the cache.
+	 */
+	private async getGenerationKeys(
+		epoch: number,
+		targetGeneration: number,
+	): Promise<CachedGeneration> {
+		await this.ensureEpochState(epoch);
+		const state = this.epochStates.get(epoch)!;
 
-        // 1. Сначала проверяем кэш
-        if (targetGeneration < state.generation) {
-            const cached = state.cache.get(targetGeneration);
-            if (!cached) throw new Error(`Already consumed: ${targetGeneration}`);
-            return cached;
-        }
+		// 1. Сначала проверяем кэш
+		if (targetGeneration < state.generation) {
+			const cached = state.cache.get(targetGeneration);
+			if (!cached) throw new Error(`Already consumed: ${targetGeneration}`);
+			return cached;
+		}
 
-        // 2. Если пакет из будущего или текущий
-        // ВАЖНО: Мы должны вычислить ВСЕ ключи до targetGeneration включительно.
-        while (state.generation <= targetGeneration) {
-            const currentGen = state.generation;
-            
-            // Мы НЕ можем сделать mlsRatchetStep синхронным, 
-            // но мы можем заблокировать очередь.
-            const step = await mlsRatchetStep(state.secret, currentGen);
-            
-            // Сохраняем в кэш ВСЕГДА, даже текущий.
-            state.cache.set(currentGen, { key: step.key, nonce: step.nonce });
-            state.secret = step.nextSecret;
-            state.generation++;
-        }
+		// 2. Если пакет из будущего или текущий
+		// ВАЖНО: Мы должны вычислить ВСЕ ключи до targetGeneration включительно.
+		while (state.generation <= targetGeneration) {
+			const currentGen = state.generation;
 
-        // Удаляем из кэша только ПОСЛЕ успешного получения
-        const result = state.cache.get(targetGeneration)!;
-        // Для отладки: если оставить ключ в кэше на 1-2 секунды, 
-        // ошибки "consumed" при одновременном аудио/видео исчезнут.
-        setTimeout(() => state.cache.delete(targetGeneration), 2000); 
+			// Мы НЕ можем сделать mlsRatchetStep синхронным,
+			// но мы можем заблокировать очередь.
+			const step = await mlsRatchetStep(state.secret, currentGen);
 
-        return result;
-    }
+			// Сохраняем в кэш ВСЕГДА, даже текущий.
+			state.cache.set(currentGen, { key: step.key, nonce: step.nonce });
+			state.secret = step.nextSecret;
+			state.generation++;
+		}
 
-    // ── Decrypt ───────────────────────────────────────────────────────────────
-    private processingQueue: Promise<any> = Promise.resolve();
+		// Удаляем из кэша только ПОСЛЕ успешного получения
+		const result = state.cache.get(targetGeneration)!;
+		// Для отладки: если оставить ключ в кэше на 1-2 секунды,
+		// ошибки "consumed" при одновременном аудио/видео исчезнут.
+		setTimeout(() => state.cache.delete(targetGeneration), 2000);
 
-    async decrypt(data: Uint8Array): Promise<Uint8Array> {
-        // Wrap the logic in a queue to prevent concurrent ratchet updates
-        const result = this.processingQueue.then(async () => {
-            return this.internalDecrypt(data);
-        });
-        
-        this.processingQueue = result.catch(() => {}); 
-        return result;
-    }
-    /**
-     * Decrypts a wire-format frame.
-     *
-     * Wire format: [epoch(4 LE)][generation(4 LE)][nonce(12)][ciphertext][tag(8)]
-     *
-     * The nonce from the frame is verified against the re-derived nonce.
-     * A mismatch means the sender and receiver ratchets are out of sync.
-     */
-    async internalDecrypt(data: Uint8Array): Promise<Uint8Array> {
-        const MIN_LEN = 4 + 4 + AEAD_NONCE_LEN + AUTH_TAG_BYTES + 1;
-        if (data.length < MIN_LEN) throw new Error("Frame too short");
+		return result;
+	}
 
-        const view   = new DataView(data.buffer, data.byteOffset, data.byteLength);
-        let   offset = 0;
+	// ── Decrypt ───────────────────────────────────────────────────────────────
+	private processingQueue: Promise<any> = Promise.resolve();
 
-        const epoch      = view.getUint32(offset, true /* LE */); offset += 4;
-        const generation = view.getUint32(offset, true /* LE */); offset += 4;
-        const wireNonce  = data.slice(offset, offset + AEAD_NONCE_LEN); offset += AEAD_NONCE_LEN;
+	async decrypt(data: Uint8Array): Promise<Uint8Array> {
+		// Wrap the logic in a queue to prevent concurrent ratchet updates
+		const result = this.processingQueue.then(async () => {
+			return this.internalDecrypt(data);
+		});
 
-        const ciphertext   = data.slice(offset, data.length - AUTH_TAG_BYTES);
-        const truncatedTag = data.slice(data.length - AUTH_TAG_BYTES);
-        if (generation > 0xffffffff) {
-            throw new Error("generation overflow");
-        }
-        const { key } = await this.getGenerationKeys(epoch, generation);
+		this.processingQueue = result.catch(() => {});
+		return result;
+	}
+	/**
+	 * Decrypts a wire-format frame.
+	 *
+	 * Wire format: [epoch(4 LE)][generation(4 LE)][nonce(12)][ciphertext][tag(8)]
+	 *
+	 * The nonce from the frame is verified against the re-derived nonce.
+	 * A mismatch means the sender and receiver ratchets are out of sync.
+	 */
+	async internalDecrypt(data: Uint8Array): Promise<Uint8Array> {
+		const MIN_LEN = 4 + 4 + AEAD_NONCE_LEN + AUTH_TAG_BYTES + 1;
+		if (data.length < MIN_LEN) throw new Error("Frame too short");
 
-        return aesGcmDecrypt(key, wireNonce, ciphertext, truncatedTag);
-    }
+		const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+		let offset = 0;
 
-    getSenderId(): bigint { return this.senderId; }
+		const epoch = view.getUint32(offset, true /* LE */);
+		offset += 4;
+		const generation = view.getUint32(offset, true /* LE */);
+		offset += 4;
+		const wireNonce = data.slice(offset, offset + AEAD_NONCE_LEN);
+		offset += AEAD_NONCE_LEN;
+
+		const ciphertext = data.slice(offset, data.length - AUTH_TAG_BYTES);
+		const truncatedTag = data.slice(data.length - AUTH_TAG_BYTES);
+		if (generation > 0xffffffff) {
+			throw new Error("generation overflow");
+		}
+		const { key } = await this.getGenerationKeys(epoch, generation);
+
+		return aesGcmDecrypt(key, wireNonce, ciphertext, truncatedTag);
+	}
+
+	getSenderId(): bigint {
+		return this.senderId;
+	}
 }
