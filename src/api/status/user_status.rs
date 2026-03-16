@@ -8,11 +8,9 @@ use crate::api::account::Account;
 use crate::api::connection::get_status_servers;
 use crate::api::status::connection::Backend;
 use crate::api::status::connection::user_service_proto::{
-    OnlineStatus, OnlineStatusRequest, TypingStatus, UpdateAvatarResponse, UserStatusRequest,
+    OnlineStatus, TypingStatus, UpdateAvatarResponse, UserStatusRequest,
 };
-use crate::api::status::connection::user_service_proto::{
-    user_status_request, user_status_response,
-};
+use crate::api::status::connection::user_service_proto::user_status_response;
 use crate::api::status::types::{
     Avatar, DisplayUserInfo, DisplayUserStatus, DisplayUserTypingStatus,
 };
@@ -20,7 +18,6 @@ use crate::api::status::user_db::{UserManager, get_default_db_path};
 use tauri::Emitter;
 use tokio::sync::RwLock;
 use tokio::sync::mpsc;
-use tokio::time::interval;
 use tokio_stream::wrappers::ReceiverStream;
 /// Клиент для работы со статусами пользователя
 pub struct UserStatusClient {
@@ -167,10 +164,10 @@ impl UserStatusClient {
                 }
             }
         }
+        let subscriptions = self.subscriptions.lock().await;
 
-        // Отправляем обновленный список подписок в стрим
         self.backend
-            .send_online_status(*self.online_status.read().await)
+            .subscribe_to_users(subscriptions.clone())
             .await?;
 
         Ok(())
@@ -269,6 +266,16 @@ impl UserStatusClient {
                                     app_handler.emit("server-event", event_payload).unwrap();
                                 }
                             }
+                            Some(
+                                user_status_response::Message::UpdateUserSubscriptionResponse(
+                                    status,
+                                ),
+                            ) => {
+                                log::info!("Update user subscription response: {:?}", status);
+                            }
+                            Some(user_status_response::Message::InitStreamResponse(status)) => {
+                                log::info!("Init stream response: {:?}", status);
+                            }
                             None => {}
                         }
                     }
@@ -279,47 +286,10 @@ impl UserStatusClient {
             }
         });
 
-        // Отправляем начальный статус
+        self.backend.send_init_stream().await?;
         self.backend
-            .send_online_status(OnlineStatus::Online)
+            .send_online_status(*self.online_status.read().await)
             .await?;
-
-        // Запускаем таймер для периодического обновления статуса
-        let status_tx = self.backend.status_tx.clone();
-        let online_status = self.online_status.clone();
-        tokio::spawn(async move {
-            let mut interval = interval(Duration::from_secs(30));
-
-            loop {
-                interval.tick().await;
-
-                let timestamp = SystemTime::now();
-                let seconds = timestamp
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs() as i64;
-
-                let timestamp = prost_types::Timestamp { seconds, nanos: 0 };
-
-                // Создаем обновление статуса
-                let online_request = OnlineStatusRequest {
-                    user_id,
-                    status: *online_status.read().await as i32,
-                    timestamp: Some(timestamp),
-                    subscribe_to_users: Vec::new(), // Пустой список, т.к. это просто пинг
-                };
-
-                let status_request = UserStatusRequest {
-                    message: Some(user_status_request::Message::OnlineStatusRequest(
-                        online_request,
-                    )),
-                };
-
-                if status_tx.send(status_request).await.is_err() {
-                    break; // Выходим из цикла, если клиент отключился
-                }
-            }
-        });
 
         Ok(())
     }

@@ -88,7 +88,9 @@ export class MediasoupService {
 	}
 
 	public isInitialized(): boolean {
-		return this.initialized && this.isDeviceLoaded() && this.isTransportsReady();
+		return (
+			this.initialized && this.isDeviceLoaded() && this.isTransportsReady()
+		);
 	}
 
 	public setResponseCallback(
@@ -113,7 +115,9 @@ export class MediasoupService {
 			}
 		} else {
 			// Only log as debug to avoid spamming the UI toast
-			console.debug(`[MediasoupService] No callback registered for action: ${action}`);
+			console.debug(
+				`[MediasoupService] No callback registered for action: ${action}`,
+			);
 		}
 		return false;
 	}

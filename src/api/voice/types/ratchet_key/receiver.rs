@@ -46,9 +46,10 @@ impl ReceiverRatchet {
 
         if self.epoch_base_secrets.len() > self.config.max_previous_epochs
             && let Some(&min_epoch) = self.epoch_base_secrets.keys().min().copied().as_ref()
-                && epoch > min_epoch + self.config.max_previous_epochs as u32 {
-                    self.epoch_base_secrets.remove(&min_epoch);
-                }
+            && epoch > min_epoch + self.config.max_previous_epochs as u32
+        {
+            self.epoch_base_secrets.remove(&min_epoch);
+        }
 
         if epoch > self.current_epoch {
             self.current_epoch = epoch;

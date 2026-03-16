@@ -86,19 +86,6 @@ export class VoiceSessionManager {
 	};
 
 	public cleanup = () => {
-		this.mediaManager?.stopAllMedia();
-		this.mediasoupService?.cleanup();
-		this.workerManager?.cleanup();
-		this.signaling?.closeConnection();
-
-		this.signaling = null;
-		this.mediasoupService = null;
-		this.mediaManager = null;
-		this.workerManager = null;
-		this.consumedProducers.clear();
-		this.pendingProducers = [];
-		this.starting = false;
-
 		this.updateState({
 			status: "idle",
 			sessionId: null,
@@ -111,6 +98,19 @@ export class VoiceSessionManager {
 			isAudioEnabled: false,
 			isScreenShareEnabled: false,
 		});
+
+		this.mediaManager?.stopAllMedia();
+		this.mediasoupService?.cleanup();
+		this.workerManager?.cleanup();
+		this.signaling?.closeConnection();
+
+		this.signaling = null;
+		this.mediasoupService = null;
+		this.mediaManager = null;
+		this.workerManager = null;
+		this.consumedProducers.clear();
+		this.pendingProducers = [];
+		this.starting = false;
 	};
 
 	private handleTrackAdded = (
@@ -281,6 +281,11 @@ export class VoiceSessionManager {
 			this.mediaManager = new MediaManager({
 				mediasoupService: this.mediasoupService,
 				addLog: this.addLog,
+				sendMessage: (message: ClientMessage) => {
+					if (this.signaling && this.state.status === "connected") {
+						this.signaling.sendMessage(message);
+					}
+				},
 			});
 
 			await this.signaling.connect();
@@ -294,6 +299,9 @@ export class VoiceSessionManager {
 
 	public endCall = async () => {
 		this.addLog("Ending call...", "info");
+		if (this.signaling) {
+			//await this.signaling.sendMessage({ action: "Leave" });
+		}
 		await invoke("leave_session");
 		this.cleanup();
 	};
@@ -391,7 +399,10 @@ export class VoiceSessionManager {
 			async (data: any) => {
 				const userId = appData?.userId;
 				if (typeof userId === "string") {
-					this.addLog(`Creating consumer for producer ${producerId}...`, "info");
+					this.addLog(
+						`Creating consumer for producer ${producerId}...`,
+						"info",
+					);
 					const consumer = await this.mediasoupService?.createConsumer(
 						data,
 						userId,

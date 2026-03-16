@@ -1,5 +1,5 @@
 import type { Producer } from "mediasoup-client/types";
-import type { LoggerFunction } from "../types/mediasoup";
+import type { ClientMessage, LoggerFunction } from "../types/mediasoup";
 import type { MediasoupService } from "./MediasoupService";
 import {
 	type AdvancedMicrophoneController,
@@ -10,6 +10,7 @@ import {
 export interface MediaManagerOptions {
 	mediasoupService: MediasoupService;
 	addLog: LoggerFunction;
+	sendMessage: (message: ClientMessage) => void;
 	useAdvancedMicrophoneController?: boolean;
 	microphoneOptions?: AdvancedMicrophoneOptions;
 }
@@ -27,6 +28,7 @@ export class MediaManager {
 	private addLog: LoggerFunction;
 	private microphoneController: AdvancedMicrophoneController | null = null;
 	private microphoneOptions: AdvancedMicrophoneOptions;
+	private sendMessage: (message: ClientMessage) => void;
 
 	constructor(options: MediaManagerOptions) {
 		this.mediasoupService = options.mediasoupService;
@@ -40,6 +42,7 @@ export class MediaManager {
 			autoGainControl: true,
 			replaceSilenceWithPackets: true,
 		};
+		this.sendMessage = options.sendMessage;
 	}
 
 	/**
@@ -102,10 +105,7 @@ export class MediaManager {
 	 */
 	public async startVideo(): Promise<Producer | null> {
 		if (!this.mediasoupService.isInitialized()) {
-			this.addLog(
-				"Cannot start camera: Mediasoup not initialized",
-				"error",
-			);
+			this.addLog("Cannot start camera: Mediasoup not initialized", "error");
 			return null;
 		}
 
@@ -121,10 +121,7 @@ export class MediaManager {
 			});
 
 			if (!stream || !stream.getVideoTracks().length) {
-				this.addLog(
-					"Failed to get video stream or no video tracks",
-					"error",
-				);
+				this.addLog("Failed to get video stream or no video tracks", "error");
 				return null;
 			}
 
@@ -179,6 +176,10 @@ export class MediaManager {
 		if (videoProducer) {
 			this.addLog(`Stopping video Producer ${videoProducer.id}...`, "info");
 			videoProducer.close();
+			this.sendMessage({
+				action: "CloseProducer",
+				producerId: videoProducer.id,
+			});
 			this.mediasoupService.getProducers().delete("video");
 		}
 
@@ -223,10 +224,16 @@ export class MediaManager {
 			);
 			if (advancedController) {
 				this.microphoneController = advancedController;
-				this.addLog("Microphone controller initialized successfully", "success");
+				this.addLog(
+					"Microphone controller initialized successfully",
+					"success",
+				);
 			}
 		} catch (error) {
-			this.addLog(`Error initializing microphone controller: ${error}`, "error");
+			this.addLog(
+				`Error initializing microphone controller: ${error}`,
+				"error",
+			);
 		}
 	}
 
@@ -252,10 +259,7 @@ export class MediaManager {
 			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
 			if (!stream || !stream.getAudioTracks().length) {
-				this.addLog(
-					"Failed to get audio stream or no audio tracks",
-					"error",
-				);
+				this.addLog("Failed to get audio stream or no audio tracks", "error");
 				return null;
 			}
 
@@ -316,6 +320,10 @@ export class MediaManager {
 		if (audioProducer) {
 			this.addLog(`Stopping audio Producer ${audioProducer.id}...`, "info");
 			audioProducer.close();
+			this.sendMessage({
+				action: "CloseProducer",
+				producerId: audioProducer.id,
+			});
 			this.mediasoupService.getProducers().delete("audio");
 		}
 
@@ -463,10 +471,7 @@ export class MediaManager {
 
 			this.addLog("Screen share published successfully", "success");
 		} catch (error) {
-			this.addLog(
-				`Error publishing screen share: ${error}`,
-				"error",
-			);
+			this.addLog(`Error publishing screen share: ${error}`, "error");
 			this.screenShareActive = false;
 			this.stopScreenShare();
 			throw error;
@@ -478,17 +483,11 @@ export class MediaManager {
 	 */
 	public stopScreenShare(): void {
 		if (this.screenShareStream) {
-			this.addLog(
-				`Stopping screen share ${this.screenShareStream.id}`,
-				"info",
-			);
+			this.addLog(`Stopping screen share ${this.screenShareStream.id}`, "info");
 
 			// Останавливаем все треки
 			const tracks = this.screenShareStream.getTracks();
-			this.addLog(
-				`Stopping ${tracks.length} tracks of screen share`,
-				"info",
-			);
+			this.addLog(`Stopping ${tracks.length} tracks of screen share`, "info");
 
 			tracks.forEach((track) => {
 				this.addLog(
@@ -498,6 +497,31 @@ export class MediaManager {
 				track.stop();
 			});
 
+			// Очистка продюсеров если есть
+			const screenVideoProducer = this.mediasoupService
+				.getProducers()
+				.get("screen-video");
+			if (screenVideoProducer) {
+				screenVideoProducer.close();
+				this.sendMessage({
+					action: "CloseProducer",
+					producerId: screenVideoProducer.id,
+				});
+				this.mediasoupService.getProducers().delete("screen-video");
+			}
+
+			const screenAudioProducer = this.mediasoupService
+				.getProducers()
+				.get("screen-audio");
+			if (screenAudioProducer) {
+				screenAudioProducer.close();
+				this.sendMessage({
+					action: "CloseProducer",
+					producerId: screenAudioProducer.id,
+				});
+				this.mediasoupService.getProducers().delete("screen-audio");
+			}
+
 			// Очищаем поток и статус
 			this.screenShareStream = null;
 			this.screenShareActive = false;
@@ -505,10 +529,7 @@ export class MediaManager {
 
 			this.addLog("Screen share stopped", "success");
 		} else {
-			this.addLog(
-				"No active screen share stream to stop",
-				"info",
-			);
+			this.addLog("No active screen share stream to stop", "info");
 		}
 	}
 
@@ -527,10 +548,16 @@ export class MediaManager {
 
 			// Better explicitly enumerate tracks to be sure they are closed
 			const tracks = this.localAudioStream.getTracks();
-			this.addLog(`Stopping ${tracks.length} tracks of local audio stream`, "info");
+			this.addLog(
+				`Stopping ${tracks.length} tracks of local audio stream`,
+				"info",
+			);
 
 			tracks.forEach((track) => {
-				this.addLog(`Stopping track ${track.id} (type: ${track.kind}) of local audio stream`, "info");
+				this.addLog(
+					`Stopping track ${track.id} (type: ${track.kind}) of local audio stream`,
+					"info",
+				);
 				track.stop();
 			});
 

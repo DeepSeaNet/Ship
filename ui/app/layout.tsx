@@ -1,4 +1,5 @@
 "use client";
+import { useState, useEffect } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toast } from "@heroui/react";
@@ -18,8 +19,35 @@ export default function RootLayout({
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
-	const theme =
-		typeof window !== "undefined" ? localStorage.getItem("theme") : "default";
+	const [theme, setTheme] = useState("default");
+
+	useEffect(() => {
+		const savedTheme = localStorage.getItem("theme");
+		if (savedTheme) {
+			setTheme(savedTheme);
+			// Apply 'dark' class if the theme is dark or terminal-green-dark
+			if (savedTheme === "dark" || savedTheme === "terminal-green-dark") {
+				document.documentElement.classList.add("dark");
+			} else {
+				document.documentElement.classList.remove("dark");
+			}
+		}
+
+		// Optional: Listen for storage events to update theme across tabs/windows
+		const handleStorage = (e: StorageEvent) => {
+			if (e.key === "theme" && e.newValue) {
+				setTheme(e.newValue);
+				if (e.newValue === "dark" || e.newValue === "terminal-green-dark") {
+					document.documentElement.classList.add("dark");
+				} else {
+					document.documentElement.classList.remove("dark");
+				}
+			}
+		};
+		window.addEventListener("storage", handleStorage);
+		return () => window.removeEventListener("storage", handleStorage);
+	}, []);
+
 	return (
 		<html lang="en" data-theme={theme}>
 			<body

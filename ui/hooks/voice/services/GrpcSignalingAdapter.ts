@@ -101,7 +101,7 @@ export class GrpcSignalingAdapter {
 		if (!this.isConnected) {
 			this.addLog(
 				`Cannot send gRPC message (${message.action}): not connected`,
-				"error",
+				"debug",
 			);
 			return;
 		}
@@ -503,6 +503,23 @@ export class GrpcSignalingAdapter {
 						consumerResume: {
 							consumerId: (message as ClientMessage & { id: string }).id,
 						},
+					},
+				};
+
+			case "CloseProducer":
+				return {
+					message: {
+						closeProducer: {
+							producerId: (message as ClientMessage & { producerId: string })
+								.producerId,
+						},
+					},
+				};
+
+			case "Leave":
+				return {
+					message: {
+						leave: {},
 					},
 				};
 

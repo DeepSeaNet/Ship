@@ -1,4 +1,3 @@
-use prost::Message;
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
@@ -12,10 +11,12 @@ pub mod user_service_proto {
 
 use crate::api::account::Account;
 use crate::api::status::connection::user_connection::user_service_proto::{
-    GetUserActivityRequest, GetUserActivityResponse, GetUserInfoRequest, MarkMessageReadRequest,
-    MarkMessageReadResponse, OnlineStatus, OnlineStatusRequest, TypingStatus, TypingStatusRequest,
-    UpdateActivityRequest, UpdateAvatarRequest, UpdateAvatarResponse, UpdateUsernameRequest,
-    UpdateUsernameResponse, UserStatusRequest, user_service_client::UserServiceClient,
+    GetUserActivityRequest, GetUserActivityResponse, GetUserInfoRequest, InitStreamRequest,
+    MarkMessageReadRequest, MarkMessageReadResponse, OnlineStatus, OnlineStatusRequest,
+    TypingStatus, TypingStatusRequest, UpdateActivityRequest, UpdateAvatarRequest,
+    UpdateAvatarResponse, UpdateUserSubscriptionRequest,
+    UpdateUsernameRequest, UpdateUsernameResponse, UserStatusRequest,
+    user_service_client::UserServiceClient,
 };
 use crate::api::status::types::Avatar;
 use crate::api::status::types::DisplayUserInfo;
@@ -67,10 +68,8 @@ impl Backend {
             status: status as i32,
             last_seen: Some(timestamp),
         };
-        let request_bytes = request.encode_to_vec();
-        let signature = self.account.sign_message(&request_bytes).await?;
-        // Отправляем запрос на сервер
-        let response = self.client.update_activity(Request::new(request)).await?;
+
+        let response = self.client.update_activity(request).await?;
         if !response.into_inner().success {
             return Err(anyhow::anyhow!("Failed to update online status"));
         }
@@ -127,7 +126,7 @@ impl Backend {
             new_username,
         };
 
-        let response = self.client.update_username(Request::new(request)).await?;
+        let response = self.client.update_username(request).await?;
         Ok(response.into_inner())
     }
 
@@ -146,7 +145,7 @@ impl Backend {
             height: avatar.height,
         };
 
-        let response = self.client.update_avatar(Request::new(request)).await?;
+        let response = self.client.update_avatar(request).await?;
         Ok(response.into_inner())
     }
 
@@ -169,7 +168,7 @@ impl Backend {
             read_at: Some(timestamp),
         };
 
-        let response = self.client.mark_message_read(Request::new(request)).await?;
+        let response = self.client.mark_message_read(request).await?;
         Ok(response.into_inner())
     }
 
@@ -215,15 +214,11 @@ impl Backend {
 
         let timestamp = prost_types::Timestamp { seconds, nanos: 0 };
 
-        // Получаем текущие подписки
-        let subscriptions = self.subscriptions.lock().await.clone();
-
         // Создаем запрос статуса для стрима
         let online_request = OnlineStatusRequest {
             user_id: self.user_id,
             status: status as i32,
             timestamp: Some(timestamp),
-            subscribe_to_users: subscriptions,
         };
 
         // Создаем общее сообщение для стрима
@@ -238,6 +233,75 @@ impl Backend {
             .send(status_request)
             .await
             .map_err(|_| Status::internal("Failed to send online status"))?;
+
+        Ok(())
+    }
+
+    pub async fn subscribe_to_users(&self, user_ids: Vec<i64>) -> Result<(), Status> {
+        let timestamp = SystemTime::now();
+        let seconds = timestamp
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        let timestamp = prost_types::Timestamp { seconds, nanos: 0 };
+
+        let request = UpdateUserSubscriptionRequest {
+            user_id: self.user_id,
+            subscribe_to_users: user_ids,
+            timestamp: timestamp.seconds,
+        };
+
+        let status_request = UserStatusRequest {
+            message: Some(user_status_request::Message::UpdateUserSubscriptionRequest(
+                request,
+            )),
+        };
+
+        self.status_tx
+            .send(status_request)
+            .await
+            .map_err(|_| Status::internal("Failed to subscribe to users"))?;
+        Ok(())
+    }
+
+    pub async fn send_init_stream(&self) -> Result<(), anyhow::Error> {
+        let timestamp = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)?
+            .as_secs();
+
+        let subscriptions = self.subscriptions.lock().await.clone();
+
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update((self.user_id as u64).to_be_bytes());
+        hasher.update(timestamp.to_be_bytes());
+        for &sub_id in &subscriptions {
+            hasher.update((sub_id as u64).to_be_bytes());
+        }
+        let hash = hasher.finalize();
+
+        let signature = self
+            .account
+            .sign_message(&hash)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to sign init stream: {}", e))?;
+
+        let request = InitStreamRequest {
+            user_id: self.user_id,
+            timestamp: timestamp as i64,
+            subscribe_to_users: subscriptions,
+            signature,
+        };
+
+        let status_request = UserStatusRequest {
+            message: Some(user_status_request::Message::InitStreamRequest(request)),
+        };
+
+        self.status_tx
+            .send(status_request)
+            .await
+            .map_err(|_| anyhow::anyhow!("Failed to send init stream request to channel"))?;
 
         Ok(())
     }
