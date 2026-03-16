@@ -108,7 +108,7 @@ export function ChatArea() {
 						</p>
 					</div>
 				) : (
-					<div className="space-y-1 flex flex-col transition-all duration-500">
+					<div className="flex flex-col transition-all duration-500" style={{ gap: "var(--msg-spacing, 4px)" }}>
 						{messages.map((msg) => (
 							<MessageItem
 								key={msg.id}

@@ -60,7 +60,11 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 
 	const handleContextMenu = (e: React.MouseEvent) => {
 		e.preventDefault();
-		setPosition({ x: e.clientX, y: e.clientY });
+		const menuWidth = 230;
+		const menuHeight = 320; // Estimated height
+		const x = Math.min(e.clientX, window.innerWidth - menuWidth);
+		const y = Math.min(e.clientY, window.innerHeight - menuHeight);
+		setPosition({ x: Math.max(0, x), y: Math.max(0, y) });
 		setIsOpen(true);
 	};
 
@@ -68,9 +72,9 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 	const chatMessages = messagesByChat[message.chatId] || [];
 	const repliedMessage = message.reply_to
 		? chatMessages.find((m) => String(m.id) === String(message.reply_to)) ||
-			Object.values(messagesByChat)
-				.flat()
-				.find((m) => String(m.id) === String(message.reply_to))
+		Object.values(messagesByChat)
+			.flat()
+			.find((m) => String(m.id) === String(message.reply_to))
 		: null;
 
 	const scrollToReplied = () => {
@@ -116,21 +120,23 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 						onContextMenu={handleContextMenu}
 					>
 						<Card
-							className={`px-3 py-1.5 ${
-								isOwn
-									? "bg-accent text-accent-foreground"
-									: "bg-surface text-surface-foreground border border-border"
-							} cursor-default min-w-[60px] max-w-full`}
-						>
+					style={{
+						borderRadius: "var(--bubble-radius, 18px)",
+						fontSize: "var(--msg-font-size, 14px)",
+					}}
+					className={`px-3 py-1.5 ${isOwn
+						? "bg-accent text-accent-foreground"
+						: "bg-surface text-surface-foreground border border-border"
+						} cursor-default min-w-[60px] max-w-full`}
+				>
 							{/* Reply-to preview */}
 							{repliedMessage && (
 								<div
 									onClick={scrollToReplied}
-									className={`mb-1.5 px-2 py-1 rounded-lg text-xs border-l-2 cursor-pointer hover:opacity-80 transition-opacity ${
-										isOwn
-											? "border-white/40 bg-white/10"
-											: "border-accent bg-accent/10"
-									}`}
+									className={`mb-1.5 px-2 py-1 rounded-lg text-xs border-l-2 cursor-pointer hover:opacity-80 transition-opacity ${isOwn
+										? "border-white/40 bg-white/10"
+										: "border-accent bg-accent/10"
+										}`}
 								>
 									<p
 										className={`font-semibold mb-0.5 ${isOwn ? "text-white/70" : "text-accent"}`}
@@ -146,7 +152,7 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 							)}
 
 							<div className="flex flex-wrap items-end justify-end gap-x-2 gap-y-1">
-								<p className="text-sm break-all whitespace-pre-wrap flex-1 min-w-[10px]">
+								<p className="break-all whitespace-pre-wrap flex-1 min-w-[10px]" style={{ fontSize: "var(--msg-font-size, 14px)" }}>
 									<MentionText
 										content={message.content}
 										ownUsername={ownUsername}

@@ -40,6 +40,7 @@ export function InputBar({
 	// @mention autocomplete state
 	const [mentionQuery, setMentionQuery] = useState<string | null>(null);
 	const [mentionStart, setMentionStart] = useState<number>(0);
+	const [selectedIndex, setSelectedIndex] = useState(0);
 
 	// When editTarget changes, pre-fill input
 	useEffect(() => {
@@ -83,10 +84,12 @@ export function InputBar({
 			if (!fragment.includes(" ")) {
 				setMentionQuery(fragment);
 				setMentionStart(atIdx);
+				setSelectedIndex(0);
 				return;
 			}
 		}
 		setMentionQuery(null);
+		setSelectedIndex(0);
 	};
 
 	const insertMention = (name: string) => {
@@ -113,8 +116,34 @@ export function InputBar({
 	};
 
 	const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+		if (showAutocomplete) {
+			if (e.key === "ArrowDown") {
+				e.preventDefault();
+				setSelectedIndex((prev) => (prev + 1) % suggestions.slice(0, 6).length);
+				return;
+			}
+			if (e.key === "ArrowUp") {
+				e.preventDefault();
+				setSelectedIndex(
+					(prev) =>
+						(prev - 1 + suggestions.slice(0, 6).length) %
+						suggestions.slice(0, 6).length,
+				);
+				return;
+			}
+			if (e.key === "Enter" || e.key === "Tab") {
+				e.preventDefault();
+				const selectedUser = suggestions[selectedIndex];
+				if (selectedUser) {
+					insertMention(selectedUser.name);
+				}
+				return;
+			}
+		}
+
 		if (e.key === "Escape") {
 			setMentionQuery(null);
+			setSelectedIndex(0);
 			onClearReply?.();
 			onClearEdit?.();
 			return;
@@ -183,16 +212,23 @@ export function InputBar({
 			{/* @mention autocomplete popup */}
 			{showAutocomplete && (
 				<div className="mx-4 mb-1 border border-border rounded-xl bg-surface shadow-lg overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150">
-					{suggestions.slice(0, 6).map((user) => (
+					{suggestions.slice(0, 6).map((user, index) => (
 						<button
 							key={user.id}
-							className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent/10 transition-colors text-left"
+							className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors text-left ${index === selectedIndex
+								? "bg-accent/20 text-accent font-semibold"
+								: "hover:bg-accent/10"
+								}`}
 							onMouseDown={(e) => {
 								e.preventDefault();
 								insertMention(user.name);
 							}}
 						>
-							<span className="font-medium text-accent">@</span>
+							<span
+								className={`font-medium ${index === selectedIndex ? "text-accent" : "text-accent/70"}`}
+							>
+								@
+							</span>
 							<span>{user.name}</span>
 						</button>
 					))}
@@ -221,11 +257,10 @@ export function InputBar({
 				>
 					<InputGroup
 						fullWidth
-						className={`rounded-2xl border focus-within:border-field-border-focus transition-colors ${
-							isEditing
-								? "bg-warning/5 border-warning/30"
-								: "bg-surface border-field-border"
-						}`}
+						className={`rounded-2xl border focus-within:border-field-border-focus transition-colors ${isEditing
+							? "bg-warning/5 border-warning/30"
+							: "bg-surface border-field-border"
+							}`}
 					>
 						<InputGroup.TextArea
 							ref={textareaRef}

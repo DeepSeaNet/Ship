@@ -13,13 +13,16 @@ import { RightSidebar } from "./RightSidebar";
 import { TopBar } from "./TopBar";
 import "./messenger.css";
 import { getStatusColor, handleStatusChange } from "@/hooks/useContacts";
-import { SettingsModal } from "../settings/SettingsModal";
+import { SettingsModal } from "../settings/SettingsModal/index";
+import { useAppearanceSettings } from "@/hooks/useAppearanceSettings";
 
 function MessengerContent() {
 	const { setAnimatingIn, currentUser, upsertUser } = useMessengerState();
 	const [showMessages, setShowMessages] = useState(true);
 	const [showGroupInfo, setShowGroupInfo] = useState(false);
 	const [showSettings, setShowSettings] = useState(false);
+	// Initialize CSS vars from persisted appearance settings
+	useAppearanceSettings();
 
 	useEffect(() => {
 		setAnimatingIn(true);
