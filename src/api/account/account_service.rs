@@ -71,16 +71,16 @@ impl Account {
             cert: register_response.certificate,
         };
 
-        let account = Account::new_with_existing_keys(
-            register_response.user_id,
-            register_response.username,
-            register_response.public_address,
+        let account = Account {
+            user_id: register_response.user_id,
+            username: register_response.username,
+            public_address: register_response.public_address,
             server_address,
-            Some(register_response.server_public_key),
+            server_public_key: Some(register_response.server_public_key),
             avatar_url,
             credential,
             signer,
-        );
+        };
 
         account.save_to_db().await?;
 

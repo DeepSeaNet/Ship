@@ -90,21 +90,3 @@ pub fn expand_with_label(secret: &[u8], label: &str, context: &[u8], length: usi
     hk.expand(&kdf_label, &mut out).expect("valid length");
     out
 }
-
-/// One MLS ratchet step → (key_16, nonce_12, next_secret_32).
-pub fn mls_ratchet_step(
-    secret: &[u8; HASH_LEN],
-    generation: u32,
-) -> ([u8; AES_KEY_SIZE], [u8; 12], [u8; HASH_LEN]) {
-    let ctx = generation.to_be_bytes();
-    let key: [u8; AES_KEY_SIZE] = expand_with_label(secret, "key", &ctx, AES_KEY_SIZE)
-        .try_into()
-        .unwrap();
-    let nonce: [u8; 12] = expand_with_label(secret, "nonce", &ctx, 12)
-        .try_into()
-        .unwrap();
-    let next_secret: [u8; HASH_LEN] = expand_with_label(secret, "secret", &ctx, HASH_LEN)
-        .try_into()
-        .unwrap();
-    (key, nonce, next_secret)
-}

@@ -15,15 +15,6 @@ pub struct GroupTextMessageHeader {
     pub edit_date: i64,
 }
 
-#[derive(IntoBytes, FromBytes, Clone, Copy, Immutable, KnownLayout)]
-#[repr(C)]
-pub struct GroupConfigMessageHeader {
-    pub message_id: i64,
-    pub group_id: i64,
-    pub sender_id: i64,
-    pub date: i64,
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct GroupTextMessage {
     pub message_id: i64,

@@ -7,10 +7,10 @@ use tokio::sync::Mutex;
 use crate::api::account::Account;
 use crate::api::connection::get_status_servers;
 use crate::api::status::connection::Backend;
+use crate::api::status::connection::user_service_proto::user_status_response;
 use crate::api::status::connection::user_service_proto::{
     OnlineStatus, TypingStatus, UpdateAvatarResponse, UserStatusRequest,
 };
-use crate::api::status::connection::user_service_proto::user_status_response;
 use crate::api::status::types::{
     Avatar, DisplayUserInfo, DisplayUserStatus, DisplayUserTypingStatus,
 };
@@ -197,7 +197,7 @@ impl UserStatusClient {
         // Клонируем клиента для использования в потоке
         let mut backend = self.backend.clone();
         let status_cache = self.status_cache.clone();
-        let user_id = self.user_id;
+        let _user_id = self.user_id;
         let app_handler = self.app_handler.clone();
 
         // Создаем поток из канала

@@ -57,14 +57,7 @@ pub struct VoiceUser {
 }
 
 impl VoiceUser {
-    pub async fn new(user_id: i64) -> Result<Self, anyhow::Error> {
-        Self::new_with_app_handle(user_id, None).await
-    }
-
-    pub async fn new_with_app_handle(
-        user_id: i64,
-        app_handle: Option<AppHandle>,
-    ) -> Result<Self, anyhow::Error> {
+    pub async fn new(user_id: u64, app_handle: Option<AppHandle>) -> Result<Self, anyhow::Error> {
         let crypto_provider = AwsLcCryptoProvider::default();
         let cipher_suite = crypto_provider
             .cipher_suite_provider(CIPHERSUITE)
@@ -91,7 +84,7 @@ impl VoiceUser {
             signer: secret,
             backend,
             client,
-            user_id: user_id as u64,
+            user_id: user_id,
             app_handle,
         };
         voice_user.save().await;

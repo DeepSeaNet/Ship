@@ -32,7 +32,7 @@ export function useAccountExport() {
 
 				// Generate QR code with optimized settings
 				const qrCodeUrl = await QRCode.toDataURL(qrData, {
-					width: 512,
+					width: 1024,
 					margin: 3,
 					errorCorrectionLevel: "M",
 					color: {

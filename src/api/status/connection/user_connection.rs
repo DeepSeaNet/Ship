@@ -14,9 +14,8 @@ use crate::api::status::connection::user_connection::user_service_proto::{
     GetUserActivityRequest, GetUserActivityResponse, GetUserInfoRequest, InitStreamRequest,
     MarkMessageReadRequest, MarkMessageReadResponse, OnlineStatus, OnlineStatusRequest,
     TypingStatus, TypingStatusRequest, UpdateActivityRequest, UpdateAvatarRequest,
-    UpdateAvatarResponse, UpdateUserSubscriptionRequest,
-    UpdateUsernameRequest, UpdateUsernameResponse, UserStatusRequest,
-    user_service_client::UserServiceClient,
+    UpdateAvatarResponse, UpdateUserSubscriptionRequest, UpdateUsernameRequest,
+    UpdateUsernameResponse, UserStatusRequest, user_service_client::UserServiceClient,
 };
 use crate::api::status::types::Avatar;
 use crate::api::status::types::DisplayUserInfo;

@@ -23,28 +23,6 @@ pub struct Account {
 }
 
 impl Account {
-    /// Creates Account with existing MLS keys and credential
-    pub fn new_with_existing_keys(
-        user_id: u64,
-        username: String,
-        public_address: String,
-        server_address: String,
-        server_public_key: Option<Vec<u8>>,
-        avatar_url: Option<String>,
-        credential: AccountCredential,
-        signer: SignatureSecretKey,
-    ) -> Self {
-        Account {
-            user_id,
-            username,
-            public_address,
-            server_address,
-            server_public_key,
-            avatar_url,
-            credential,
-            signer,
-        }
-    }
     /// Generates a new MLS key pair and returns them
     pub async fn create_keys() -> Result<(SignatureSecretKey, SignaturePublicKey), GroupError> {
         cipher_suite()

@@ -30,8 +30,8 @@ pub async fn login(app_handle: AppHandle, username: String) -> Result<serde_json
 
     let (group_account_result, voice_client_result, user_status_result) = tokio::join!(
         Device::load_from_db(account.clone(), Some(app_handle.clone())),
-        VoiceUser::new_with_app_handle(
-            account.credential.account_id.user_id as i64,
+        VoiceUser::new(
+            account.credential.account_id.user_id,
             Some(app_handle.clone())
         ),
         async {
