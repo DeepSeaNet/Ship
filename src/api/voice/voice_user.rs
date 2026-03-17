@@ -84,7 +84,7 @@ impl VoiceUser {
             signer: secret,
             backend,
             client,
-            user_id: user_id,
+            user_id,
             app_handle,
         };
         voice_user.save().await;

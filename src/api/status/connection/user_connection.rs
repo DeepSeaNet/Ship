@@ -1,3 +1,4 @@
+// use mls_rs::time;
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
@@ -120,9 +121,29 @@ impl Backend {
         user_id: i64,
         new_username: String,
     ) -> Result<UpdateUsernameResponse, Status> {
+        let timestamp = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update((user_id as u64).to_be_bytes());
+        hasher.update((timestamp as u64).to_be_bytes());
+        hasher.update(new_username.as_bytes());
+        let hash = hasher.finalize();
+
+        let signature = self
+            .account
+            .sign_message(&hash)
+            .await
+            .map_err(|e| Status::internal(format!("Failed to sign username update: {}", e)))?;
+
         let request = UpdateUsernameRequest {
             user_id,
             new_username,
+            timestamp,
+            signature,
         };
 
         let response = self.client.update_username(request).await?;
@@ -134,14 +155,38 @@ impl Backend {
         user_id: i64,
         avatar: Avatar,
     ) -> Result<UpdateAvatarResponse, Status> {
+        let timestamp = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update((user_id as u64).to_be_bytes());
+        hasher.update((timestamp as u64).to_be_bytes());
+        hasher.update(avatar.avatar_hash.as_bytes());
+        hasher.update((avatar.file_size as u32).to_be_bytes());
+        hasher.update(avatar.mime_type.as_bytes());
+        hasher.update((avatar.width as u32).to_be_bytes());
+        hasher.update((avatar.height as u32).to_be_bytes());
+        let hash = hasher.finalize();
+
+        let signature = self
+            .account
+            .sign_message(&hash)
+            .await
+            .map_err(|e| Status::internal(format!("Failed to sign avatar update: {}", e)))?;
+
         let request = UpdateAvatarRequest {
             user_id,
-            avatar_url: avatar.avatar_url,
+            image_data: avatar.avatar_data,
             avatar_hash: avatar.avatar_hash,
             file_size: avatar.file_size,
             mime_type: avatar.mime_type,
             width: avatar.width,
             height: avatar.height,
+            timestamp,
+            signature,
         };
 
         let response = self.client.update_avatar(request).await?;

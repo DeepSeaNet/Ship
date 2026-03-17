@@ -75,7 +75,7 @@ pub async fn update_username(
 #[tauri::command]
 pub async fn update_avatar(
     user_status: tauri::State<'_, SafeUserStatus>,
-    avatar: String,
+    avatar: Vec<u8>,
     avatar_hash: String,
     file_size: i32,
     mime_type: String,
@@ -85,7 +85,7 @@ pub async fn update_avatar(
     log::debug!("Update avatar called");
 
     let avatar = Avatar {
-        avatar_url: avatar,
+        avatar_data: avatar,
         avatar_hash,
         file_size,
         mime_type,

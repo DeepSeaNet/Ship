@@ -27,7 +27,7 @@ pub struct DisplayUserTypingStatus {
 }
 
 pub struct Avatar {
-    pub avatar_url: String,
+    pub avatar_data: Vec<u8>,
     pub avatar_hash: String,
     pub file_size: i32,
     pub mime_type: String,
