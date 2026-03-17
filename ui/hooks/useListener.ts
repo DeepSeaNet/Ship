@@ -60,11 +60,13 @@ export function useListener({
 			// Current User Initialization
 			const userId = localStorage.getItem("userId");
 			const username = localStorage.getItem("username");
+			const avatar_url = localStorage.getItem("avatarUrl") || "";
 			if (userId && username && isMounted) {
 				actions.setCurrentUser({
 					id: userId,
 					name: username,
 					status: "Online",
+					avatar: avatar_url,
 				});
 				actions.upsertUser({ id: userId, name: username, status: "Online" });
 			}

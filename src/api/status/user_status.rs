@@ -9,10 +9,10 @@ use crate::api::connection::get_status_servers;
 use crate::api::status::connection::Backend;
 use crate::api::status::connection::user_service_proto::user_status_response;
 use crate::api::status::connection::user_service_proto::{
-    OnlineStatus, TypingStatus, UpdateAvatarResponse, UserStatusRequest,
+    OnlineStatus, TypingStatus, UserStatusRequest,
 };
 use crate::api::status::types::{
-    Avatar, DisplayUserInfo, DisplayUserStatus, DisplayUserTypingStatus,
+    Avatar, DisplayUserInfo, DisplayUserStatus, DisplayUserTypingStatus, UpdateUserAvatarResponse,
 };
 use crate::api::status::user_db::{UserManager, get_default_db_path};
 use tauri::Emitter;
@@ -21,7 +21,7 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 /// Клиент для работы со статусами пользователя
 pub struct UserStatusClient {
-    user_id: i64,
+    account: Arc<Account>,
     online_status: Arc<RwLock<OnlineStatus>>,
     backend: Backend,
     // Кэш статусов пользователей
@@ -43,7 +43,6 @@ pub struct UserStatus {
 impl UserStatusClient {
     /// Создает нового клиента для работы со статусами пользователей
     pub async fn new(
-        user_id: i64,
         account: Arc<Account>,
         app_handler: Option<tauri::AppHandle>,
     ) -> Result<Self, anyhow::Error> {
@@ -53,10 +52,11 @@ impl UserStatusClient {
 
         let status_cache = Arc::new(RwLock::new(HashMap::new()));
         let subscriptions = Arc::new(Mutex::new(Vec::new()));
+        let user_id = account.user_id as i64;
         let user_manager = UserManager::new(get_default_db_path(user_id as u64)).await?;
         // Создаем клиент
         let client = Self {
-            user_id,
+            account: account.clone(),
             online_status: Arc::new(RwLock::new(OnlineStatus::Online)),
             status_cache,
             subscriptions: subscriptions.clone(),
@@ -119,7 +119,7 @@ impl UserStatusClient {
     pub async fn update_username(&mut self, new_username: String) -> Result<bool, anyhow::Error> {
         let response = self
             .backend
-            .update_username(self.user_id, new_username.clone())
+            .update_username(self.account.user_id as i64, new_username.clone())
             .await?;
 
         Ok(response.success)
@@ -129,14 +129,22 @@ impl UserStatusClient {
     pub async fn update_avatar(
         &mut self,
         avatar: Avatar,
-    ) -> Result<UpdateAvatarResponse, anyhow::Error> {
-        let response = self.backend.update_avatar(self.user_id, avatar).await?;
+    ) -> Result<UpdateUserAvatarResponse, anyhow::Error> {
+        let response = self
+            .backend
+            .update_avatar(self.account.user_id as i64, avatar)
+            .await?;
 
         if !response.success {
             return Err(anyhow::anyhow!("Failed to update avatar"));
         }
-
-        Ok(response)
+        let avatar_url = format!("http://{}", response.user.unwrap().avatar_url);
+        let update_avatar_response = UpdateUserAvatarResponse {
+            success: response.success,
+            avatar_url: avatar_url.clone(),
+        };
+        self.account.update_avatar(avatar_url).await?;
+        Ok(update_avatar_response)
     }
 
     /// Отправляет статус набора текста
@@ -197,7 +205,6 @@ impl UserStatusClient {
         // Клонируем клиента для использования в потоке
         let mut backend = self.backend.clone();
         let status_cache = self.status_cache.clone();
-        let _user_id = self.user_id;
         let app_handler = self.app_handler.clone();
 
         // Создаем поток из канала

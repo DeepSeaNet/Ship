@@ -26,6 +26,12 @@ pub struct DisplayUserTypingStatus {
     pub status: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateUserAvatarResponse {
+    pub success: bool,
+    pub avatar_url: String,
+}
+
 pub struct Avatar {
     pub avatar_data: Vec<u8>,
     pub avatar_hash: String,

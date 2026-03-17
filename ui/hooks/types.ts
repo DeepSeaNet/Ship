@@ -3,6 +3,7 @@ export type Account = {
 	user_id: number;
 	public_address: string;
 	server_address: string;
+	avatar_url?: string;
 	encrypted?: boolean;
 };
 

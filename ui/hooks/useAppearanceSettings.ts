@@ -63,7 +63,10 @@ export function useAppearanceSettings() {
 	}, [settings]);
 
 	const updateSetting = useCallback(
-		<K extends keyof AppearanceSettings>(key: K, value: AppearanceSettings[K]) => {
+		<K extends keyof AppearanceSettings>(
+			key: K,
+			value: AppearanceSettings[K],
+		) => {
 			setSettings((prev) => {
 				const next = { ...prev, [key]: value };
 				localStorage.setItem(STORAGE_KEY, JSON.stringify(next));

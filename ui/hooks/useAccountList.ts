@@ -17,7 +17,7 @@ export const useAccountList = () => {
 			setAccounts(accountList);
 		} catch (err) {
 			const errorMessage =
-				err instanceof Error ? err.message : "Failed to load accounts";
+				err instanceof Error ? err.message : "Faile	d to load accounts";
 			setError(errorMessage);
 			console.error("Failed to load accounts:", err);
 		} finally {

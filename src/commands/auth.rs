@@ -26,8 +26,6 @@ pub async fn login(app_handle: AppHandle, username: String) -> Result<serde_json
         log::error!("Failed to manage account")
     }
 
-    let app_handle_clone = app_handle.clone();
-
     let (group_account_result, voice_client_result, user_status_result) = tokio::join!(
         Device::load_from_db(account.clone(), Some(app_handle.clone())),
         VoiceUser::new(
@@ -36,9 +34,8 @@ pub async fn login(app_handle: AppHandle, username: String) -> Result<serde_json
         ),
         async {
             crate::api::status::user_status::UserStatusClient::new(
-                account.user_id as i64,
                 account.clone(),
-                Some(app_handle_clone),
+                Some(app_handle.clone()),
             )
             .await
         }
@@ -77,6 +74,7 @@ pub async fn login(app_handle: AppHandle, username: String) -> Result<serde_json
     Ok(serde_json::json!({
         "user_id": account.credential.account_id.user_id,
         "username": account.username,
+        "avatar_url": account.avatar_url,
         "public_address": account.public_address,
         "server_address": account.server_address,
         "server_pub_key": account.server_public_key,

@@ -1,10 +1,5 @@
 "use client";
-import {
-	Check,
-	Display,
-	MagicWand,
-	Palette,
-} from "@gravity-ui/icons";
+import { Check, Display, MagicWand, Palette } from "@gravity-ui/icons";
 import {
 	Avatar,
 	Button,
@@ -135,9 +130,13 @@ function AppSlider({
 	step: number;
 	onChange: (v: number) => void;
 }) {
-	const props = value !== undefined
-		? { value, onChange: (v: number | number[]) => onChange(v as number) }
-		: { defaultValue, onChange: (v: number | number[]) => onChange(v as number) };
+	const props =
+		value !== undefined
+			? { value, onChange: (v: number | number[]) => onChange(v as number) }
+			: {
+					defaultValue,
+					onChange: (v: number | number[]) => onChange(v as number),
+				};
 
 	return (
 		<Slider
@@ -184,7 +183,10 @@ export function AppearancePanel({
 							}}
 							className="bg-primary text-primary-foreground p-3 max-w-sm shadow-lg shadow-primary/20"
 						>
-							<p>How do you like the new theme? Everything looks so much more alive! ✨</p>
+							<p>
+								How do you like the new theme? Everything looks so much more
+								alive! ✨
+							</p>
 						</Card>
 						<Card
 							style={{
@@ -194,7 +196,9 @@ export function AppearancePanel({
 							}}
 							className="bg-primary text-primary-foreground p-3 max-w-sm shadow-lg shadow-primary/20"
 						>
-							<p>Second message — adjust spacing above to see the difference.</p>
+							<p>
+								Second message — adjust spacing above to see the difference.
+							</p>
 						</Card>
 					</div>
 				</div>
@@ -233,13 +237,23 @@ export function AppearancePanel({
 									}
 								}}
 							>
-								<div className={`h-24 ${theme.bg} p-3 flex flex-col gap-2 relative`}>
-									<div className={`w-full h-2 rounded-sm ${theme.id === "terminal" ? "bg-[#003b00]" : theme.id === "dark" ? "bg-neutral-800" : "bg-neutral-100"}`} />
+								<div
+									className={`h-24 ${theme.bg} p-3 flex flex-col gap-2 relative`}
+								>
+									<div
+										className={`w-full h-2 rounded-sm ${theme.id === "terminal" ? "bg-[#003b00]" : theme.id === "dark" ? "bg-neutral-800" : "bg-neutral-100"}`}
+									/>
 									<div className="flex gap-2">
-										<div className={`w-3 h-3 rounded-full ${theme.id === "terminal" ? "bg-[#00ff41]" : "bg-primary"}`} />
-										<div className={`flex-1 h-3 rounded-sm ${theme.id === "terminal" ? "bg-[#002200]" : theme.id === "dark" ? "bg-neutral-700" : "bg-neutral-200"}`} />
+										<div
+											className={`w-3 h-3 rounded-full ${theme.id === "terminal" ? "bg-[#00ff41]" : "bg-primary"}`}
+										/>
+										<div
+											className={`flex-1 h-3 rounded-sm ${theme.id === "terminal" ? "bg-[#002200]" : theme.id === "dark" ? "bg-neutral-700" : "bg-neutral-200"}`}
+										/>
 									</div>
-									<div className={`w-3/4 h-2 rounded-sm ${theme.id === "terminal" ? "bg-[#003b00]" : theme.id === "dark" ? "bg-neutral-800" : "bg-neutral-100"}`} />
+									<div
+										className={`w-3/4 h-2 rounded-sm ${theme.id === "terminal" ? "bg-[#003b00]" : theme.id === "dark" ? "bg-neutral-800" : "bg-neutral-100"}`}
+									/>
 									{isActive && (
 										<div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1 shadow-lg">
 											<Check className="size-3" />
@@ -270,8 +284,13 @@ export function AppearancePanel({
 									className="size-8 rounded-full border-2 border-transparent hover:border-primary hover:scale-110 transition-all focus:ring-2 ring-primary/30 outline-none"
 									style={{ backgroundColor: accent.color }}
 									onClick={() => {
-										document.documentElement.style.setProperty("--accent", accent.color);
-										toast(`Applied ${accent.name} accent`, { variant: "success" });
+										document.documentElement.style.setProperty(
+											"--accent",
+											accent.color,
+										);
+										toast(`Applied ${accent.name} accent`, {
+											variant: "success",
+										});
 									}}
 								/>
 							</Tooltip.Trigger>
@@ -315,7 +334,10 @@ export function AppearancePanel({
 					className="max-w-xs"
 					defaultSelectedKey="sans"
 					onSelectionChange={(key) => {
-						const font = key === "mono" ? "var(--font-ibm-plex-mono)" : "var(--font-inter)";
+						const font =
+							key === "mono"
+								? "var(--font-ibm-plex-mono)"
+								: "var(--font-inter)";
 						document.documentElement.style.setProperty("--font-sans", font);
 					}}
 				>

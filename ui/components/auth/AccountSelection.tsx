@@ -119,6 +119,12 @@ export function AccountSelection({
 												size="sm"
 												className="flex-shrink-0 bg-default text-default-foreground"
 											>
+												{account.avatar_url && (
+													<Avatar.Image
+														src={account.avatar_url}
+														alt={account.username}
+													/>
+												)}
 												<Avatar.Fallback>
 													{getInitials(account.username)}
 												</Avatar.Fallback>

@@ -1,9 +1,5 @@
 "use client";
-import {
-	ArrowDownToLine,
-	ArrowRightFromSquare,
-	Copy,
-} from "@gravity-ui/icons";
+import { ArrowDownToLine, ArrowRightFromSquare, Copy } from "@gravity-ui/icons";
 import {
 	Avatar,
 	Button,
@@ -15,13 +11,33 @@ import {
 } from "@heroui/react";
 import { useState } from "react";
 import { ExportAccountModal } from "../ExportAccountModal";
+import { updateAvatar } from "@/hooks/useAccounts";
 
 export function AccountPanel() {
 	const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+	const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
+	const [avatarUrl, setAvatarUrl] = useState<string | null>(
+		typeof window !== "undefined" ? localStorage.getItem("avatarUrl") : null,
+	);
 
 	const copyField = (key: string, label: string) => {
 		navigator.clipboard.writeText(localStorage.getItem(key) || "");
 		toast(`Copied ${label}`, { variant: "success" });
+	};
+
+	const handleUpdateAvatar = async () => {
+		setIsUpdatingAvatar(true);
+		try {
+			const newAvatarUrl = await updateAvatar();
+			if (newAvatarUrl) {
+				localStorage.setItem("avatarUrl", newAvatarUrl);
+				setAvatarUrl(newAvatarUrl);
+			}
+		} catch (error) {
+			console.error(error);
+		} finally {
+			setIsUpdatingAvatar(false);
+		}
 	};
 
 	return (
@@ -39,6 +55,12 @@ export function AccountPanel() {
 					size="lg"
 					className="w-24 h-24 text-3xl font-bold bg-accent/20 text-accent"
 				>
+					{avatarUrl && (
+						<Avatar.Image
+							src={avatarUrl}
+							alt={localStorage.getItem("username") || "User"}
+						/>
+					)}
 					<Avatar.Fallback>
 						{typeof window !== "undefined"
 							? localStorage.getItem("username")?.slice(0, 1).toUpperCase() ||
@@ -48,7 +70,12 @@ export function AccountPanel() {
 				</Avatar>
 				<div className="space-y-3">
 					<div className="flex gap-2">
-						<Button variant="secondary" size="sm">
+						<Button
+							variant="secondary"
+							size="sm"
+							onPress={handleUpdateAvatar}
+							isPending={isUpdatingAvatar}
+						>
 							Change Avatar
 						</Button>
 						<Button variant="ghost" size="sm" className="text-danger">

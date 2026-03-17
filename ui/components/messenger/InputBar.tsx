@@ -8,7 +8,8 @@ import {
 	Plus,
 	Xmark,
 } from "@gravity-ui/icons";
-import { Button, InputGroup, Spinner, TextField } from "@heroui/react";
+import { Button, InputGroup, Spinner, TextField, toast } from "@heroui/react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useChats } from "@/hooks";
 import type { Message } from "@/hooks/messengerTypes";
@@ -115,6 +116,26 @@ export function InputBar({
 		onClearEdit?.();
 	};
 
+	const handlePickFile = async () => {
+		try {
+			const selected = await open({
+				multiple: false,
+			});
+
+			if (!selected) return;
+			const path = Array.isArray(selected) ? selected[0] : selected;
+
+			if (uiState.activeChatId) {
+				// We can just send it with whatever is currently in the textarea as description
+				await sendMessage(uiState.activeChatId, messageContent, { file: path });
+				setMessageContent("");
+			}
+		} catch (error) {
+			console.error("Failed to pick file:", error);
+			toast("Failed to pick file: " + error, { variant: "danger" });
+		}
+	};
+
 	const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
 		if (showAutocomplete) {
 			if (e.key === "ArrowDown") {
@@ -215,10 +236,11 @@ export function InputBar({
 					{suggestions.slice(0, 6).map((user, index) => (
 						<button
 							key={user.id}
-							className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors text-left ${index === selectedIndex
-								? "bg-accent/20 text-accent font-semibold"
-								: "hover:bg-accent/10"
-								}`}
+							className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors text-left ${
+								index === selectedIndex
+									? "bg-accent/20 text-accent font-semibold"
+									: "hover:bg-accent/10"
+							}`}
 							onMouseDown={(e) => {
 								e.preventDefault();
 								insertMention(user.name);
@@ -243,6 +265,7 @@ export function InputBar({
 					size="lg"
 					variant="ghost"
 					isDisabled={!uiState.activeChatId}
+					onPress={handlePickFile}
 					className="flex-shrink-0 rounded-2xl bg-on-surface hover:bg-on-surface-hover text-muted"
 				>
 					<Plus className="w-6 h-6" />
@@ -257,10 +280,11 @@ export function InputBar({
 				>
 					<InputGroup
 						fullWidth
-						className={`rounded-2xl border focus-within:border-field-border-focus transition-colors ${isEditing
-							? "bg-warning/5 border-warning/30"
-							: "bg-surface border-field-border"
-							}`}
+						className={`rounded-2xl border focus-within:border-field-border-focus transition-colors ${
+							isEditing
+								? "bg-warning/5 border-warning/30"
+								: "bg-surface border-field-border"
+						}`}
 					>
 						<InputGroup.TextArea
 							ref={textareaRef}

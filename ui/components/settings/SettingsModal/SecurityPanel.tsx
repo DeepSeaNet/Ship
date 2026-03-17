@@ -13,7 +13,9 @@ export function SecurityPanel() {
 				<div className="flex items-center justify-between p-4 border border-border rounded-lg">
 					<div className="space-y-0.5">
 						<span className="font-medium">Two-factor Authentication</span>
-						<p className="text-xs text-muted">Add an extra layer of security.</p>
+						<p className="text-xs text-muted">
+							Add an extra layer of security.
+						</p>
 					</div>
 					<Switch>
 						<Switch.Control>

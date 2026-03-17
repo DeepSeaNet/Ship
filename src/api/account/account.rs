@@ -86,4 +86,11 @@ impl Account {
         let account_manager = AccountManager::new(get_default_db_path()).await?;
         account_manager.list_accounts().await
     }
+
+    pub async fn update_avatar(&self, avatar_url: String) -> Result<()> {
+        let account_manager = AccountManager::new(get_default_db_path()).await?;
+        account_manager
+            .update_avatar_url(&self.username, Some(avatar_url))
+            .await
+    }
 }

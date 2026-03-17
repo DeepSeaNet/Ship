@@ -120,15 +120,15 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 						onContextMenu={handleContextMenu}
 					>
 						<Card
-					style={{
-						borderRadius: "var(--bubble-radius, 18px)",
-						fontSize: "var(--msg-font-size, 14px)",
-					}}
-					className={`px-3 py-1.5 ${isOwn
-						? "bg-accent text-accent-foreground"
-						: "bg-surface text-surface-foreground border border-border"
-						} cursor-default min-w-[60px] max-w-full`}
-				>
+							style={{
+								borderRadius: "var(--bubble-radius, 18px)",
+								fontSize: "var(--msg-font-size, 14px)",
+							}}
+							className={`px-3 py-1.5 ${isOwn
+								? "bg-accent text-accent-foreground"
+								: "bg-surface text-surface-foreground border border-border"
+								} cursor-default min-w-[60px] max-w-full`}
+						>
 							{/* Reply-to preview */}
 							{repliedMessage && (
 								<div
@@ -145,14 +145,17 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 									</p>
 									<p className="opacity-70 truncate max-w-[300px]">
 										{repliedMessage.content.length > 25
-											? repliedMessage.content.slice(0, 25) + "..."
+											? `${repliedMessage.content.slice(0, 25)}...`
 											: repliedMessage.content}
 									</p>
 								</div>
 							)}
 
 							<div className="flex flex-wrap items-end justify-end gap-x-2 gap-y-1">
-								<p className="break-all whitespace-pre-wrap flex-1 min-w-[10px]" style={{ fontSize: "var(--msg-font-size, 14px)" }}>
+								<p
+									className="break-all whitespace-pre-wrap flex-1 min-w-[10px]"
+									style={{ fontSize: "var(--msg-font-size, 14px)" }}
+								>
 									<MentionText
 										content={message.content}
 										ownUsername={ownUsername}

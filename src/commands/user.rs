@@ -81,7 +81,7 @@ pub async fn update_avatar(
     mime_type: String,
     width: i32,
     height: i32,
-) -> Result<bool, String> {
+) -> Result<serde_json::Value, String> {
     log::debug!("Update avatar called");
 
     let avatar = Avatar {
@@ -101,7 +101,7 @@ pub async fn update_avatar(
             .await
             .map_err(|e| e.to_string())?;
 
-        Ok(response.success)
+        Ok(json!(response))
     } else {
         Err("User status not initialized".to_string())
     }

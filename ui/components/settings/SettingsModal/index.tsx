@@ -23,12 +23,36 @@ interface SettingsModalProps {
 }
 
 const TAB_ITEMS = [
-	{ id: "account", label: "Account", icon: <Person className="w-4 h-4 mr-2" /> },
-	{ id: "appearance", label: "Appearance", icon: <Palette className="w-4 h-4 mr-2" /> },
-	{ id: "notifications", label: "Notifications", icon: <Bell className="w-4 h-4 mr-2" /> },
-	{ id: "security", label: "Security", icon: <Shield className="w-4 h-4 mr-2" /> },
-	{ id: "devices", label: "Devices", icon: <Display className="w-4 h-4 mr-2" /> },
-	{ id: "storage", label: "Storage", icon: <Database className="w-4 h-4 mr-2" /> },
+	{
+		id: "account",
+		label: "Account",
+		icon: <Person className="w-4 h-4 mr-2" />,
+	},
+	{
+		id: "appearance",
+		label: "Appearance",
+		icon: <Palette className="w-4 h-4 mr-2" />,
+	},
+	{
+		id: "notifications",
+		label: "Notifications",
+		icon: <Bell className="w-4 h-4 mr-2" />,
+	},
+	{
+		id: "security",
+		label: "Security",
+		icon: <Shield className="w-4 h-4 mr-2" />,
+	},
+	{
+		id: "devices",
+		label: "Devices",
+		icon: <Display className="w-4 h-4 mr-2" />,
+	},
+	{
+		id: "storage",
+		label: "Storage",
+		icon: <Database className="w-4 h-4 mr-2" />,
+	},
 ] as const;
 
 export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
@@ -47,9 +71,7 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
 								variant="secondary"
 							>
 								<Tabs.ListContainer className="w-64 border-r border-border h-full bg-surface/50 p-4 shrink-0">
-									<h2 className="text-xl font-bold px-2 mb-6 ml-1">
-										Settings
-									</h2>
+									<h2 className="text-xl font-bold px-2 mb-6 ml-1">Settings</h2>
 									<Tabs.List
 										aria-label="Settings categories"
 										className="flex flex-col gap-2 w-full"

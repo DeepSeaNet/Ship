@@ -22,7 +22,9 @@ import {
 	Tabs,
 	TextArea,
 	TextField,
+	toast,
 } from "@heroui/react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
 import type { Chat, Permissions } from "@/hooks/messengerTypes";
 import { useGroups } from "@/hooks/useGroups";
@@ -166,6 +168,25 @@ export const GroupSettingsModal = ({
 			allowVideoMessages: defaultPerms.allow_video_messages,
 		});
 		setIsLoading(false);
+	};
+
+	const handleUpdateGroupAvatar = async () => {
+		try {
+			const selected = await open({
+				filters: [{ name: "Image", extensions: ["png", "jpg", "jpeg", "gif"] }],
+				multiple: false,
+			});
+
+			if (!selected) return;
+			const path = Array.isArray(selected) ? selected[0] : selected;
+
+			setIsLoading(true);
+			await updateGroupConfig(group.id, { avatar: path });
+			setIsLoading(false);
+		} catch (error) {
+			console.error("Failed to pick group avatar:", error);
+			toast(`Failed to pick avatar: ${error}`, { variant: "danger" });
+		}
 	};
 
 	const isOwner = group.owner_id?.toString() === localStorage.getItem("userId");
@@ -327,6 +348,8 @@ export const GroupSettingsModal = ({
 														variant="secondary"
 														size="sm"
 														isDisabled={!canRename}
+														onPress={handleUpdateGroupAvatar}
+														isPending={isLoading}
 													>
 														Change Avatar
 													</Button>
