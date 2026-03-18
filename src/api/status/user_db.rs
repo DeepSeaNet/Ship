@@ -92,10 +92,11 @@ impl UserManager {
     }
 
     pub async fn get_sync_metadata(&self, key: &str) -> anyhow::Result<Option<String>> {
-        let val: Option<String> = sqlx::query_scalar("SELECT value FROM sync_metadata WHERE key = ?")
-            .bind(key)
-            .fetch_optional(&self.pool)
-            .await?;
+        let val: Option<String> =
+            sqlx::query_scalar("SELECT value FROM sync_metadata WHERE key = ?")
+                .bind(key)
+                .fetch_optional(&self.pool)
+                .await?;
         Ok(val)
     }
 

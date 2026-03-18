@@ -301,7 +301,7 @@ impl UserStatusClient {
         // Синхронизация контактов
         let mut backend = self.backend.clone();
         let contacts = self.user_manager.get_contacts().await?;
-        let ids: Vec<i64> = contacts.iter().map(|c| c.user_id as i64).collect();
+        let ids: Vec<i64> = contacts.iter().map(|c| c.user_id).collect();
         let last_sync = self
             .user_manager
             .get_sync_metadata("last_contacts_sync")

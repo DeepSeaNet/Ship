@@ -12,11 +12,12 @@ pub mod user_service_proto {
 
 use crate::api::account::Account;
 use crate::api::status::connection::user_connection::user_service_proto::{
-    GetUserActivityRequest, GetUserActivityResponse, GetUserInfoRequest, InitStreamRequest,
-    MarkMessageReadRequest, MarkMessageReadResponse, OnlineStatus, OnlineStatusRequest,
-    TypingStatus, TypingStatusRequest, UpdateActivityRequest, UpdateAvatarRequest,
-    UpdateAvatarResponse, UpdateUserSubscriptionRequest, UpdateUsernameRequest,
-    UpdateUsernameResponse, GetUpdatedUsersRequest, UserStatusRequest, user_service_client::UserServiceClient,
+    GetUpdatedUsersRequest, GetUserActivityRequest, GetUserActivityResponse, GetUserInfoRequest,
+    InitStreamRequest, MarkMessageReadRequest, MarkMessageReadResponse, OnlineStatus,
+    OnlineStatusRequest, TypingStatus, TypingStatusRequest, UpdateActivityRequest,
+    UpdateAvatarRequest, UpdateAvatarResponse, UpdateUserSubscriptionRequest,
+    UpdateUsernameRequest, UpdateUsernameResponse, UserStatusRequest,
+    user_service_client::UserServiceClient,
 };
 use crate::api::status::types::Avatar;
 use crate::api::status::types::DisplayUserInfo;
@@ -365,7 +366,8 @@ impl Backend {
             .map(|user| {
                 let last_seen = user.last_seen.map(|t| t.seconds).unwrap_or(-1);
                 let created_at = user.created_at.map(|t| t.seconds).unwrap_or(-1);
-                let online_status = OnlineStatus::try_from(user.online_status).unwrap_or(OnlineStatus::Offline); 
+                let online_status =
+                    OnlineStatus::try_from(user.online_status).unwrap_or(OnlineStatus::Offline);
                 DisplayUserInfo {
                     user_id: user.user_id,
                     username: user.username,

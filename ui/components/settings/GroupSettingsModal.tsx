@@ -138,6 +138,7 @@ export const GroupSettingsModal = ({
 	const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 	const [isCropOpen, setIsCropOpen] = useState(false);
 	const [selectedImageSrc, setSelectedImageSrc] = useState("");
+	const [mimeType, setMimeType] = useState("image/jpeg");
 
 	// Sync state if group changes
 	useEffect(() => {
@@ -184,6 +185,16 @@ export const GroupSettingsModal = ({
 			if (!selected) return;
 			const path = Array.isArray(selected) ? selected[0] : selected;
 
+			// Detect mime type from file path
+			let detectedMime = "image/jpeg";
+			const ext = path.split(".").pop()?.toLowerCase();
+			if (ext === "png") detectedMime = "image/png";
+			else if (ext === "jpg" || ext === "jpeg") detectedMime = "image/jpeg";
+			else if (ext === "gif") detectedMime = "image/gif";
+			else if (ext === "webp") detectedMime = "image/webp";
+
+			setMimeType(detectedMime);
+
 			// Read file to data URL for cropping
 			const bytes = await readFile(path);
 			const blob = new Blob([bytes]);
@@ -218,7 +229,7 @@ export const GroupSettingsModal = ({
 				avatarBytes: uint8Array,
 				avatarWidth: dimensions.width,
 				avatarHeight: dimensions.height,
-				avatarMimeType: "image/jpeg",
+				avatarMimeType: croppedBlob.type || "image/jpeg",
 			});
 		} catch (error) {
 			console.error("Failed to save cropped group image:", error);
@@ -736,6 +747,7 @@ export const GroupSettingsModal = ({
 					onOpenChange={setIsCropOpen}
 					imageSrc={selectedImageSrc}
 					onCropComplete={onCropComplete}
+					mimeType={mimeType}
 				/>
 			)}
 

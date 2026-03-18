@@ -1,5 +1,5 @@
 "use client";
-import { Check, CheckDouble, Clock } from "@gravity-ui/icons";
+import { Check, CheckDouble, Clock, Folder } from "@gravity-ui/icons";
 import { Avatar, Card, Dropdown, Kbd, Label } from "@heroui/react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
@@ -7,6 +7,7 @@ import { formatChatTime } from "@/hooks/helper";
 import type { Message } from "@/hooks/messengerTypes";
 import { useMessageActions } from "@/hooks/useMessageActions";
 import { useMessengerState } from "@/hooks/useMessengerState";
+import { createMediaUrl } from "@/hooks/helper";
 
 interface MessageItemProps {
 	message: Message;
@@ -45,6 +46,50 @@ function MentionText({
 	);
 }
 
+/** Render file or image attachment */
+function MediaPreview({ message, isOwn }: { message: Message; isOwn: boolean }) {
+	if (!message.media) return null;
+	const fileName = message.media_name || "file";
+	const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(fileName);
+
+	if (isImage) {
+		return (
+			<div className="mb-2 max-w-full overflow-hidden rounded-xl bg-accent/5">
+				<img
+					src={message.media}
+					alt={fileName}
+					className="max-h-[300px] w-full object-contain cursor-zoom-in rounded-xl"
+				/>
+			</div>
+		);
+	}
+
+	return (
+		<div
+			className={`flex items-center gap-3 p-3 mb-2 rounded-xl border transition-colors ${isOwn
+				? "bg-white/10 border-white/20 hover:bg-white/15"
+				: "bg-accent/5 border-accent/20 hover:bg-accent/10"
+				}`}
+		>
+			<div
+				className={`flex items-center justify-center w-10 h-10 rounded-lg shrink-0 ${isOwn ? "bg-white/20 text-white" : "bg-accent/20 text-accent"
+					}`}
+			>
+				<Folder className="w-5 h-5" />
+			</div>
+			<div className="flex-1 min-w-0">
+				<p
+					className={`text-sm font-semibold truncate ${isOwn ? "text-white" : "text-foreground"
+						}`}
+				>
+					{fileName}
+				</p>
+				<p className="text-[10px] opacity-60">File Attachment</p>
+			</div>
+		</div>
+	);
+}
+
 export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 	const isOwn = message.isOwn;
 	const { messagesByChat } = useMessengerState();
@@ -72,9 +117,9 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 	const chatMessages = messagesByChat[message.chatId] || [];
 	const repliedMessage = message.reply_to
 		? chatMessages.find((m) => String(m.id) === String(message.reply_to)) ||
-			Object.values(messagesByChat)
-				.flat()
-				.find((m) => String(m.id) === String(message.reply_to))
+		Object.values(messagesByChat)
+			.flat()
+			.find((m) => String(m.id) === String(message.reply_to))
 		: null;
 
 	const scrollToReplied = () => {
@@ -130,21 +175,19 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 								borderRadius: "var(--bubble-radius, 18px)",
 								fontSize: "var(--msg-font-size, 14px)",
 							}}
-							className={`px-3 py-1.5 ${
-								isOwn
-									? "bg-accent text-accent-foreground"
-									: "bg-surface text-surface-foreground border border-border"
-							} cursor-default min-w-[60px] max-w-full`}
+							className={`px-3 py-1.5 ${isOwn
+								? "bg-accent text-accent-foreground"
+								: "bg-surface text-surface-foreground border border-border"
+								} cursor-default min-w-[60px] max-w-full`}
 						>
 							{/* Reply-to preview */}
 							{repliedMessage && (
 								<div
 									onClick={scrollToReplied}
-									className={`mb-1.5 px-2 py-1 rounded-lg text-xs border-l-2 cursor-pointer hover:opacity-80 transition-opacity ${
-										isOwn
-											? "border-white/40 bg-white/10"
-											: "border-accent bg-accent/10"
-									}`}
+									className={`mb-1.5 px-2 py-1 rounded-lg text-xs border-l-2 cursor-pointer hover:opacity-80 transition-opacity ${isOwn
+										? "border-white/40 bg-white/10"
+										: "border-accent bg-accent/10"
+										}`}
 								>
 									<p
 										className={`font-semibold mb-0.5 ${isOwn ? "text-white/70" : "text-accent"}`}
@@ -158,6 +201,8 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 									</p>
 								</div>
 							)}
+
+							<MediaPreview message={message} isOwn={isOwn} />
 
 							<div className="flex flex-wrap items-end justify-end gap-x-2 gap-y-1">
 								<p

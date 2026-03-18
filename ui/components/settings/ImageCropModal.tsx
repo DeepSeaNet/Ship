@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Modal, Slider } from "@heroui/react";
+import { Button, Modal, Slider, toast } from "@heroui/react";
 import { useCallback, useState } from "react";
 import Cropper from "react-easy-crop";
 import type { Point, Area } from "react-easy-crop";
@@ -11,6 +11,7 @@ interface ImageCropModalProps {
 	imageSrc: string;
 	onCropComplete: (croppedImage: Blob) => void;
 	aspectRatio?: number;
+	mimeType?: string;
 }
 
 export function ImageCropModal({
@@ -19,11 +20,11 @@ export function ImageCropModal({
 	imageSrc,
 	onCropComplete,
 	aspectRatio = 1,
+	mimeType = "image/jpeg",
 }: ImageCropModalProps) {
 	const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
 	const [zoom, setZoom] = useState(1);
 	const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
-
 	const onCropChange = (crop: Point) => {
 		setCrop(crop);
 	};
@@ -32,9 +33,12 @@ export function ImageCropModal({
 		setZoom(zoom);
 	};
 
-	const onCropAreaComplete = useCallback((_: Area, relativeAreaPixels: Area) => {
-		setCroppedAreaPixels(relativeAreaPixels);
-	}, []);
+	const onCropAreaComplete = useCallback(
+		(_: Area, relativeAreaPixels: Area) => {
+			setCroppedAreaPixels(relativeAreaPixels);
+		},
+		[],
+	);
 
 	const createImage = (url: string): Promise<HTMLImageElement> =>
 		new Promise((resolve, reject) => {
@@ -48,6 +52,7 @@ export function ImageCropModal({
 	const getCroppedImg = async (
 		imageSrc: string,
 		pixelCrop: Area,
+		outputType: string,
 	): Promise<Blob | null> => {
 		const image = await createImage(imageSrc);
 		const canvas = document.createElement("canvas");
@@ -73,13 +78,25 @@ export function ImageCropModal({
 		return new Promise((resolve) => {
 			canvas.toBlob((blob) => {
 				resolve(blob);
-			}, "image/jpeg");
+			}, outputType);
 		});
 	};
 
 	const handleSave = async () => {
+		if (mimeType === "image/gif" || imageSrc.toLowerCase().endsWith(".gif")) {
+			const originalBlob = await fetch(imageSrc).then((r) => r.blob());
+			onCropComplete(originalBlob);
+			onOpenChange(false);
+			toast.warning("GIFs are not supported yet");
+			return;
+		}
+
 		if (croppedAreaPixels) {
-			const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels);
+			const croppedBlob = await getCroppedImg(
+				imageSrc,
+				croppedAreaPixels,
+				mimeType,
+			);
 			if (croppedBlob) {
 				onCropComplete(croppedBlob);
 				onOpenChange(false);
@@ -131,10 +148,7 @@ export function ImageCropModal({
 							</div>
 						</Modal.Body>
 						<Modal.Footer>
-							<Button
-								variant="ghost"
-								onPress={() => onOpenChange(false)}
-							>
+							<Button variant="ghost" onPress={() => onOpenChange(false)}>
 								Cancel
 							</Button>
 							<Button variant="primary" onPress={handleSave}>

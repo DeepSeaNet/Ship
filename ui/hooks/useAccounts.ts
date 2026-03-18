@@ -68,6 +68,7 @@ export const getUserDevices = async (
 export const updateAvatar = async (
 	croppedBytes?: Uint8Array,
 	croppedDimensions?: { width: number; height: number },
+	mimeType?: string,
 ): Promise<string> => {
 	try {
 		let bytes: Uint8Array;
@@ -84,6 +85,14 @@ export const updateAvatar = async (
 
 			if (!selected) return "";
 			const path = Array.isArray(selected) ? selected[0] : selected;
+
+			if (!mimeType) {
+				const ext = path.split(".").pop()?.toLowerCase();
+				if (ext === "png") mimeType = "image/png";
+				else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
+				else if (ext === "gif") mimeType = "image/gif";
+				else if (ext === "webp") mimeType = "image/webp";
+			}
 
 			console.log("Selected avatar path:", path);
 
@@ -118,15 +127,13 @@ export const updateAvatar = async (
 			dimensions = croppedDimensions;
 		}
 
-		const mimeType = "image/jpeg"; // Exported as jpeg from canvas or read as is
-
 		const response: { success: boolean; avatar_url: string } = await invoke(
 			"update_avatar",
 			{
 				avatar: Array.from(bytes),
 				avatarHash: hash,
 				fileSize,
-				mimeType,
+				mimeType: mimeType || "image/jpeg",
 				width: dimensions.width,
 				height: dimensions.height,
 			},

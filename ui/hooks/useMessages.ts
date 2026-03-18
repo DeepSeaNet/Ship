@@ -60,7 +60,7 @@ export function useMessages(chatId: string | null) {
 					isOwn: senderId === localStorage.getItem("userId"),
 					status: "sent",
 					media_name: msg.media_name,
-					//media: createMediaUrl(msg.media_data),
+					media: createMediaUrl(msg.media_data),
 					reply_to: msg.reply_to,
 					edited: !!msg.edit_date,
 					expires: msg.expires,

@@ -8,6 +8,7 @@ import {
 	useCallback,
 	useContext,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -22,6 +23,7 @@ import type {
 } from "./messengerTypes";
 import { useContacts } from "./useContacts";
 import { useListener } from "./useListener";
+import { useGroups } from "./useGroups";
 
 const defaultUIState: UIState = {
 	activeChatId: null,
@@ -46,11 +48,11 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 		Record<string, Message[]>
 	>({});
 	const [chats, setChats] = useState<Chat[]>([]);
-	const [groups, setGroups] = useState<Group[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [currentUser, setCurrentUser] = useState<User | null>(null);
 	const uiStateRef = useRef(uiState);
 	const { contacts, setContacts, getUserInfo } = useContacts();
+	const { groups, setGroups, fetchGroups } = useGroups(currentUser);
 	useEffect(() => {
 		uiStateRef.current = uiState;
 	}, [uiState]);
@@ -67,36 +69,10 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 
 	// --- Fetchers ---
 
-	const fetchChats = useCallback(async () => {
+	const fetchChats = useCallback(async (): Promise<void> => {
 		try {
-			// Fetch groups
-			const loadedGroups = await invoke<any[]>("get_groups");
-			const formattedGroups: Group[] = loadedGroups.map((group: any) => ({
-				id: group.group_id,
-				name: group.group_name,
-				avatar: createMediaUrl(group.avatar),
-				unreadCount: 0,
-				isGroup: true,
-				participants: group.members,
-				description: group.description,
-				owner_id: group.owner_id,
-				admins: group.admins,
-				members: group.members,
-				group_config: group.group_config || null,
-				user_permissions: group.user_permissions,
-				users_permissions: group.users_permisions,
-				default_permissions: group.default_permissions,
-				lastMessage:
-					group.last_message?.text || group.last_message?.content || "",
-				lastMessageTime: group.last_message?.timestamp
-					? new Date(group.last_message.timestamp * 1000).toISOString()
-					: group.date
-						? new Date(group.date * 1000).toISOString()
-						: undefined,
-				loaded: false,
-			}));
-
-			setGroups(formattedGroups);
+			// Fetch groups via the new hook
+			const formattedGroups = await fetchGroups();
 
 			// Fetch private chats (placeholder for now as per previous implementation)
 			const privateChats = await invoke<any[]>("get_chats");
@@ -130,14 +106,15 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 			console.error("Error fetching chats/groups:", error);
 			toast("Failed to load chats", { variant: "danger" });
 		}
-	}, []);
+	}, [fetchGroups]);
 
-	const fetchGroups = useCallback(async () => {
-		// Re-use fetchChats logic since it loads groups as well,
-		// or duplicate strictly group loading logic if needed separately.
-		// For now, fetchChats updates both 'groups' and 'chats' state.
+	const fetchChatsStable = useCallback(async () => {
 		await fetchChats();
 	}, [fetchChats]);
+
+	const fetchGroupsStable = useCallback(async () => {
+		await fetchGroups();
+	}, [fetchGroups]);
 
 	// --- Actions ---
 
@@ -278,15 +255,11 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 	};
 
 	// --- Event Listener ---
-	useListener({
-		currentUser,
-		uiStateRef,
-		chatsRef,
-		contactsRef,
-		actions: {
+	const listenerActions = useMemo(
+		() => ({
 			addMessage,
 			setActiveChatId,
-			fetchChats,
+			fetchChats: fetchChatsStable,
 			setIsLoading,
 			setCurrentUser,
 			setGroups,
@@ -296,33 +269,80 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 			updateMessageStatus,
 			updateMessageId,
 			upsertUser,
-		},
+		}),
+		[
+			addMessage,
+			setActiveChatId,
+			fetchChatsStable,
+			setIsLoading,
+			setCurrentUser,
+			setGroups,
+			setChats,
+			setUIState,
+			editMessage,
+			updateMessageStatus,
+			updateMessageId,
+			upsertUser,
+		],
+	);
+
+	useListener({
+		currentUser,
+		uiStateRef,
+		chatsRef,
+		contactsRef,
+		actions: listenerActions,
 	});
 	// Re-run if methods change, though useCallback handles stability
 
-	const value: MessengerContextType = {
-		uiState,
-		messagesByChat,
-		chats,
-		groups,
-		isLoading,
-		currentUser,
-		setActiveChatId,
-		setActiveGroupId,
-		toggleRightSidebar,
-		setAnimatingIn,
-		addMessage,
-		setMessagesForChat,
-		updateMessageStatus,
-		updateMessageId,
-		editMessage,
-		markChatAsLoaded,
-		upsertUser,
-		fetchChats,
-		fetchGroups,
-		contacts,
-		getUserInfo,
-	};
+	const value: MessengerContextType = useMemo(
+		() => ({
+			uiState,
+			messagesByChat,
+			chats,
+			groups,
+			isLoading,
+			currentUser,
+			setActiveChatId,
+			setActiveGroupId,
+			toggleRightSidebar,
+			setAnimatingIn,
+			addMessage,
+			setMessagesForChat,
+			updateMessageStatus,
+			updateMessageId,
+			editMessage,
+			markChatAsLoaded,
+			upsertUser,
+			fetchChats: fetchChatsStable,
+			fetchGroups: fetchGroupsStable,
+			contacts,
+			getUserInfo,
+		}),
+		[
+			uiState,
+			messagesByChat,
+			chats,
+			groups,
+			isLoading,
+			currentUser,
+			setActiveChatId,
+			setActiveGroupId,
+			toggleRightSidebar,
+			setAnimatingIn,
+			addMessage,
+			setMessagesForChat,
+			updateMessageStatus,
+			updateMessageId,
+			editMessage,
+			markChatAsLoaded,
+			upsertUser,
+			fetchChatsStable,
+			fetchGroupsStable,
+			contacts,
+			getUserInfo,
+		],
+	);
 
 	return (
 		<MessengerContext.Provider value={value}>

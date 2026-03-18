@@ -32,6 +32,7 @@ export function AccountPanel() {
 
 	const [isCropOpen, setIsCropOpen] = useState(false);
 	const [selectedImageSrc, setSelectedImageSrc] = useState("");
+	const [mimeType, setMimeType] = useState("image/jpeg");
 
 	const handleUpdateAvatar = async () => {
 		try {
@@ -43,11 +44,18 @@ export function AccountPanel() {
 			if (!selected) return;
 			const path = Array.isArray(selected) ? selected[0] : selected;
 
-			// Read file to data URL for cropping
+			// Detect mime type from file path
+			let detectedMime = "image/jpeg";
+			const ext = path.split(".").pop()?.toLowerCase();
+			if (ext === "png") detectedMime = "image/png";
+			else if (ext === "jpg" || ext === "jpeg") detectedMime = "image/jpeg";
+			else if (ext === "gif") detectedMime = "image/gif";
+			else if (ext === "webp") detectedMime = "image/webp";
 			const bytes = await readFile(path);
 			const blob = new Blob([bytes]);
 			const dataUrl = URL.createObjectURL(blob);
 
+			setMimeType(detectedMime);
 			setSelectedImageSrc(dataUrl);
 			setIsCropOpen(true);
 		} catch (error) {
@@ -73,7 +81,11 @@ export function AccountPanel() {
 				},
 			);
 
-			const newAvatarUrl = await updateAvatar(uint8Array, dimensions);
+			const newAvatarUrl = await updateAvatar(
+				uint8Array,
+				dimensions,
+				mimeType,
+			);
 			if (newAvatarUrl) {
 				const avatarUrl = newAvatarUrl + "?t=" + Date.now();
 				localStorage.setItem("avatarUrl", avatarUrl);
@@ -244,6 +256,7 @@ export function AccountPanel() {
 					onOpenChange={setIsCropOpen}
 					imageSrc={selectedImageSrc}
 					onCropComplete={onCropComplete}
+					mimeType={mimeType}
 				/>
 			)}
 		</div>

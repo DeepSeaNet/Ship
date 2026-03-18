@@ -2,12 +2,53 @@
 
 import { toast } from "@heroui/react";
 import { invoke } from "@tauri-apps/api/core";
-import { useCallback } from "react";
-import type { Group, Permissions } from "./messengerTypes";
-import { useMessengerState } from "./useMessengerState";
+import { useCallback, useState } from "react";
+import { createMediaUrl } from "./helper";
+import type { Group, Permissions, User } from "./messengerTypes";
 
-export function useGroups() {
-	const { groups, isLoading, fetchGroups, currentUser } = useMessengerState();
+export function useGroups(currentUser?: User | null) {
+	const [groups, setGroups] = useState<Group[]>([]);
+	const [isLoading, setIsLoading] = useState(false);
+
+	const fetchGroups = useCallback(async () => {
+		setIsLoading(true);
+		try {
+			const loadedGroups = await invoke<any[]>("get_groups");
+			const formattedGroups: Group[] = loadedGroups.map((group: any) => ({
+				id: group.group_id,
+				name: group.group_name,
+				avatar: createMediaUrl(group.avatar),
+				unreadCount: 0,
+				isGroup: true,
+				participants: group.members,
+				description: group.description,
+				owner_id: group.owner_id,
+				admins: group.admins,
+				members: group.members,
+				group_config: group.group_config || null,
+				user_permissions: group.user_permissions,
+				users_permissions: group.users_permisions,
+				default_permissions: group.default_permissions,
+				lastMessage:
+					group.last_message?.text || group.last_message?.content || "",
+				lastMessageTime: group.last_message?.timestamp
+					? new Date(group.last_message.timestamp * 1000).toISOString()
+					: group.date
+						? new Date(group.date * 1000).toISOString()
+						: undefined,
+				loaded: false,
+			}));
+
+			setGroups(formattedGroups);
+			return formattedGroups;
+		} catch (error) {
+			console.error("Error fetching groups:", error);
+			toast("Failed to load groups", { variant: "danger" });
+			return [];
+		} finally {
+			setIsLoading(false);
+		}
+	}, []);
 
 	// Helper: Permissions check (using currentUser from context if available, else localStorage backup)
 	const checkPermission = useCallback(
@@ -142,10 +183,10 @@ export function useGroups() {
 		) => {
 			try {
 				console.log("Updating group config:", updates);
-				let avatar = updates.avatarPath;
+				const avatar = updates.avatarPath;
 				let avatarHash = updates.avatarHash;
-				let width = updates.avatarWidth;
-				let height = updates.avatarHeight;
+				const width = updates.avatarWidth;
+				const height = updates.avatarHeight;
 				let mimeType = updates.avatarMimeType;
 
 				if (updates.avatarBytes) {
@@ -241,6 +282,8 @@ export function useGroups() {
 		loading: isLoading,
 		error: null,
 		loadGroups: fetchGroups, // Alias for compatibility
+		fetchGroups,
+		setGroups,
 		checkPermission,
 		inviteUserToGroup,
 		removeUserFromGroup,

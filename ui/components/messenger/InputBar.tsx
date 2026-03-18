@@ -32,6 +32,7 @@ export function InputBar({
 	const { uiState, contacts } = useMessengerState();
 	const { sendMessage, sending } = useSendMessage();
 	const [messageContent, setMessageContent] = useState("");
+	const [selectedFile, setSelectedFile] = useState<string | null>(null);
 	const { getChatById } = useChats();
 	const activeChat = uiState.activeChatId
 		? getChatById(uiState.activeChatId)
@@ -111,9 +112,11 @@ export function InputBar({
 		sendMessage(uiState.activeChatId, contentToSend, {
 			replyTo: replyTo?.id,
 			editId: editTarget?.id,
+			file: selectedFile || undefined,
 		});
 		onClearReply?.();
 		onClearEdit?.();
+		setSelectedFile(null);
 	};
 
 	const handlePickFile = async () => {
@@ -126,9 +129,7 @@ export function InputBar({
 			const path = Array.isArray(selected) ? selected[0] : selected;
 
 			if (uiState.activeChatId) {
-				// We can just send it with whatever is currently in the textarea as description
-				await sendMessage(uiState.activeChatId, messageContent, { file: path });
-				setMessageContent("");
+				setSelectedFile(path);
 			}
 		} catch (error) {
 			console.error("Failed to pick file:", error);
@@ -180,9 +181,35 @@ export function InputBar({
 
 	const isEditing = !!editTarget;
 	const isReplying = !!replyTo;
+	const isAttaching = !!selectedFile;
+
+	const attachedFileName = selectedFile?.split(/[\\/]/).pop() || "File";
 
 	return (
 		<div className="flex flex-col bg-background">
+			{/* File attachment banner */}
+			{isAttaching && (
+				<div className="flex items-center gap-2 px-4 py-2 border-t border-border bg-accent/5 animate-in slide-in-from-bottom-2 duration-200">
+					<div className="flex items-center justify-center w-8 h-8 rounded-lg bg-accent/10 shrink-0">
+						<Plus className="w-4 h-4 text-accent rotate-45" />{" "}
+						{/* Use Plus as a generic file icon or similar */}
+					</div>
+					<div className="flex-1 min-w-0">
+						<p className="text-xs text-accent font-semibold">Attachment</p>
+						<p className="text-xs text-muted truncate">{attachedFileName}</p>
+					</div>
+					<Button
+						isIconOnly
+						size="sm"
+						variant="ghost"
+						className="text-muted shrink-0"
+						onPress={() => setSelectedFile(null)}
+					>
+						<Xmark className="w-4 h-4" />
+					</Button>
+				</div>
+			)}
+
 			{/* Reply banner */}
 			{isReplying && (
 				<div className="flex items-center gap-2 px-4 py-2 border-t border-border bg-accent/5 animate-in slide-in-from-bottom-2 duration-200">
@@ -315,7 +342,7 @@ export function InputBar({
 							<Button
 								isIconOnly
 								aria-label={
-									messageContent.trim()
+									messageContent.trim() || selectedFile
 										? isEditing
 											? "Save edit"
 											: "Send message"
@@ -323,7 +350,7 @@ export function InputBar({
 								}
 								size="sm"
 								variant={
-									messageContent.trim()
+									messageContent.trim() || selectedFile
 										? isEditing
 											? "secondary"
 											: "primary"
@@ -331,9 +358,11 @@ export function InputBar({
 								}
 								isDisabled={!uiState.activeChatId || sending}
 								isPending={sending}
-								onPress={messageContent.trim() ? handleSend : undefined}
+								onPress={
+									messageContent.trim() || selectedFile ? handleSend : undefined
+								}
 								className={
-									messageContent.trim()
+									messageContent.trim() || selectedFile
 										? ""
 										: "text-muted hover:bg-on-surface-hover"
 								}
@@ -341,7 +370,7 @@ export function InputBar({
 								{({ isPending }) =>
 									isPending ? (
 										<Spinner color="current" size="sm" />
-									) : messageContent.trim() ? (
+									) : messageContent.trim() || selectedFile ? (
 										<PaperPlane className="w-4 h-4" />
 									) : (
 										<Microphone className="w-5 h-5" />
