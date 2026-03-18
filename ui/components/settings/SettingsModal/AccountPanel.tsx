@@ -12,8 +12,13 @@ import {
 import { useState } from "react";
 import { ExportAccountModal } from "../ExportAccountModal";
 import { updateAvatar } from "@/hooks/useAccounts";
+import { open } from "@tauri-apps/plugin-dialog";
+import { readFile } from "@tauri-apps/plugin-fs";
+import { ImageCropModal } from "../ImageCropModal";
+import { useMessengerState } from "@/hooks";
 
 export function AccountPanel() {
+	const { currentUser } = useMessengerState();
 	const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 	const [isUpdatingAvatar, setIsUpdatingAvatar] = useState(false);
 	const [avatarUrl, setAvatarUrl] = useState<string | null>(
@@ -25,18 +30,63 @@ export function AccountPanel() {
 		toast(`Copied ${label}`, { variant: "success" });
 	};
 
+	const [isCropOpen, setIsCropOpen] = useState(false);
+	const [selectedImageSrc, setSelectedImageSrc] = useState("");
+
 	const handleUpdateAvatar = async () => {
+		try {
+			const selected = await open({
+				filters: [{ name: "Image", extensions: ["png", "jpg", "jpeg", "gif"] }],
+				multiple: false,
+			});
+
+			if (!selected) return;
+			const path = Array.isArray(selected) ? selected[0] : selected;
+
+			// Read file to data URL for cropping
+			const bytes = await readFile(path);
+			const blob = new Blob([bytes]);
+			const dataUrl = URL.createObjectURL(blob);
+
+			setSelectedImageSrc(dataUrl);
+			setIsCropOpen(true);
+		} catch (error) {
+			console.error("Failed to pick image:", error);
+		}
+	};
+
+	const onCropComplete = async (croppedBlob: Blob) => {
 		setIsUpdatingAvatar(true);
 		try {
-			const newAvatarUrl = await updateAvatar();
+			const arrayBuffer = await croppedBlob.arrayBuffer();
+			const uint8Array = new Uint8Array(arrayBuffer);
+
+			// Get dimensions for the final upload
+			const dimensions = await new Promise<{ width: number; height: number }>(
+				(resolve) => {
+					const img = new Image();
+					img.src = URL.createObjectURL(croppedBlob);
+					img.onload = () => {
+						resolve({ width: img.width, height: img.height });
+						URL.revokeObjectURL(img.src);
+					};
+				},
+			);
+
+			const newAvatarUrl = await updateAvatar(uint8Array, dimensions);
 			if (newAvatarUrl) {
-				localStorage.setItem("avatarUrl", newAvatarUrl);
-				setAvatarUrl(newAvatarUrl);
+				const avatarUrl = newAvatarUrl + "?t=" + Date.now();
+				localStorage.setItem("avatarUrl", avatarUrl);
+				setAvatarUrl(avatarUrl);
+				if (currentUser) {
+					currentUser.avatar = avatarUrl;
+				}
 			}
 		} catch (error) {
-			console.error(error);
+			console.error("Failed to save cropped image:", error);
 		} finally {
 			setIsUpdatingAvatar(false);
+			URL.revokeObjectURL(selectedImageSrc);
 		}
 	};
 
@@ -64,7 +114,7 @@ export function AccountPanel() {
 					<Avatar.Fallback>
 						{typeof window !== "undefined"
 							? localStorage.getItem("username")?.slice(0, 1).toUpperCase() ||
-								"U"
+							"U"
 							: "U"}
 					</Avatar.Fallback>
 				</Avatar>
@@ -187,6 +237,15 @@ export function AccountPanel() {
 				isOpen={isExportModalOpen}
 				onOpenChange={setIsExportModalOpen}
 			/>
+
+			{isCropOpen && (
+				<ImageCropModal
+					isOpen={isCropOpen}
+					onOpenChange={setIsCropOpen}
+					imageSrc={selectedImageSrc}
+					onCropComplete={onCropComplete}
+				/>
+			)}
 		</div>
 	);
 }

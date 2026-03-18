@@ -298,6 +298,43 @@ impl UserStatusClient {
             .send_online_status(*self.online_status.read().await)
             .await?;
 
+        // Синхронизация контактов
+        let mut backend = self.backend.clone();
+        let contacts = self.user_manager.get_contacts().await?;
+        let ids: Vec<i64> = contacts.iter().map(|c| c.user_id as i64).collect();
+        let last_sync = self
+            .user_manager
+            .get_sync_metadata("last_contacts_sync")
+            .await?
+            .and_then(|s| s.parse::<i64>().ok())
+            .unwrap_or(0);
+
+        log::info!(
+            "Starting contacts sync for {} users since {}",
+            ids.len(),
+            last_sync
+        );
+
+        match backend.get_updated_users(ids, last_sync).await {
+            Ok(updated_users) => {
+                log::info!("Received {} updated users", updated_users.len());
+                for user in updated_users {
+                    if let Err(e) = self.user_manager.save_contact(user).await {
+                        log::error!("Failed to save updated contact: {}", e);
+                    }
+                }
+                let now = SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)?
+                    .as_secs() as i64;
+                self.user_manager
+                    .set_sync_metadata("last_contacts_sync", &now.to_string())
+                    .await?;
+            }
+            Err(e) => {
+                log::error!("Failed to sync contacts: {}", e);
+            }
+        }
+
         Ok(())
     }
 

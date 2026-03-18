@@ -27,6 +27,15 @@ impl UserManager {
         .execute(&pool)
         .await?;
 
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS sync_metadata (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await?;
+
         Ok(Self { pool })
     }
 
@@ -80,6 +89,23 @@ impl UserManager {
         }
 
         Ok(contacts)
+    }
+
+    pub async fn get_sync_metadata(&self, key: &str) -> anyhow::Result<Option<String>> {
+        let val: Option<String> = sqlx::query_scalar("SELECT value FROM sync_metadata WHERE key = ?")
+            .bind(key)
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(val)
+    }
+
+    pub async fn set_sync_metadata(&self, key: &str, value: &str) -> anyhow::Result<()> {
+        sqlx::query("INSERT INTO sync_metadata (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+            .bind(key)
+            .bind(value)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
     }
 }
 

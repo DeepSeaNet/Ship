@@ -31,6 +31,8 @@ import { useGroups } from "@/hooks/useGroups";
 import { useMessengerState } from "@/hooks/useMessengerState";
 import { useNotificationSettings } from "@/hooks/useNotificationSettings";
 import { InviteMemberModal } from "./InviteMemberModal";
+import { readFile } from "@tauri-apps/plugin-fs";
+import { ImageCropModal } from "./ImageCropModal";
 
 interface GroupSettingsModalProps {
 	isOpen: boolean;
@@ -134,6 +136,8 @@ export const GroupSettingsModal = ({
 		useState<Permissions | null>(null);
 	const [memberRole, setMemberRole] = useState<string>("Member");
 	const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+	const [isCropOpen, setIsCropOpen] = useState(false);
+	const [selectedImageSrc, setSelectedImageSrc] = useState("");
 
 	// Sync state if group changes
 	useEffect(() => {
@@ -180,12 +184,47 @@ export const GroupSettingsModal = ({
 			if (!selected) return;
 			const path = Array.isArray(selected) ? selected[0] : selected;
 
-			setIsLoading(true);
-			await updateGroupConfig(group.id, { avatar: path });
-			setIsLoading(false);
+			// Read file to data URL for cropping
+			const bytes = await readFile(path);
+			const blob = new Blob([bytes]);
+			const dataUrl = URL.createObjectURL(blob);
+
+			setSelectedImageSrc(dataUrl);
+			setIsCropOpen(true);
 		} catch (error) {
-			console.error("Failed to pick group avatar:", error);
-			toast(`Failed to pick avatar: ${error}`, { variant: "danger" });
+			console.error("Failed to pick group image:", error);
+		}
+	};
+
+	const onCropComplete = async (croppedBlob: Blob) => {
+		setIsLoading(true);
+		try {
+			const arrayBuffer = await croppedBlob.arrayBuffer();
+			const uint8Array = new Uint8Array(arrayBuffer);
+
+			// Get dimensions for the final upload
+			const dimensions = await new Promise<{ width: number; height: number }>(
+				(resolve) => {
+					const img = new Image();
+					img.src = URL.createObjectURL(croppedBlob);
+					img.onload = () => {
+						resolve({ width: img.width, height: img.height });
+						URL.revokeObjectURL(img.src);
+					};
+				},
+			);
+
+			await updateGroupConfig(group.id, {
+				avatarBytes: uint8Array,
+				avatarWidth: dimensions.width,
+				avatarHeight: dimensions.height,
+				avatarMimeType: "image/jpeg",
+			});
+		} catch (error) {
+			console.error("Failed to save cropped group image:", error);
+		} finally {
+			setIsLoading(false);
+			URL.revokeObjectURL(selectedImageSrc);
 		}
 	};
 
@@ -690,6 +729,15 @@ export const GroupSettingsModal = ({
 					</Modal.Dialog>
 				</Modal.Container>
 			</Modal.Backdrop>
+
+			{isCropOpen && (
+				<ImageCropModal
+					isOpen={isCropOpen}
+					onOpenChange={setIsCropOpen}
+					imageSrc={selectedImageSrc}
+					onCropComplete={onCropComplete}
+				/>
+			)}
 
 			{/* Individual Member Permissions Modal */}
 			<Modal

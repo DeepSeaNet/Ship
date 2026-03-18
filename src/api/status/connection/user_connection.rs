@@ -16,7 +16,7 @@ use crate::api::status::connection::user_connection::user_service_proto::{
     MarkMessageReadRequest, MarkMessageReadResponse, OnlineStatus, OnlineStatusRequest,
     TypingStatus, TypingStatusRequest, UpdateActivityRequest, UpdateAvatarRequest,
     UpdateAvatarResponse, UpdateUserSubscriptionRequest, UpdateUsernameRequest,
-    UpdateUsernameResponse, UserStatusRequest, user_service_client::UserServiceClient,
+    UpdateUsernameResponse, GetUpdatedUsersRequest, UserStatusRequest, user_service_client::UserServiceClient,
 };
 use crate::api::status::types::Avatar;
 use crate::api::status::types::DisplayUserInfo;
@@ -348,5 +348,36 @@ impl Backend {
             .map_err(|_| anyhow::anyhow!("Failed to send init stream request to channel"))?;
 
         Ok(())
+    }
+
+    pub async fn get_updated_users(
+        &mut self,
+        ids: Vec<i64>,
+        timestamp: i64,
+    ) -> Result<Vec<DisplayUserInfo>, anyhow::Error> {
+        let request = GetUpdatedUsersRequest { ids, timestamp };
+
+        let response = self.client.get_updated_users(Request::new(request)).await?;
+        let users = response.into_inner().users;
+
+        let res = users
+            .into_iter()
+            .map(|user| {
+                let last_seen = user.last_seen.map(|t| t.seconds).unwrap_or(-1);
+                let created_at = user.created_at.map(|t| t.seconds).unwrap_or(-1);
+                let online_status = OnlineStatus::try_from(user.online_status).unwrap_or(OnlineStatus::Offline); 
+                DisplayUserInfo {
+                    user_id: user.user_id,
+                    username: user.username,
+                    avatar: format!("http://{}", user.avatar_url),
+                    status: online_status.as_str_name().to_string(),
+                    last_seen,
+                    created_at,
+                    trust_level: 0,
+                }
+            })
+            .collect();
+
+        Ok(res)
     }
 }

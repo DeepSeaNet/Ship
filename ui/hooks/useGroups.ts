@@ -124,7 +124,12 @@ export function useGroups() {
 				visibility?: "public" | "private";
 				joinMode?: "invite_only" | "request_to_join" | "open";
 				description?: string;
-				avatar?: string; // file path
+				avatarPath?: string; // fallback or legacy
+				avatarBytes?: Uint8Array;
+				avatarHash?: string;
+				avatarWidth?: number;
+				avatarHeight?: number;
+				avatarMimeType?: string;
 				maxMembers?: number;
 				slowModeDelay?: number;
 				allowStickers?: boolean;
@@ -137,13 +142,37 @@ export function useGroups() {
 		) => {
 			try {
 				console.log("Updating group config:", updates);
+				let avatar = updates.avatarPath;
+				let avatarHash = updates.avatarHash;
+				let width = updates.avatarWidth;
+				let height = updates.avatarHeight;
+				let mimeType = updates.avatarMimeType;
+
+				if (updates.avatarBytes) {
+					// Calculate hash if not provided
+					if (!avatarHash) {
+						const hashBuffer = await crypto.subtle.digest(
+							"SHA-256",
+							updates.avatarBytes,
+						);
+						avatarHash = Array.from(new Uint8Array(hashBuffer))
+							.map((b) => b.toString(16).padStart(2, "0"))
+							.join("");
+					}
+					mimeType = mimeType || "image/jpeg";
+				}
+
 				await invoke("update_group_config", {
 					groupId,
 					groupName: updates.name,
 					visibility: updates.visibility,
 					joinMode: updates.joinMode,
 					description: updates.description,
-					avatar: updates.avatar,
+					avatar: updates.avatarBytes ? Array.from(updates.avatarBytes) : null,
+					avatarHash,
+					width,
+					height,
+					mimeType,
 					maxMembers: updates.maxMembers,
 					slowModeDelay: updates.slowModeDelay,
 					allowStickers: updates.allowStickers,

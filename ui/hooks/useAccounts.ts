@@ -65,20 +65,32 @@ export const getUserDevices = async (
 	}
 };
 
-export const updateAvatar = async (): Promise<string> => {
+export const updateAvatar = async (
+	croppedBytes?: Uint8Array,
+	croppedDimensions?: { width: number; height: number },
+): Promise<string> => {
 	try {
-		const selected = await open({
-			filters: [{ name: "Image", extensions: ["png", "jpg", "jpeg", "gif"] }],
-			multiple: false,
-		});
+		let bytes: Uint8Array;
+		let dimensions: { width: number; height: number };
 
-		if (!selected) return "";
-		const path = Array.isArray(selected) ? selected[0] : selected;
+		if (croppedBytes && croppedDimensions) {
+			bytes = croppedBytes;
+			dimensions = croppedDimensions;
+		} else {
+			const selected = await open({
+				filters: [{ name: "Image", extensions: ["png", "jpg", "jpeg", "gif"] }],
+				multiple: false,
+			});
 
-		console.log("Selected avatar path:", path);
+			if (!selected) return "";
+			const path = Array.isArray(selected) ? selected[0] : selected;
 
-		// Read file bytes
-		const bytes = await readFile(path);
+			console.log("Selected avatar path:", path);
+
+			// Read file bytes
+			bytes = await readFile(path);
+		}
+
 		const fileSize = bytes.length;
 
 		// Calculate hash
@@ -87,23 +99,26 @@ export const updateAvatar = async (): Promise<string> => {
 			.map((b) => b.toString(16).padStart(2, "0"))
 			.join("");
 
-		// Get dimensions
-		const dimensions = await new Promise<{ width: number; height: number }>(
-			(resolve, reject) => {
-				const img = new Image();
-				img.src = URL.createObjectURL(new Blob([bytes]));
-				img.onload = () => {
-					resolve({ width: img.width, height: img.height });
-					URL.revokeObjectURL(img.src);
-				};
-				img.onerror = () =>
-					reject(new Error("Failed to load image for dimensions"));
-			},
-		);
+		if (!croppedDimensions) {
+			// Get dimensions for chosen file
+			dimensions = await new Promise<{ width: number; height: number }>(
+				(resolve, reject) => {
+					const img = new Image();
+					const blob = new Blob([bytes]);
+					img.src = URL.createObjectURL(blob);
+					img.onload = () => {
+						resolve({ width: img.width, height: img.height });
+						URL.revokeObjectURL(img.src);
+					};
+					img.onerror = () =>
+						reject(new Error("Failed to load image for dimensions"));
+				},
+			);
+		} else {
+			dimensions = croppedDimensions;
+		}
 
-		const ext = path.split(".").pop()?.toLowerCase() || "";
-		const mimeType =
-			ext === "png" ? "image/png" : ext === "gif" ? "image/gif" : "image/jpeg";
+		const mimeType = "image/jpeg"; // Exported as jpeg from canvas or read as is
 
 		const response: { success: boolean; avatar_url: string } = await invoke(
 			"update_avatar",
