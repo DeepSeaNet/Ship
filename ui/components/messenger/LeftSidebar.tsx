@@ -64,19 +64,19 @@ export function LeftSidebar({ onClose }: LeftSidebarProps) {
 
 			{/* Avatar Status Row */}
 			{/*
-      <div className="overflow-x-auto pb-2 -mx-4 px-4">
-        <div className="flex gap-3">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="relative flex-shrink-0">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-neutral-700 to-neutral-800 flex items-center justify-center text-accent-foreground font-bold text-sm border border-neutral-700">
-                {String.fromCharCode(64 + i)}
-              </div>
-              <div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-neutral-600 border-2 border-neutral-950"></div>
-            </div>
-          ))}
-        </div>
-      </div>
-      */}
+			<div className="overflow-x-auto pb-2 -mx-4 px-4">
+				<div className="flex gap-3">
+				{[1, 2, 3, 4, 5, 6].map((i) => (
+					<div key={i} className="relative flex-shrink-0">
+					<div className="w-12 h-12 rounded-full bg-gradient-to-br from-neutral-700 to-neutral-800 flex items-center justify-center text-accent-foreground font-bold text-sm border border-neutral-700">
+						{String.fromCharCode(64 + i)}
+					</div>
+					<div className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-neutral-600 border-2 border-neutral-950"></div>
+					</div>
+				))}
+				</div>
+			</div>
+			*/}
 			{/* Pinned Section */}
 			<div>
 				<p className="text-xs font-semibold text-muted mb-2 px-2">PINNED</p>

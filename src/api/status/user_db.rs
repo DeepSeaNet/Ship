@@ -17,7 +17,7 @@ impl UserManager {
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS contacts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL UNIQUE,
                 username TEXT NOT NULL,
                 avatar TEXT NOT NULL,
                 trust_level INTEGER NOT NULL DEFAULT 0,
@@ -31,27 +31,31 @@ impl UserManager {
     }
 
     pub async fn save_contact(&self, contact: DisplayUserInfo) -> anyhow::Result<()> {
-        // Проверяем, существует ли уже контакт
-        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM contacts WHERE user_id = ?")
-            .bind(contact.user_id)
-            .fetch_one(&self.pool)
-            .await?;
-
-        if count > 0 {
-            return Ok(());
-        }
-
-        // Добавляем новый контакт
-        sqlx::query(
-            "INSERT INTO contacts (user_id, username, avatar, trust_level, created_at) VALUES (?, ?, ?, ?, ?)",
+        // Пытаемся обновить существующий контакт
+        let rows_affected = sqlx::query(
+            "UPDATE contacts SET username = ?, avatar = ?, trust_level = ? WHERE user_id = ?",
         )
-        .bind(contact.user_id)
         .bind(&contact.username)
         .bind(&contact.avatar)
         .bind(contact.trust_level)
-        .bind(contact.created_at)
+        .bind(contact.user_id)
         .execute(&self.pool)
-        .await?;
+        .await?
+        .rows_affected();
+
+        // Если ничего не обновилось, значит контакта нет — создаем новый
+        if rows_affected == 0 {
+            sqlx::query(
+                "INSERT INTO contacts (user_id, username, avatar, trust_level, created_at) VALUES (?, ?, ?, ?, ?)",
+            )
+            .bind(contact.user_id)
+            .bind(&contact.username)
+            .bind(&contact.avatar)
+            .bind(contact.trust_level)
+            .bind(contact.created_at)
+            .execute(&self.pool)
+            .await?;
+        }
 
         Ok(())
     }

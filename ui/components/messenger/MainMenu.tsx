@@ -11,6 +11,7 @@ import { ChatArea } from "./ChatArea";
 import { LeftSidebar } from "./LeftSidebar";
 import { RightSidebar } from "./RightSidebar";
 import { TopBar } from "./TopBar";
+import { ContactsMenu } from "./ContactsMenu";
 import "./messenger.css";
 import { getStatusColor, handleStatusChange } from "@/hooks/useContacts";
 import { SettingsModal } from "../settings/SettingsModal/index";
@@ -19,6 +20,7 @@ import { useAppearanceSettings } from "@/hooks/useAppearanceSettings";
 function MessengerContent() {
 	const { setAnimatingIn, currentUser, upsertUser } = useMessengerState();
 	const [showMessages, setShowMessages] = useState(true);
+	const [showContacts, setShowContacts] = useState(false);
 	const [showGroupInfo, setShowGroupInfo] = useState(false);
 	const [showSettings, setShowSettings] = useState(false);
 	// Initialize CSS vars from persisted appearance settings
@@ -116,14 +118,21 @@ function MessengerContent() {
 					<Button
 						isIconOnly
 						variant="ghost"
-						className="w-10 h-10 rounded-lg hover:bg-on-surface text-muted border-none"
+						onPress={() => {
+							setShowContacts(!showContacts);
+							setShowMessages(false);
+						}}
+						className={`w-10 h-10 rounded-lg hover:bg-on-surface transition border-none ${showContacts ? "bg-accent/10 text-accent" : "text-muted"}`}
 					>
 						<Persons className="w-5 h-5" />
 					</Button>
 					<Button
 						isIconOnly
 						variant="ghost"
-						onPress={() => setShowMessages(!showMessages)}
+						onPress={() => {
+							setShowMessages(!showMessages);
+							setShowContacts(false);
+						}}
 						className={`w-10 h-10 rounded-lg hover:bg-on-surface transition border-none ${showMessages ? "bg-accent/10 text-accent" : "text-muted"}`}
 					>
 						<Comment className="w-5 h-5" />
@@ -140,14 +149,19 @@ function MessengerContent() {
 				</Button>
 			</div>
 
-			{/* Left Panel - Messages List (Closable with Animation) */}
+			{/* Left Panel - Sidebar (Closable with Animation) */}
 			<div
-				className={`overflow-hidden transition-all duration-300 ease-in-out ${
-					showMessages ? "w-64 opacity-100" : "w-0 opacity-0"
+				className={`overflow-hidden transition-all duration-300 ease-in-out flex-shrink-0 ${
+					showMessages || showContacts ? "w-64 opacity-100" : "w-0 opacity-0"
 				}`}
 			>
 				<div className="w-64 bg-background rounded-2xl flex flex-col overflow-hidden h-full">
-					<LeftSidebar onClose={() => setShowMessages(false)} />
+					{showMessages && (
+						<LeftSidebar onClose={() => setShowMessages(false)} />
+					)}
+					{showContacts && (
+						<ContactsMenu onClose={() => setShowContacts(false)} />
+					)}
 				</div>
 			</div>
 

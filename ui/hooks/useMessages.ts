@@ -54,6 +54,7 @@ export function useMessages(chatId: string | null) {
 					chatId: msg.chat_id || chatId,
 					senderId,
 					senderName,
+					senderAvatar: sender?.avatar,
 					content: msg.content || "",
 					timestamp: new Date(msg.timestamp * 1000).toISOString(),
 					isOwn: senderId === localStorage.getItem("userId"),

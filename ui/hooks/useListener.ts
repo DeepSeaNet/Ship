@@ -107,6 +107,7 @@ export function useListener({
 							chatId: chatId,
 							senderId,
 							senderName,
+							senderAvatar: sender?.avatar,
 							content: data.text,
 							timestamp: new Date(data.timestamp * 1000).toISOString(),
 							isOwn:

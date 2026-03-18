@@ -72,9 +72,9 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 	const chatMessages = messagesByChat[message.chatId] || [];
 	const repliedMessage = message.reply_to
 		? chatMessages.find((m) => String(m.id) === String(message.reply_to)) ||
-		Object.values(messagesByChat)
-			.flat()
-			.find((m) => String(m.id) === String(message.reply_to))
+			Object.values(messagesByChat)
+				.flat()
+				.find((m) => String(m.id) === String(message.reply_to))
 		: null;
 
 	const scrollToReplied = () => {
@@ -100,6 +100,12 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 			>
 				{!isOwn && (
 					<Avatar size="sm" className="bg-default text-default-foreground mt-1">
+						{message.senderAvatar && (
+							<Avatar.Image
+								src={message.senderAvatar}
+								alt={message.senderName}
+							/>
+						)}
 						<Avatar.Fallback>
 							{message.senderName?.slice(0, 2).toUpperCase() || "??"}
 						</Avatar.Fallback>
@@ -124,19 +130,21 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 								borderRadius: "var(--bubble-radius, 18px)",
 								fontSize: "var(--msg-font-size, 14px)",
 							}}
-							className={`px-3 py-1.5 ${isOwn
-								? "bg-accent text-accent-foreground"
-								: "bg-surface text-surface-foreground border border-border"
-								} cursor-default min-w-[60px] max-w-full`}
+							className={`px-3 py-1.5 ${
+								isOwn
+									? "bg-accent text-accent-foreground"
+									: "bg-surface text-surface-foreground border border-border"
+							} cursor-default min-w-[60px] max-w-full`}
 						>
 							{/* Reply-to preview */}
 							{repliedMessage && (
 								<div
 									onClick={scrollToReplied}
-									className={`mb-1.5 px-2 py-1 rounded-lg text-xs border-l-2 cursor-pointer hover:opacity-80 transition-opacity ${isOwn
-										? "border-white/40 bg-white/10"
-										: "border-accent bg-accent/10"
-										}`}
+									className={`mb-1.5 px-2 py-1 rounded-lg text-xs border-l-2 cursor-pointer hover:opacity-80 transition-opacity ${
+										isOwn
+											? "border-white/40 bg-white/10"
+											: "border-accent bg-accent/10"
+									}`}
 								>
 									<p
 										className={`font-semibold mb-0.5 ${isOwn ? "text-white/70" : "text-accent"}`}

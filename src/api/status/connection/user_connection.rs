@@ -105,7 +105,7 @@ impl Backend {
             Ok(DisplayUserInfo {
                 user_id: user.user_id,
                 username: user.username,
-                avatar: user.avatar_url,
+                avatar: format!("http://{}", user.avatar_url),
                 status: online_status.as_str_name().to_string(),
                 last_seen,
                 created_at,
