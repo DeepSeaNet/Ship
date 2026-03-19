@@ -1,12 +1,15 @@
 use anyhow::Result;
-use tonic::transport::Channel;
+use std::str::FromStr;
+use tauri::http::Uri;
+use tonic_h3::H3Channel;
+use tonic_h3::quinn::H3QuinnConnector;
 
 use crate::api::{
     account::{
         Account,
         account_service::auth::{RegisterRequest, auth_service_client::AuthServiceClient},
     },
-    connection::get_avaliable_servers,
+    connection::{endpoint::create_client_endpoint, get_avaliable_servers},
 };
 
 #[allow(clippy::all, clippy::pedantic, clippy::restriction, clippy::nursery)]
@@ -40,9 +43,13 @@ impl Account {
         };
 
         log::debug!("Sending registration request for user: {}", username);
-        let channel = Channel::from_shared(server_address.clone())?
-            .connect()
-            .await?;
+        let uri = Uri::from_str(&server_address.clone())?;
+
+        let endpoint = create_client_endpoint()
+            .map_err(|e| anyhow::anyhow!("Failed to create client endpoint: {:?}", e))?;
+        let connector = H3QuinnConnector::new(uri.clone(), "sea_auth".to_string(), endpoint);
+
+        let channel = H3Channel::new(connector, uri);
         let mut client = AuthServiceClient::new(channel);
 
         let register_response = client.register(request).await?.into_inner();
