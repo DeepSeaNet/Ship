@@ -1,11 +1,8 @@
 use base64::{Engine as _, engine::general_purpose};
 use rand::Rng;
-use std::str::FromStr;
 use std::sync::Arc;
 use tauri::AppHandle;
 use tauri::Emitter;
-use tauri_plugin_fs::FilePath;
-use tauri_plugin_fs::FsExt;
 use tokio::sync::RwLock;
 
 use crate::api::device::Device;
@@ -798,7 +795,11 @@ pub async fn update_group_config(
     visibility: Option<String>,
     join_mode: Option<String>,
     description: Option<String>,
-    avatar: Option<String>,
+    avatar: Option<Vec<u8>>,
+    _avatar_hash: Option<String>,
+    _width: Option<u32>,
+    _height: Option<u32>,
+    _mime_type: Option<String>,
     max_members: Option<u32>,
     slow_mode_delay: Option<u32>,
     allow_stickers: Option<bool>,
@@ -884,14 +885,7 @@ pub async fn update_group_config(
             new_config.set_allow_messages(allow_messages);
         }
         log::info!("Allow messages: {:?}", allow_messages);
-        if let Some(avatar_path) = avatar {
-            let avatar_data = {
-                let file_path = FilePath::from_str(&avatar_path).unwrap();
-                let media = app_handle.fs().read(file_path).unwrap();
-                log::info!("Media size: {}", media.len());
-                media
-            };
-
+        if let Some(avatar_data) = avatar {
             if avatar_data.len() > 5 * 1024 * 1024 {
                 return Err("Avatar size must be less than 5MB".to_string());
             }

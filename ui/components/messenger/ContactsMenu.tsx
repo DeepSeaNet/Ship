@@ -9,14 +9,20 @@ import {
 import { useState } from "react";
 import { useContacts } from "@/hooks/useContacts";
 import { Person, ShieldCheck, Xmark, Plus } from "@gravity-ui/icons";
+import { useMessengerState } from "@/hooks";
 
 interface ContactsMenuProps {
 	onClose: () => void;
 }
 
 export function ContactsMenu({ onClose }: ContactsMenuProps) {
-	const { contacts, loading, error, addContact, manageTrustFactor } =
-		useContacts();
+	const {
+		contacts,
+		contactsLoading,
+		contactsError,
+		addContact,
+		manageTrustFactor,
+	} = useMessengerState();
 	const [newUserId, setNewUserId] = useState("");
 	const [isAdding, setIsAdding] = useState(false);
 	const [addError, setAddError] = useState("");
@@ -91,13 +97,13 @@ export function ContactsMenu({ onClose }: ContactsMenuProps) {
 
 			{/* Contacts List */}
 			<ScrollShadow className="flex-1 overflow-y-auto -mx-4 px-4">
-				{loading && contactsList.length === 0 ? (
+				{contactsLoading && contactsList.length === 0 ? (
 					<div className="flex items-center justify-center h-full">
 						<div className="text-sm text-muted">Loading contacts...</div>
 					</div>
-				) : error ? (
+				) : contactsError ? (
 					<div className="flex items-center justify-center h-full">
-						<div className="text-sm text-danger">{error}</div>
+						<div className="text-sm text-danger">{contactsError}</div>
 					</div>
 				) : contactsList.length === 0 ? (
 					<div className="flex items-center justify-center h-full text-center p-4">

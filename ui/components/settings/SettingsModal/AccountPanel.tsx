@@ -81,11 +81,7 @@ export function AccountPanel() {
 				},
 			);
 
-			const newAvatarUrl = await updateAvatar(
-				uint8Array,
-				dimensions,
-				mimeType,
-			);
+			const newAvatarUrl = await updateAvatar(uint8Array, dimensions, mimeType);
 			if (newAvatarUrl) {
 				const avatarUrl = newAvatarUrl + "?t=" + Date.now();
 				localStorage.setItem("avatarUrl", avatarUrl);
@@ -126,7 +122,7 @@ export function AccountPanel() {
 					<Avatar.Fallback>
 						{typeof window !== "undefined"
 							? localStorage.getItem("username")?.slice(0, 1).toUpperCase() ||
-							"U"
+								"U"
 							: "U"}
 					</Avatar.Fallback>
 				</Avatar>

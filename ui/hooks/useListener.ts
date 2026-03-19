@@ -33,7 +33,7 @@ interface ListenerProps {
 			status: Message["status"],
 		) => void;
 		updateMessageId: (chatId: string, oldId: string, newId: string) => void;
-		upsertUser: (user: User) => void;
+		upsertUser: (user: Partial<User> & { id: string }) => void;
 	};
 }
 
@@ -50,34 +50,13 @@ export function useListener({
 		let isMounted = true;
 
 		const setupListener = async () => {
-			// Initial Data Loading
-			actions.setIsLoading(true);
-			await Promise.all([actions.fetchChats()]);
-
-			if (!isMounted) return;
-			actions.setIsLoading(false);
-
-			// Current User Initialization
-			const userId = localStorage.getItem("userId");
-			const username = localStorage.getItem("username");
-			const avatar_url = localStorage.getItem("avatarUrl") || "";
-			if (userId && username && isMounted) {
-				actions.setCurrentUser({
-					id: userId,
-					name: username,
-					status: "Online",
-					avatar: avatar_url,
-				});
-				actions.upsertUser({ id: userId, name: username, status: "Online" });
-			}
-
 			// Cleanup existing listener
 			if (unlistenRef.current) {
 				unlistenRef.current();
 				unlistenRef.current = null;
 			}
 
-			// Setup Tauri Event Listener
+			// Setup Tauri Event Listener FIRST to catch early events (like user status changes)
 			const unlisten = await listen<any>("server-event", (event) => {
 				if (!isMounted) return;
 
@@ -269,11 +248,10 @@ export function useListener({
 					case "user_status_changed": {
 						const data = payload.data;
 						if (data.user_id) {
+							// For status updates, we only need ID and status.
+							// upsertUser now handles merging correctly.
 							actions.upsertUser({
 								id: String(data.user_id),
-								name:
-									contactsRef.current[String(data.user_id)]?.name ||
-									"User " + data.user_id,
 								status: data.status,
 							});
 						}
@@ -301,8 +279,29 @@ export function useListener({
 
 			if (!isMounted) {
 				unlisten();
-			} else {
-				unlistenRef.current = unlisten;
+				return;
+			}
+			unlistenRef.current = unlisten;
+
+			// Initial Data Loading
+			actions.setIsLoading(true);
+			await Promise.all([actions.fetchChats()]);
+
+			if (!isMounted) return;
+			actions.setIsLoading(false);
+
+			// Current User Initialization
+			const userId = localStorage.getItem("userId");
+			const username = localStorage.getItem("username");
+			const avatar_url = localStorage.getItem("avatarUrl") || "";
+			if (userId && username && isMounted) {
+				actions.setCurrentUser({
+					id: userId,
+					name: username,
+					status: "Online",
+					avatar: avatar_url,
+				});
+				actions.upsertUser({ id: userId, name: username, status: "Online" });
 			}
 		};
 

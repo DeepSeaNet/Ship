@@ -56,19 +56,23 @@ export function useContacts() {
 		setError(null);
 		try {
 			const result = await invoke<any[]>("get_contacts");
-			const formattedContacts: Record<string, User> = {};
-			result.forEach((c) => {
-				formattedContacts[String(c.user_id)] = {
-					id: String(c.user_id),
-					name: c.username,
-					avatar: c.avatar,
-					status: c.status,
-				};
-			});
 			await invoke("subscribe_to_users", {
 				userIds: result.map((c) => c.user_id),
 			});
-			setContacts(formattedContacts);
+			setContacts((prev) => {
+				const merged = { ...prev };
+				result.forEach((c) => {
+					const id = String(c.user_id);
+					merged[id] = {
+						...(prev[id] || {}),
+						id,
+						name: c.username,
+						avatar: c.avatar,
+						status: prev[id]?.status || c.status,
+					};
+				});
+				return merged;
+			});
 		} catch (err) {
 			console.error("Failed to fetch contacts:", err);
 			setError(err instanceof Error ? err.message : "Failed to fetch contacts");

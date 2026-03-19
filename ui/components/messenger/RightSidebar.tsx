@@ -170,7 +170,6 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 					: "member";
 		return { ...user, role };
 	});
-
 	return (
 		<div className="w-96 bg-surface flex flex-col h-full border-l border-border">
 			<ScrollShadow className="flex-1 overflow-y-auto">

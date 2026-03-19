@@ -51,7 +51,15 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 	const [isLoading, setIsLoading] = useState(true);
 	const [currentUser, setCurrentUser] = useState<User | null>(null);
 	const uiStateRef = useRef(uiState);
-	const { contacts, setContacts, getUserInfo } = useContacts();
+	const {
+		contacts,
+		setContacts,
+		getUserInfo,
+		manageTrustFactor,
+		addContact,
+		error: contactsError,
+		loading: contactsLoading,
+	} = useContacts();
 	const { groups, setGroups, fetchGroups } = useGroups(currentUser);
 	useEffect(() => {
 		uiStateRef.current = uiState;
@@ -245,11 +253,19 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 		});
 	};
 
-	const upsertUser = (user: User) => {
+	const upsertUser = (user: Partial<User> & { id: string }) => {
 		setContacts((prev) => {
+			const existing = prev[user.id] || {};
+			// Only update the parts that are provided in the update
 			return {
 				...prev,
-				[user.id]: { ...(prev[user.id] || {}), ...user },
+				[user.id]: {
+					...existing,
+					...user,
+					id: user.id,
+					name: user.name || existing.name || "User " + user.id,
+					status: user.status || existing.status,
+				},
 			};
 		});
 	};
@@ -293,6 +309,7 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 		contactsRef,
 		actions: listenerActions,
 	});
+
 	// Re-run if methods change, though useCallback handles stability
 
 	const value: MessengerContextType = useMemo(
@@ -318,6 +335,10 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 			fetchGroups: fetchGroupsStable,
 			contacts,
 			getUserInfo,
+			manageTrustFactor,
+			addContact,
+			contactsError,
+			contactsLoading,
 		}),
 		[
 			uiState,
@@ -341,6 +362,10 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 			fetchGroupsStable,
 			contacts,
 			getUserInfo,
+			manageTrustFactor,
+			addContact,
+			contactsError,
+			contactsLoading,
 		],
 	);
 

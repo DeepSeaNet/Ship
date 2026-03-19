@@ -197,30 +197,24 @@ impl UserStatusClient {
         Ok(())
     }
 
-    /// Инициализирует стрим для обмена статусами
     async fn initialize_stream(
         &self,
         status_rx: mpsc::Receiver<UserStatusRequest>,
     ) -> Result<(), anyhow::Error> {
-        // Клонируем клиента для использования в потоке
         let mut backend = self.backend.clone();
         let status_cache = self.status_cache.clone();
         let app_handler = self.app_handler.clone();
 
-        // Создаем поток из канала
         let request_stream = ReceiverStream::new(status_rx);
 
-        // Запускаем двунаправленный стрим
         tokio::spawn(async move {
             match backend.client.stream_user_status(request_stream).await {
                 Ok(response) => {
                     let mut stream = response.into_inner();
 
-                    // Обрабатываем входящие сообщения
                     while let Ok(Some(message)) = stream.message().await {
                         match message.message {
                             Some(user_status_response::Message::OnlineStatusResponse(status)) => {
-                                // Кэшируем статус пользователя
                                 if let Some(timestamp) = &status.timestamp {
                                     let seconds = timestamp.seconds;
                                     let nanos = timestamp.nanos as u32;
