@@ -23,7 +23,7 @@
 	"license": "ISC",
 	"description": "ship client",
 	"devDependencies": {
-		"@biomejs/biome": "2.4.6",
+		"@biomejs/biome": "^2.4.7",
 		"@tailwindcss/postcss": "^4.1.18",
 		"@tauri-apps/cli": "^2.7.1",
 		"postcss": "^8.5.6",

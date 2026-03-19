@@ -125,8 +125,7 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 	}, [fetchGroups]);
 
 	// --- Actions ---
-
-	const setActiveChatId = (id: string | null) => {
+	const setActiveChatId = useCallback((id: string | null) => {
 		const isGroup = chatsRef.current.find((c) => c.id === id)?.isGroup || false;
 		console.log("Setting active chat to:", id, "isGroup:", isGroup);
 		setUIState((prev) => ({
@@ -134,27 +133,30 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 			activeChatId: id,
 			activeGroupId: isGroup ? id : null,
 		}));
-	};
+	}, []);
 
-	const setActiveGroupId = (id: string | null) => {
-		setActiveChatId(id);
-	};
+	const setActiveGroupId = useCallback(
+		(id: string | null) => {
+			setActiveChatId(id);
+		},
+		[setActiveChatId],
+	);
 
-	const toggleRightSidebar = () => {
+	const toggleRightSidebar = useCallback(() => {
 		setUIState((prev) => ({
 			...prev,
 			rightSidebarOpen: !prev.rightSidebarOpen,
 		}));
-	};
+	}, []);
 
-	const setAnimatingIn = (animating: boolean) => {
+	const setAnimatingIn = useCallback((animating: boolean) => {
 		setUIState((prev) => ({
 			...prev,
 			isAnimatingIn: animating,
 		}));
-	};
+	}, []);
 
-	const addMessage = (chatId: string, message: Message) => {
+	const addMessage = useCallback((chatId: string, message: Message) => {
 		setMessagesByChat((prev) => ({
 			...prev,
 			[chatId]: [...(prev[chatId] || []), message],
@@ -168,7 +170,7 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 						return {
 							...chat,
 							lastMessage: message.content,
-							lastMessageTime: message.timestamp || new Date().toISOString(), // Fallback if timestamp missing
+							lastMessageTime: message.timestamp || new Date().toISOString(),
 						};
 					}
 					return chat;
@@ -183,67 +185,71 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 					return bTime - aTime;
 				}),
 		);
-	};
+	}, []);
 
-	const setMessagesForChat = (chatId: string, messages: Message[]) => {
-		setMessagesByChat((prev) => ({
-			...prev,
-			[chatId]: messages,
-		}));
-	};
-
-	const updateMessageStatus = (
-		chatId: string,
-		messageId: string,
-		status: Message["status"],
-	) => {
-		setMessagesByChat((prev) => {
-			const chatMessages = prev[chatId];
-			if (!chatMessages) return prev;
-
-			return {
+	const setMessagesForChat = useCallback(
+		(chatId: string, messages: Message[]) => {
+			setMessagesByChat((prev) => ({
 				...prev,
-				[chatId]: chatMessages.map((msg) =>
-					msg.id === messageId ? { ...msg, status } : msg,
-				),
-			};
-		});
-	};
+				[chatId]: messages,
+			}));
+		},
+		[],
+	);
 
-	const updateMessageId = (chatId: string, oldId: string, newId: string) => {
-		setMessagesByChat((prev) => {
-			const chatMessages = prev[chatId];
-			if (!chatMessages) return prev;
+	const updateMessageStatus = useCallback(
+		(chatId: string, messageId: string, status: Message["status"]) => {
+			setMessagesByChat((prev) => {
+				const chatMessages = prev[chatId];
+				if (!chatMessages) return prev;
 
-			return {
-				...prev,
-				[chatId]: chatMessages.map((msg) =>
-					msg.id === oldId ? { ...msg, id: newId } : msg,
-				),
-			};
-		});
-	};
+				return {
+					...prev,
+					[chatId]: chatMessages.map((msg) =>
+						msg.id === messageId ? { ...msg, status } : msg,
+					),
+				};
+			});
+		},
+		[],
+	);
 
-	const editMessage = (
-		chatId: string,
-		messageId: string,
-		newContent: string,
-	) => {
-		setMessagesByChat((prev) => {
-			const chatMessages = prev[chatId];
-			if (!chatMessages) return prev;
-			return {
-				...prev,
-				[chatId]: chatMessages.map((msg) =>
-					msg.id === messageId
-						? { ...msg, content: newContent, edited: true }
-						: msg,
-				),
-			};
-		});
-	};
+	const updateMessageId = useCallback(
+		(chatId: string, oldId: string, newId: string) => {
+			setMessagesByChat((prev) => {
+				const chatMessages = prev[chatId];
+				if (!chatMessages) return prev;
 
-	const markChatAsLoaded = (chatId: string) => {
+				return {
+					...prev,
+					[chatId]: chatMessages.map((msg) =>
+						msg.id === oldId ? { ...msg, id: newId } : msg,
+					),
+				};
+			});
+		},
+		[],
+	);
+
+	const editMessage = useCallback(
+		(chatId: string, messageId: string, newContent: string) => {
+			setMessagesByChat((prev) => {
+				const chatMessages = prev[chatId];
+				if (!chatMessages) return prev;
+				return {
+					...prev,
+					[chatId]: chatMessages.map((msg) =>
+						msg.id === messageId
+							? { ...msg, content: newContent, edited: true }
+							: msg,
+					),
+				};
+			});
+		},
+		[],
+	);
+
+	const markChatAsLoaded = useCallback((chatId: string) => {
 		setUIState((prev) => {
 			if (prev.loadedChatIds.includes(chatId)) return prev;
 			return {
@@ -251,24 +257,43 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 				loadedChatIds: [...prev.loadedChatIds, chatId],
 			};
 		});
-	};
+	}, []);
 
-	const upsertUser = (user: Partial<User> & { id: string }) => {
-		setContacts((prev) => {
-			const existing = prev[user.id] || {};
-			// Only update the parts that are provided in the update
-			return {
-				...prev,
-				[user.id]: {
-					...existing,
-					...user,
-					id: user.id,
-					name: user.name || existing.name || "User " + user.id,
-					status: user.status || existing.status,
-				},
+	const upsertUser = useCallback(
+		(user: Partial<User> & { id: string }) => {
+			setContacts((prev) => {
+				const existing = prev[user.id] || {};
+				return {
+					...prev,
+					[user.id]: {
+						...existing,
+						...user,
+						id: user.id,
+						name: user.name || existing.name || "User " + user.id,
+						status: user.status || existing.status,
+					},
+				};
+			});
+		},
+		[setContacts],
+	);
+
+	// --- Current User Initialization ---
+	useEffect(() => {
+		const userId = localStorage.getItem("userId");
+		const username = localStorage.getItem("username");
+		const avatar_url = localStorage.getItem("avatarUrl") || "";
+		if (userId && username) {
+			const userData: User = {
+				id: userId,
+				name: username,
+				status: "Online",
+				avatar: avatar_url,
 			};
-		});
-	};
+			setCurrentUser(userData);
+			upsertUser(userData);
+		}
+	}, [upsertUser]);
 
 	// --- Event Listener ---
 	const listenerActions = useMemo(
@@ -290,15 +315,11 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 			addMessage,
 			setActiveChatId,
 			fetchChatsStable,
-			setIsLoading,
-			setCurrentUser,
-			setGroups,
-			setChats,
-			setUIState,
 			editMessage,
 			updateMessageStatus,
 			updateMessageId,
 			upsertUser,
+			// setIsLoading, setCurrentUser, setGroups, setChats, setUIState are from useState/useGroups and are stable
 		],
 	);
 

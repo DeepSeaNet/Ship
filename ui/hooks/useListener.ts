@@ -45,18 +45,23 @@ export function useListener({
 	actions,
 }: ListenerProps) {
 	const unlistenRef = useRef<(() => void) | null>(null);
+	const currentUserRef = useRef<User | null>(currentUser);
+
+	useEffect(() => {
+		currentUserRef.current = currentUser;
+	}, [currentUser]);
 
 	useEffect(() => {
 		let isMounted = true;
 
 		const setupListener = async () => {
-			// Cleanup existing listener
+			// Cleanup existing listener if any
 			if (unlistenRef.current) {
 				unlistenRef.current();
 				unlistenRef.current = null;
 			}
 
-			// Setup Tauri Event Listener FIRST to catch early events (like user status changes)
+			// Setup Tauri Event Listener FIRST
 			const unlisten = await listen<any>("server-event", (event) => {
 				if (!isMounted) return;
 
@@ -71,9 +76,9 @@ export function useListener({
 						const data = payload.data;
 						const chatId = data.group_id || data.chat_id;
 
-						// Use refs to avoid stale closures
 						const chats = chatsRef.current;
 						const contacts = contactsRef.current;
+						const currentLocalUser = currentUserRef.current;
 
 						const chat = chats.find((c) => c.id === chatId);
 						const senderId = data.sender_id?.toString() || "0";
@@ -90,8 +95,8 @@ export function useListener({
 							content: data.text,
 							timestamp: new Date(data.timestamp * 1000).toISOString(),
 							isOwn:
-								data.sender_id === currentUser?.id ||
-								data.sender_id?.toString() === currentUser?.id,
+								data.sender_id === currentLocalUser?.id ||
+								data.sender_id?.toString() === currentLocalUser?.id,
 							status: "sent",
 							media: data.media,
 							media_name: data.media_name,
@@ -119,13 +124,10 @@ export function useListener({
 						if (!isCurrentlyActive && !message.isOwn) {
 							const notifSettings = getNotificationSettings();
 							const override = notifSettings.chatOverrides[chatId];
-
 							const isGroup = !!data.group_id;
 
-							// Per-chat mute
 							if (override?.muted) return;
 
-							// Determine mention filter: use override if present, else global
 							const useMentionsOnly =
 								override?.mentionsOnly ?? notifSettings.mentionsOnly;
 
@@ -143,7 +145,6 @@ export function useListener({
 									: notifSettings.directMessages) &&
 								mentionTriggered;
 
-							// Always show toast when the local user is @mentioned (overrides mentionsOnly)
 							const username = localStorage.getItem("username") || "";
 							const isMentioned =
 								username && message.content.includes("@" + username);
@@ -248,8 +249,6 @@ export function useListener({
 					case "user_status_changed": {
 						const data = payload.data;
 						if (data.user_id) {
-							// For status updates, we only need ID and status.
-							// upsertUser now handles merging correctly.
 							actions.upsertUser({
 								id: String(data.user_id),
 								status: data.status,
@@ -260,8 +259,6 @@ export function useListener({
 
 					case "message_delivery": {
 						const { message_id, success } = payload.data;
-						// Iterate over all chats to find and update the message status
-						// This is a bit expensive but necessary since payload doesn't have chatId
 						uiStateRef.current.loadedChatIds.forEach((chatId) => {
 							actions.updateMessageStatus(
 								chatId,
@@ -285,24 +282,10 @@ export function useListener({
 
 			// Initial Data Loading
 			actions.setIsLoading(true);
-			await Promise.all([actions.fetchChats()]);
+			await actions.fetchChats();
 
 			if (!isMounted) return;
 			actions.setIsLoading(false);
-
-			// Current User Initialization
-			const userId = localStorage.getItem("userId");
-			const username = localStorage.getItem("username");
-			const avatar_url = localStorage.getItem("avatarUrl") || "";
-			if (userId && username && isMounted) {
-				actions.setCurrentUser({
-					id: userId,
-					name: username,
-					status: "Online",
-					avatar: avatar_url,
-				});
-				actions.upsertUser({ id: userId, name: username, status: "Online" });
-			}
 		};
 
 		setupListener();
@@ -314,5 +297,5 @@ export function useListener({
 				unlistenRef.current = null;
 			}
 		};
-	}, [actions.fetchChats, currentUser?.id]);
+	}, [actions.fetchChats]);
 }
