@@ -5,7 +5,6 @@ use rustls_platform_verifier::BuilderVerifierExt;
 use std::sync::Arc;
 
 pub fn create_client_endpoint() -> Result<Endpoint, Box<dyn std::error::Error>> {
-    // В Cargo.toml: rustls-platform-verifier = "0.3"
     let provider = Arc::new(rustls::crypto::aws_lc_rs::default_provider());
     let mut rustls_config = RustlsClientConfig::builder_with_provider(provider)
         .with_safe_default_protocol_versions()?

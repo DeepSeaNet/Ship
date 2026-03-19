@@ -12,7 +12,7 @@ pub fn get_group_servers() -> String {
 
 pub fn get_status_servers() -> String {
     //String::from("http://192.168.102.166:50052")
-    String::from("http://192.168.101.3:50052")
+    String::from("h3://192.168.101.3:50052")
 }
 
 pub fn get_avaliable_voice_servers() -> String {
