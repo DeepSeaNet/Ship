@@ -48,7 +48,7 @@ export function parseSdpForCodecMapping(sdp: string): void {
 
 	// Регулярное выражение для извлечения строк rtpmap
 	const rtpmapRegex = /a=rtpmap:(\d+) ([^/]+)/g;
-	let match;
+	let match: RegExpExecArray | null;
 
 	while ((match = rtpmapRegex.exec(sdp)) !== null) {
 		const payloadType = parseInt(match[1], 10);
@@ -171,7 +171,7 @@ function getCodecNameByType(codecType: CodecType): string {
 	}
 }
 
-function getVp8EncryptionOffset(data: Uint8Array): number {
+function _getVp8EncryptionOffset(data: Uint8Array): number {
 	if (!data || data.length === 0) return 0;
 	const pFlag = data[0] & 0x01;
 	// P=0 → key frame (10 bytes), P=1 → inter frame (1 byte)

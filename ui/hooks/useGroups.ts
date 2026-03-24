@@ -56,10 +56,10 @@ export function useGroups(currentUser?: User | null) {
 			if (!group) return false;
 
 			// Use context user, fallback to localstorage
-			let userId = currentUser ? parseInt(currentUser.id) : null;
+			let userId = currentUser ? parseInt(currentUser.id, 10) : null;
 			if (!userId && typeof window !== "undefined") {
 				const stored = localStorage.getItem("userId");
-				if (stored) userId = parseInt(stored);
+				if (stored) userId = parseInt(stored, 10);
 			}
 			if (!userId) return false;
 
@@ -183,7 +183,6 @@ export function useGroups(currentUser?: User | null) {
 		) => {
 			try {
 				console.log("Updating group config:", updates);
-				const avatar = updates.avatarPath;
 				let avatarHash = updates.avatarHash;
 				const width = updates.avatarWidth;
 				const height = updates.avatarHeight;
@@ -194,7 +193,7 @@ export function useGroups(currentUser?: User | null) {
 					if (!avatarHash) {
 						const hashBuffer = await crypto.subtle.digest(
 							"SHA-256",
-							updates.avatarBytes,
+							updates.avatarBytes as BufferSource,
 						);
 						avatarHash = Array.from(new Uint8Array(hashBuffer))
 							.map((b) => b.toString(16).padStart(2, "0"))

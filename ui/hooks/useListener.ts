@@ -84,7 +84,7 @@ export function useListener({
 						const senderId = data.sender_id?.toString() || "0";
 						const sender = contacts[senderId];
 						const senderName =
-							data.sender_name || sender?.name || "User " + senderId;
+							data.sender_name || sender?.name || `User ${senderId}`;
 
 						const message: Message = {
 							id: data.message_id.toString(),
@@ -134,7 +134,7 @@ export function useListener({
 							const mentionTriggered =
 								!useMentionsOnly ||
 								message.content.includes(
-									"@" + (localStorage.getItem("username") || ""),
+									`@${localStorage.getItem("username") || ""}`,
 								);
 
 							const shouldShow =
@@ -147,7 +147,7 @@ export function useListener({
 
 							const username = localStorage.getItem("username") || "";
 							const isMentioned =
-								username && message.content.includes("@" + username);
+								username && message.content.includes(`@${username}`);
 
 							if (shouldShow || isMentioned) {
 								toast(`From ${senderName || senderId}`, {

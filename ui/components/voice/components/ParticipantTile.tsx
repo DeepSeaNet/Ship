@@ -37,7 +37,7 @@ export function ParticipantTile({
 	}, [videoTrack?.mediaStreamTrack]);
 
 	const isScreenShare = videoTrack?.sourceType === "screen";
-	const displayName = name.length > 18 ? name.slice(0, 16) + "…" : name;
+	const displayName = name.length > 18 ? `${name.slice(0, 16)}…` : name;
 
 	return (
 		<Card

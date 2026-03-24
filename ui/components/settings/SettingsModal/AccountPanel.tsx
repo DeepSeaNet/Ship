@@ -83,7 +83,7 @@ export function AccountPanel() {
 
 			const newAvatarUrl = await updateAvatar(uint8Array, dimensions, mimeType);
 			if (newAvatarUrl) {
-				const avatarUrl = newAvatarUrl + "?t=" + Date.now();
+				const avatarUrl = `${newAvatarUrl}?t=${Date.now()}`;
 				localStorage.setItem("avatarUrl", avatarUrl);
 				setAvatarUrl(avatarUrl);
 				if (currentUser) {

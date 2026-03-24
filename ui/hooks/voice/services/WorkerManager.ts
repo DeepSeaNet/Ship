@@ -91,8 +91,8 @@ export class WorkerManager {
 	}
 
 	private async listenVoiceEvenets(): Promise<void> {
-		const unlisten = await listen<any>("voice-event", (event) => {
-			if (event.payload.type == "server_commit") {
+		const _unlisten = await listen<any>("voice-event", (event) => {
+			if (event.payload.type === "server_commit") {
 				this.fetchAndSyncKeys();
 			}
 		});

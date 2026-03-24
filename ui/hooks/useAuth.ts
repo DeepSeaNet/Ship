@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { LoginResult, RegisterResult } from "./types";
+import type { RegisterResult } from "./types";
 import { toast } from "@heroui/react";
 
 export const register = async (
@@ -15,11 +15,11 @@ export const register = async (
 			email,
 			password,
 		});
-		toast.info("Account registered successfully: " + result);
+		toast.info(`Account registered successfully: ${result}`);
 		return result;
 	} catch (error) {
 		console.error("Failed to register:", error);
-		toast.danger("Failed to register" + error);
+		toast.danger(`Failed to register${error}`);
 		throw error;
 	}
 };

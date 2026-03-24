@@ -41,7 +41,7 @@ export default function AuthPage() {
 		setSkipAccountSelection(false);
 	};
 
-	const handleLoginSubmit = async (email: string, password: string) => {
+	const handleLoginSubmit = async (_email: string, _password: string) => {
 		setIsLoading(true);
 		try {
 			setSuccessMessage("Login successful! Redirecting...");

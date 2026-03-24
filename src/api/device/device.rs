@@ -17,7 +17,7 @@ use tauri::AppHandle;
 
 use crate::api::{
     account::Account,
-    connection::get_group_servers,
+    connection::get_avaliable_servers,
     device::{
         connection::{Backend, group_microservice::Device as SDevice},
         db::{self},
@@ -71,7 +71,7 @@ impl Device {
         let client = Self::create_client(&identity)?;
         let db_path = db::get_default_db_path(account.credential.account_id.user_id);
         let groups = GroupStorage::new(db_path).await?;
-        let backend = Backend::new(get_group_servers()).await.ok();
+        let backend = Backend::new(get_avaliable_servers()).await.ok();
         let contacts_parsed_cache = CacheBuilder::new(10_000)
             .time_to_live(Duration::from_secs(60 * 30))
             .build();
@@ -92,7 +92,7 @@ impl Device {
     /// Establishes the stream and installs the group message handler.
     pub async fn init_backend(&mut self) -> Result<(), GroupError> {
         if self.backend.is_none() {
-            let backend = Backend::new(get_group_servers()).await.ok();
+            let backend = Backend::new(get_avaliable_servers()).await.ok();
             self.init_stream().await?;
             self.backend = backend;
         }
@@ -109,7 +109,7 @@ impl Device {
     ) -> Result<Self, GroupError> {
         let identity = IdentityKeypair::from_bytes(identity)?;
         let client = Self::create_client(&identity)?;
-        let backend = Backend::new(get_group_servers()).await.ok();
+        let backend = Backend::new(get_avaliable_servers()).await.ok();
         groups.load_groups(&client).await?;
         let contacts_parsed_cache = CacheBuilder::new(10_000)
             .time_to_live(Duration::from_secs(60 * 30))

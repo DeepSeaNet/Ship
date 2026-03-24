@@ -16,16 +16,16 @@ import {
 	Label,
 	ListBox,
 	Modal,
+	Selection,
 	Separator,
 	Surface,
 	Switch,
 	Tabs,
 	TextArea,
 	TextField,
-	toast,
 } from "@heroui/react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import type { Chat, Permissions } from "@/hooks/messengerTypes";
 import { useGroups } from "@/hooks/useGroups";
 import { useMessengerState } from "@/hooks/useMessengerState";
@@ -151,7 +151,7 @@ export const GroupSettingsModal = ({
 
 	const handleSaveGeneral = async () => {
 		setIsLoading(true);
-		const success = await updateGroupConfig(group.id, {
+		const _success = await updateGroupConfig(group.id, {
 			name,
 			description,
 			visibility: visibility as any,
@@ -164,7 +164,7 @@ export const GroupSettingsModal = ({
 
 	const handleSavePermissions = async () => {
 		setIsLoading(true);
-		const success = await updateGroupConfig(group.id, {
+		const _success = await updateGroupConfig(group.id, {
 			allowMessages: defaultPerms.send_messages,
 			allowLinks: defaultPerms.allow_links,
 			allowStickers: defaultPerms.allow_stickers,
@@ -425,7 +425,7 @@ export const GroupSettingsModal = ({
 												<Label>Group Name</Label>
 												<Input
 													value={name}
-													onChange={(e) => setName(e.target.value)}
+													onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
 													placeholder="Enter group name"
 												/>
 											</TextField>
@@ -434,7 +434,7 @@ export const GroupSettingsModal = ({
 												<Label>Description</Label>
 												<TextArea
 													value={description}
-													onChange={(e) => setDescription(e.target.value)}
+													onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
 													placeholder="Short description of the group"
 													rows={3}
 												/>
@@ -485,7 +485,7 @@ export const GroupSettingsModal = ({
 												const isSelf =
 													memberId.toString() ===
 													localStorage.getItem("userId");
-												const isAdmin = group.admins?.includes(memberId);
+												const _isAdmin = group.admins?.includes(memberId);
 												const isOwnerOfGroup = group.owner_id === memberId;
 
 												return (
@@ -772,7 +772,7 @@ export const GroupSettingsModal = ({
 												aria-label="Member Role"
 												selectedKeys={new Set([memberRole])}
 												selectionMode="single"
-												onSelectionChange={(keys) => {
+												onSelectionChange={(keys: Selection) => {
 													const selected = Array.from(keys)[0] as string;
 													if (selected) handleRoleChange(selected);
 												}}

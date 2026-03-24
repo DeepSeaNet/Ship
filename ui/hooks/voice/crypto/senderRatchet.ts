@@ -11,7 +11,6 @@
 
 import {
 	AEAD_NONCE_LEN,
-	AUTH_TAG_BYTES,
 	aesGcmEncrypt,
 	deriveInitialSecret,
 	mlsRatchetStep,

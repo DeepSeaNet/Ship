@@ -62,9 +62,9 @@
 }
 
 .fade-out {
-	animation: overlayFadeOut 0.6s ease-out forwards !important;
+	animation: overlayFadeOut 0.6s ease-out forwards;
 }
 
 .slide-in {
-	animation: messengerZoomIn 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important;
+	animation: messengerZoomIn 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }

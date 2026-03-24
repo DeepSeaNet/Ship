@@ -1,5 +1,5 @@
 import { toast } from "@heroui/react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { useState } from "react";
 import type { Message } from "./messengerTypes";
 import { useMessengerState } from "./useMessengerState";
@@ -42,7 +42,7 @@ export function useSendMessage() {
 			tempId = generateTempId();
 			const userId =
 				typeof window !== "undefined" ? localStorage.getItem("userId") : "0";
-
+			const fileName = options.file?.split(/[\\/]/).pop();
 			const newMessage: Message = {
 				id: tempId,
 				chatId,
@@ -55,6 +55,9 @@ export function useSendMessage() {
 				reply_to: options.replyTo,
 				edited: !!options.editId,
 				expires: options.expires,
+				media_name: fileName,
+				media: options.file ? convertFileSrc(options.file) : undefined,
+				is_file: !!options.file,
 			};
 
 			// Optimistically add the new message

@@ -11,7 +11,7 @@ export const createMediaUrl = (
 export const formatChatTime = (isoString?: string) => {
 	if (!isoString) return "";
 	const date = new Date(isoString);
-	if (isNaN(date.getTime())) return isoString; // Return original string if invalid date
+	if (Number.isNaN(date.getTime())) return isoString; // Return original string if invalid date
 
 	const now = new Date();
 	const diff = now.getTime() - date.getTime();

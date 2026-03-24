@@ -17,14 +17,14 @@ export const getAccountList = async (): Promise<Account[]> => {
 
 export const loginWithAccount = async (
 	account: Account,
-	password?: string,
+	_password?: string,
 ): Promise<void> => {
 	try {
 		try {
-			const result = await invoke("login", { username: account.username });
+			const _result = await invoke("login", { username: account.username });
 		} catch (error) {
 			console.error("Failed to login:", error);
-			toast.danger("Failed to login: " + error);
+			toast.danger(`Failed to login: ${error}`);
 			throw error;
 		}
 		localStorage.setItem("userId", account.user_id.toString());
@@ -103,7 +103,7 @@ export const updateAvatar = async (
 		const fileSize = bytes.length;
 
 		// Calculate hash
-		const hashBuffer = await crypto.subtle.digest("SHA-256", bytes);
+		const hashBuffer = await crypto.subtle.digest("SHA-256", bytes as BufferSource);
 		const hash = Array.from(new Uint8Array(hashBuffer))
 			.map((b) => b.toString(16).padStart(2, "0"))
 			.join("");
@@ -113,7 +113,7 @@ export const updateAvatar = async (
 			dimensions = await new Promise<{ width: number; height: number }>(
 				(resolve, reject) => {
 					const img = new Image();
-					const blob = new Blob([bytes]);
+					const blob = new Blob([bytes as BufferSource]);
 					img.src = URL.createObjectURL(blob);
 					img.onload = () => {
 						resolve({ width: img.width, height: img.height });
@@ -143,7 +143,7 @@ export const updateAvatar = async (
 		return response.avatar_url;
 	} catch (error) {
 		console.error("Failed to update avatar:", error);
-		toast("Failed to update avatar: " + error, { variant: "danger" });
+		toast(`Failed to update avatar: ${error}`, { variant: "danger" });
 		throw error;
 	}
 };

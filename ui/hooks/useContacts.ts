@@ -106,9 +106,7 @@ export function useContacts() {
 				try {
 					await invoke("add_contact", { userId: Number(userId) });
 				} catch (e) {
-					console.warn(
-						"Backend add_contact might not be implemented yet. Proceeding to get user info.",
-					);
+					console.error("Failed to add contact:", e);
 				}
 				const info = await getUserInfo(userId);
 				if (info) {
@@ -136,9 +134,7 @@ export function useContacts() {
 					trustLevel,
 				});
 			} catch (e) {
-				console.warn(
-					"Backend update_trust_factor might not be implemented yet. This is a demo function.",
-				);
+				console.error("Failed to update trust factor:", e);
 			}
 			// In a real app, you might update the local state with the new trust factor here
 			return true;

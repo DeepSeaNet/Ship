@@ -8,7 +8,6 @@ import type {
 	LogEntryType,
 	MediaTrackInfo,
 	ServerInit,
-	ServerMessage,
 } from "../types/mediasoup";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "@heroui/react";
@@ -234,7 +233,7 @@ export class VoiceSessionManager {
 							await this.mediasoupService?.createTransports(
 								initMsg.producerTransportOptions,
 								initMsg.consumerTransportOptions,
-								(m: ClientMessage) => this.signaling!.sendMessage(m),
+								(m: ClientMessage) => this.signaling?.sendMessage(m),
 							);
 							this.updateState({ status: "connected" });
 							this.addLog("Call connected & initialized!", "success");
@@ -415,7 +414,7 @@ export class VoiceSessionManager {
 								appData,
 							);
 						},
-						(m: ClientMessage) => this.signaling!.sendMessage(m),
+						(m: ClientMessage) => this.signaling?.sendMessage(m),
 					);
 
 					if (!consumer) {

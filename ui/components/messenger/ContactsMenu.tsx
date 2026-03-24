@@ -7,8 +7,7 @@ import {
 	Slider,
 } from "@heroui/react";
 import { useState } from "react";
-import { useContacts } from "@/hooks/useContacts";
-import { Person, ShieldCheck, Xmark, Plus } from "@gravity-ui/icons";
+import { ShieldCheck, Xmark, Plus } from "@gravity-ui/icons";
 import { useMessengerState } from "@/hooks";
 
 interface ContactsMenuProps {
@@ -46,7 +45,7 @@ export function ContactsMenu({ onClose }: ContactsMenuProps) {
 			setNewUserId("");
 			setIsAddModalOpen(false);
 		} catch (err) {
-			setAddError("Failed to add contact. ID might be invalid.");
+			setAddError(`Failed to add contact. ID might be invalid. ${err}`);
 		} finally {
 			setIsAdding(false);
 		}

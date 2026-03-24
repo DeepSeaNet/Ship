@@ -5,20 +5,16 @@ use std::time::{Duration, SystemTime};
 use tokio::sync::Mutex;
 
 use crate::api::account::Account;
-use crate::api::connection::get_status_servers;
+use crate::api::connection::get_avaliable_servers;
 use crate::api::status::connection::Backend;
 use crate::api::status::connection::user_service_proto::user_status_response;
-use crate::api::status::connection::user_service_proto::{
-    OnlineStatus, TypingStatus, UserStatusRequest,
-};
+use crate::api::status::connection::user_service_proto::{OnlineStatus, TypingStatus};
 use crate::api::status::types::{
     Avatar, DisplayUserInfo, DisplayUserStatus, DisplayUserTypingStatus, UpdateUserAvatarResponse,
 };
 use crate::api::status::user_db::{UserManager, get_default_db_path};
 use tauri::Emitter;
 use tokio::sync::RwLock;
-use tokio::sync::mpsc;
-use tokio_stream::wrappers::ReceiverStream;
 /// Клиент для работы со статусами пользователя
 pub struct UserStatusClient {
     account: Arc<Account>,
@@ -47,11 +43,11 @@ impl UserStatusClient {
         app_handler: Option<tauri::AppHandle>,
     ) -> Result<Self, anyhow::Error> {
         // Создаем канал для отправки статусов
-        let addr = get_status_servers();
+        let addr = get_avaliable_servers();
 
         let status_cache = Arc::new(RwLock::new(HashMap::new()));
         let subscriptions = Arc::new(Mutex::new(Vec::new()));
-        let user_manager = UserManager::new(get_default_db_path(account.user_id as u64)).await?;
+        let user_manager = UserManager::new(get_default_db_path(account.user_id)).await?;
         // Создаем клиент
         let client = Self {
             account: account.clone(),

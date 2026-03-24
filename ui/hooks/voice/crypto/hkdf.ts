@@ -47,7 +47,7 @@ function encodeKdfLabel(
 	label: string,
 	context: Uint8Array,
 ): Uint8Array {
-	const fullLabel = "MLS 1.0 " + label;
+	const fullLabel = `MLS 1.0 ${label}`;
 	const labelBytes = new TextEncoder().encode(fullLabel);
 
 	// KDFLabel = u16(length) || u8(labelLen) || label || u8(contextLen) || context

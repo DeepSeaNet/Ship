@@ -29,8 +29,6 @@ export class AdvancedMicrophoneController {
 
 	// Состояние
 	private isVoiceActive = false;
-	private lastVoiceActivity = 0;
-	private lastSilenceStart = 0;
 
 	// VAD
 	private vad: MicVAD | null = null;
@@ -215,7 +213,6 @@ export class AdvancedMicrophoneController {
 
 		// Обновляем состояние
 		this.isVoiceActive = true;
-		this.lastVoiceActivity = Date.now();
 
 		// Останавливаем отправку пакетов тишины
 		this.stopSilencePackets();
@@ -243,7 +240,6 @@ export class AdvancedMicrophoneController {
 
 		// Обновляем состояние
 		this.isVoiceActive = false;
-		this.lastSilenceStart = Date.now();
 
 		if (this.audioContext && this.gainNode) {
 			// Плавно снижаем громкость

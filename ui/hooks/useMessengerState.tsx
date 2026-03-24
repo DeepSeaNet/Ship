@@ -12,10 +12,8 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { createMediaUrl } from "./helper";
 import type {
 	Chat,
-	Group,
 	Message,
 	MessengerContextType,
 	UIState,
@@ -269,7 +267,7 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 						...existing,
 						...user,
 						id: user.id,
-						name: user.name || existing.name || "User " + user.id,
+						name: user.name || existing.name || `User ${user.id}`,
 						status: user.status || existing.status,
 					},
 				};
@@ -312,13 +310,13 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 			upsertUser,
 		}),
 		[
-			addMessage,
-			setActiveChatId,
-			fetchChatsStable,
-			editMessage,
-			updateMessageStatus,
-			updateMessageId,
-			upsertUser,
+			addMessage, 
+			setActiveChatId, 
+			fetchChatsStable, 
+			editMessage, 
+			updateMessageStatus, 
+			updateMessageId, 
+			upsertUser, setGroups
 			// setIsLoading, setCurrentUser, setGroups, setChats, setUIState are from useState/useGroups and are stable
 		],
 	);

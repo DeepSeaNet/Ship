@@ -47,7 +47,7 @@ export function useMessages(chatId: string | null) {
 				const sender = contacts[senderId];
 
 				// If sender name is missing, we'll need to fetch it (handled below)
-				const senderName = sender?.name || "User " + senderId;
+				const senderName = sender?.name || `User ${senderId}`;
 
 				return {
 					id: msg.id?.toString() || "",
@@ -81,12 +81,12 @@ export function useMessages(chatId: string | null) {
 					missingUserIds.map(async (id) => {
 						try {
 							const userInfo = await invoke<any>("get_user_info", {
-								userId: parseInt(id),
+								userId: parseInt(id, 10),
 							});
 							if (userInfo) {
 								upsertUser({
 									id: id,
-									name: userInfo.username || userInfo.name || "User " + id,
+									name: userInfo.username || userInfo.name || `User ${id}`,
 									avatar: createMediaUrl(userInfo.avatar),
 								});
 							}
@@ -112,7 +112,8 @@ export function useMessages(chatId: string | null) {
 		} finally {
 			setLoading(false);
 		}
-	}, [chatId, markChatAsLoaded]);
+	}, [chatId, markChatAsLoaded, contacts, // Update the global state with fetched messages
+			setMessagesForChat, upsertUser]);
 
 	useEffect(() => {
 		if (!chatId || isLoaded) {

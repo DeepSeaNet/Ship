@@ -133,7 +133,7 @@ export function InputBar({
 			}
 		} catch (error) {
 			console.error("Failed to pick file:", error);
-			toast("Failed to pick file: " + error, { variant: "danger" });
+			toast(`Failed to pick file: ${error}`, { variant: "danger" });
 		}
 	};
 
@@ -216,9 +216,9 @@ export function InputBar({
 					<ArrowLeft className="w-4 h-4 text-accent shrink-0" />
 					<div className="flex-1 min-w-0">
 						<p className="text-xs text-accent font-semibold">
-							{replyTo!.senderName ?? "User"}
+							{replyTo?.senderName ?? "User"}
 						</p>
-						<p className="text-xs text-muted truncate">{replyTo!.content}</p>
+						<p className="text-xs text-muted truncate">{replyTo?.content}</p>
 					</div>
 					<Button
 						isIconOnly
@@ -240,7 +240,7 @@ export function InputBar({
 						<p className="text-xs text-warning font-semibold">
 							Editing message
 						</p>
-						<p className="text-xs text-muted truncate">{editTarget!.content}</p>
+						<p className="text-xs text-muted truncate">{editTarget?.content}</p>
 					</div>
 					<Button
 						isIconOnly
@@ -367,7 +367,7 @@ export function InputBar({
 										: "text-muted hover:bg-on-surface-hover"
 								}
 							>
-								{({ isPending }) =>
+								{({ isPending }: { isPending: boolean }) =>
 									isPending ? (
 										<Spinner color="current" size="sm" />
 									) : messageContent.trim() || selectedFile ? (

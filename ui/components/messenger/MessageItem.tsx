@@ -7,7 +7,6 @@ import { formatChatTime } from "@/hooks/helper";
 import type { Message } from "@/hooks/messengerTypes";
 import { useMessageActions } from "@/hooks/useMessageActions";
 import { useMessengerState } from "@/hooks/useMessengerState";
-import { createMediaUrl } from "@/hooks/helper";
 
 interface MessageItemProps {
 	message: Message;

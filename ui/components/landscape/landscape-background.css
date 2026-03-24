@@ -48,6 +48,6 @@
 @media (prefers-reduced-motion: reduce) {
 	.landscape {
 		transition: none;
-		transform: scale(1) !important;
+		transform: scale(1);
 	}
 }

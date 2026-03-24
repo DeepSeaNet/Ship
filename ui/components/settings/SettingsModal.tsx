@@ -30,6 +30,7 @@ import {
 	TextField,
 	Tooltip,
 	toast,
+	type Key,
 } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { useNotificationSettings } from "@/hooks/useNotificationSettings";
@@ -51,7 +52,8 @@ function DevicesPanelContent() {
 					setDevices(deps);
 				}
 			} catch (err) {
-				toast("Failed to load devices", { variant: "danger" });
+				console.error("Failed to load devices:", err);
+				toast(`Failed to load devices: ${err}`, { variant: "danger" });
 			} finally {
 				setLoading(false);
 			}
@@ -611,7 +613,7 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
 												step={5}
 												aria-label="UI Scaling"
 												className="max-w-md"
-												onChange={(value) => {
+												onChange={(value: number | number[]) => {
 													const scale = (value as number) / 100;
 													document.documentElement.style.setProperty(
 														"--ui-scale",
@@ -632,7 +634,7 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
 											<Select
 												className="max-w-xs"
 												defaultSelectedKey="sans"
-												onSelectionChange={(key) => {
+												onSelectionChange={(key: Key) => {
 													const font =
 														key === "mono"
 															? "var(--font-ibm-plex-mono)"
@@ -788,7 +790,7 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
 												</div>
 												<Switch
 													isSelected={notifSettings.doNotDisturb}
-													onChange={(checked) =>
+													onChange={(checked: boolean) =>
 														updateNotif("doNotDisturb", checked)
 													}
 												>
@@ -820,7 +822,7 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
 													</div>
 													<Switch
 														isSelected={notifSettings.enableToasts}
-														onChange={(checked) =>
+														onChange={(checked: boolean) =>
 															updateNotif("enableToasts", checked)
 														}
 													>
@@ -840,7 +842,7 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
 													</div>
 													<Switch
 														isSelected={notifSettings.enableSound}
-														onChange={(checked) =>
+														onChange={(checked: boolean) =>
 															updateNotif("enableSound", checked)
 														}
 													>
@@ -872,7 +874,7 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
 												</div>
 												<Switch
 													isSelected={notifSettings.groupMessages}
-													onChange={(checked) =>
+													onChange={(checked: boolean) =>
 														updateNotif("groupMessages", checked)
 													}
 												>
@@ -892,7 +894,7 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
 												</div>
 												<Switch
 													isSelected={notifSettings.directMessages}
-													onChange={(checked) =>
+													onChange={(checked: boolean) =>
 														updateNotif("directMessages", checked)
 													}
 												>
@@ -924,7 +926,7 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
 													</div>
 													<Switch
 														isSelected={notifSettings.mentionsOnly}
-														onChange={(checked) =>
+														onChange={(checked: boolean) =>
 															updateNotif("mentionsOnly", checked)
 														}
 													>

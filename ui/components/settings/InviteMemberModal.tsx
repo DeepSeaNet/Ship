@@ -38,8 +38,8 @@ export function InviteMemberModal({
 	const [isInviting, setIsInviting] = useState(false);
 
 	const handleInvite = async (userId?: number) => {
-		const idToInvite = userId || parseInt(invitingUserId);
-		if (!idToInvite || isNaN(idToInvite)) return;
+		const idToInvite = userId || parseInt(invitingUserId, 10);
+		if (!idToInvite || Number.isNaN(idToInvite)) return;
 
 		setIsInviting(true);
 		const success = await inviteUserToGroup(group.id, idToInvite);

@@ -5,7 +5,6 @@ import {
 	type CallStatus,
 	type VoiceSessionState,
 } from "./services/VoiceSessionManager";
-import type { LogEntry, MediaTrackInfo } from "./types/mediasoup";
 
 export type { CallStatus };
 

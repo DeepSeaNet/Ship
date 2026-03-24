@@ -11,7 +11,6 @@
 
 import { ReceiverCryptoRatchet } from "./receiverRatchet";
 import { SenderCryptoRatchet } from "./senderRatchet";
-import { deriveInitialSecret } from "./hkdf";
 
 // ── Rust ↔ TypeScript payload types ──────────────────────────────────────────
 // Must match VoiceKeysPayload / ReceiverKeyInfo in manager.rs exactly.
