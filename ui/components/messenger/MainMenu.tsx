@@ -69,13 +69,15 @@ function MessengerContent() {
 					>
 						<Dropdown.Menu
 							aria-label="Status Actions"
-							onAction={(key) =>
-								handleStatusChange(
-									currentUser!,
-									upsertUser,
-									key.toString().toUpperCase(),
-								)
-							}
+							onAction={(key) => {
+								if (currentUser) {
+									handleStatusChange(
+										currentUser,
+										upsertUser,
+										key.toString().toUpperCase(),
+									);
+								}
+							}}
 						>
 							<Dropdown.Section>
 								<Dropdown.Item id="Online" textValue="Online">

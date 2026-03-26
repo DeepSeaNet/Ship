@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useState } from "react";
 import { createMediaUrl } from "./helper";
 import type { Group, Permissions, User } from "./messengerTypes";
+import type { TauriGroup } from "./tauri_types";
 
 export function useGroups(currentUser?: User | null) {
 	const [groups, setGroups] = useState<Group[]>([]);
@@ -13,28 +14,20 @@ export function useGroups(currentUser?: User | null) {
 	const fetchGroups = useCallback(async () => {
 		setIsLoading(true);
 		try {
-			const loadedGroups = await invoke<any[]>("get_groups");
-			const formattedGroups: Group[] = loadedGroups.map((group: any) => ({
+			const loadedGroups = await invoke<TauriGroup[]>("get_groups");
+			console.log(loadedGroups);
+			const formattedGroups: Group[] = loadedGroups.map((group) => ({
 				id: group.group_id,
-				name: group.group_name,
-				avatar: createMediaUrl(group.avatar),
+				name: group.group_config.name,
+				avatar: createMediaUrl(group.group_config.avatar),
 				unreadCount: 0,
 				isGroup: true,
-				participants: group.members,
-				description: group.description,
-				owner_id: group.owner_id,
-				admins: group.admins,
-				members: group.members,
-				group_config: group.group_config || null,
-				user_permissions: group.user_permissions,
-				users_permissions: group.users_permisions,
-				default_permissions: group.default_permissions,
-				lastMessage:
-					group.last_message?.text || group.last_message?.content || "",
+				group_config: group.group_config,
+				lastMessage: group.last_message?.content || "",
 				lastMessageTime: group.last_message?.timestamp
-					? new Date(group.last_message.timestamp * 1000).toISOString()
-					: group.date
-						? new Date(group.date * 1000).toISOString()
+					? new Date(group.last_message.timestamp).toISOString()
+					: group.group_config.created_at
+						? new Date(group.group_config.created_at.timestamp).toISOString()
 						: undefined,
 				loaded: false,
 			}));
@@ -56,26 +49,24 @@ export function useGroups(currentUser?: User | null) {
 			if (!group) return false;
 
 			// Use context user, fallback to localstorage
-			let userId = currentUser ? parseInt(currentUser.id, 10) : null;
+			let userId = currentUser?.id;
 			if (!userId && typeof window !== "undefined") {
 				const stored = localStorage.getItem("userId");
-				if (stored) userId = parseInt(stored, 10);
+				if (stored) userId = stored;
 			}
 			if (!userId) return false;
 
-			if (group.owner_id && Number(group.owner_id) === userId) return true;
-			if (group.admins?.includes(userId)) return true;
+			if (group.group_config?.creator_id === userId) return true;
+			if (group.group_config?.admins?.includes(userId)) return true;
 
-			if (group.user_permissions) {
-				return !!(group.user_permissions as any)[permissionKey];
+			const user_permissions = group.group_config?.permissions[userId];
+
+			if (user_permissions) {
+				return !!user_permissions[permissionKey];
 			}
 
-			if (group.users_permissions && (group.users_permissions as any)[userId]) {
-				return !!(group.users_permissions as any)[userId][permissionKey];
-			}
-
-			if (group.default_permissions) {
-				return !!(group.default_permissions as any)[permissionKey];
+			if (group.group_config?.default_permissions) {
+				return !!group.group_config.default_permissions[permissionKey];
 			}
 
 			return false;
@@ -276,11 +267,29 @@ export function useGroups(currentUser?: User | null) {
 		[fetchGroups],
 	);
 
+	const getGroupMedia = useCallback(async (groupId: string) => {
+		try {
+			const mediaResponse = await invoke<any>("get_all_group_media", {
+				groupName: groupId,
+			});
+			const mediaList: {
+				media_id: string;
+				media_type: string;
+				timestamp: number;
+			}[] = mediaResponse.media || [];
+			return mediaList;
+		} catch (err) {
+			console.error("Error getting group media:", err);
+			return [];
+		}
+	}, []);
+
 	return {
 		groups,
 		loading: isLoading,
 		error: null,
 		loadGroups: fetchGroups, // Alias for compatibility
+		getGroupMedia,
 		fetchGroups,
 		setGroups,
 		checkPermission,

@@ -9,26 +9,41 @@ export interface Permissions {
 	manage_admins: boolean;
 }
 
+export interface GroupPermissions extends Permissions {
+	allow_links: boolean;
+	allow_stickers: boolean;
+	allow_gifs: boolean;
+	allow_voice_messages: boolean;
+	allow_video_messages: boolean;
+}
+
+type DateTime = {
+	timestamp: number;
+};
+
 export interface GroupConfig {
 	id: number;
 	name: string;
-	created_at: string;
-	updated_at: string;
+	created_at: DateTime;
+	updated_at: DateTime;
+
 	visibility: "Public" | "Private";
 	join_mode: "InviteOnly" | "LinkOnly" | "Open" | "RequestToJoin";
 	invite_link?: string;
 	max_members?: number;
-	creator_id: number;
-	members: number[];
-	admins: number[];
-	permissions: Record<number, Permissions>;
+
+	creator_id: string;
+	members: string[];
+	admins: string[];
+	permissions: Record<string, Permissions>;
 	default_permissions: Permissions;
-	banned: number[];
-	muted: Record<number, string>;
+	banned: string[];
+	muted: Record<string, string>;
+
 	description?: string;
 	avatar?: string;
 	banner?: string;
-	pinned_message_id?: number;
+	pinned_message_id?: string;
 	slow_mode_delay?: number;
 	allow_stickers?: boolean;
 	allow_gifs?: boolean;
@@ -47,14 +62,7 @@ export interface Chat {
 	avatar?: string;
 	unreadCount: number;
 	isGroup: boolean;
-	description?: string;
-	owner_id?: number;
-	admins?: number[];
-	members?: number[];
 	group_config?: GroupConfig;
-	user_permissions?: Permissions;
-	users_permissions?: Record<number, Permissions>;
-	default_permissions?: Permissions;
 	loaded?: boolean;
 }
 

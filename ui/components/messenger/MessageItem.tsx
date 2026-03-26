@@ -114,7 +114,7 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [position, setPosition] = useState({ x: 0, y: 0 });
 	const user = contacts[message.senderId];
-	
+
 	const handleContextMenu = (e: React.MouseEvent) => {
 		e.preventDefault();
 		const menuWidth = 230;
@@ -134,7 +134,9 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 				.find((m) => String(m.id) === String(message.reply_to))
 		: null;
 
-	const repliedUser = message.reply_to ? contacts[repliedMessage?.senderId || ""] : null;
+	const repliedUser = message.reply_to
+		? contacts[repliedMessage?.senderId || ""]
+		: null;
 
 	const scrollToReplied = () => {
 		if (!message.reply_to) return;
@@ -159,12 +161,7 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 			>
 				{!isOwn && (
 					<Avatar size="sm" className="bg-default text-default-foreground mt-1">
-						{user?.avatar && (
-							<Avatar.Image
-								src={user.avatar}
-								alt={user.name}
-							/>
-						)}
+						{user?.avatar && <Avatar.Image src={user.avatar} alt={user.name} />}
 						<Avatar.Fallback>
 							{user.name?.slice(0, 2).toUpperCase() || "??"}
 						</Avatar.Fallback>

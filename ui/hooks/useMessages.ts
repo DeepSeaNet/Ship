@@ -111,8 +111,13 @@ export function useMessages(chatId: string | null) {
 		} finally {
 			setLoading(false);
 		}
-	}, [chatId, markChatAsLoaded, contacts, // Update the global state with fetched messages
-			setMessagesForChat, upsertUser]);
+	}, [
+		chatId,
+		markChatAsLoaded,
+		contacts, // Update the global state with fetched messages
+		setMessagesForChat,
+		upsertUser,
+	]);
 
 	useEffect(() => {
 		if (!chatId || isLoaded) {

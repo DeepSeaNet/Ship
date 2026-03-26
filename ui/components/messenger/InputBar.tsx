@@ -29,7 +29,7 @@ export function InputBar({
 	onClearReply,
 	onClearEdit,
 }: InputBarProps) {
-	const { uiState, contacts } = useMessengerState();
+	const { uiState, contacts, currentUser } = useMessengerState();
 	const { sendMessage, sending } = useSendMessage();
 	const [messageContent, setMessageContent] = useState("");
 	const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -61,8 +61,8 @@ export function InputBar({
 
 	// Derive members for autocomplete
 	const memberSuggestions = useCallback(() => {
-		if (!activeChat?.members) return [];
-		return activeChat.members
+		if (!activeChat?.group_config?.members) return [];
+		return activeChat.group_config.members
 			.map((id) => contacts[id.toString()])
 			.filter(Boolean)
 			.filter(
@@ -70,7 +70,7 @@ export function InputBar({
 					!mentionQuery ||
 					u.name.toLowerCase().startsWith(mentionQuery.toLowerCase()),
 			);
-	}, [activeChat?.members, contacts, mentionQuery]);
+	}, [activeChat?.group_config?.members, contacts, mentionQuery]);
 
 	const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
 		const val = e.target.value;
@@ -109,7 +109,7 @@ export function InputBar({
 		const contentToSend = messageContent;
 		setMessageContent("");
 		setMentionQuery(null);
-		sendMessage(uiState.activeChatId, contentToSend, {
+		sendMessage(uiState.activeChatId, contentToSend, currentUser?.id || "", {
 			replyTo: replyTo?.id,
 			editId: editTarget?.id,
 			file: selectedFile || undefined,
@@ -324,7 +324,8 @@ export function InputBar({
 							onKeyDown={handleKeyDown}
 							disabled={
 								!uiState.activeChatId ||
-								!activeChat?.user_permissions?.send_messages
+								!activeChat?.group_config?.permissions[currentUser?.id || ""]
+									.send_messages
 							}
 							rows={1}
 							className="w-full resize-none px-4 py-2.5 bg-transparent text-field-foreground placeholder:text-field-placeholder text-base max-h-32 leading-relaxed min-h-[44px] disabled:opacity-50"

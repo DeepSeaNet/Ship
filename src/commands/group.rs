@@ -203,23 +203,10 @@ pub async fn get_groups(
         let mut groups_list = Vec::new();
 
         for group_id in groups.iter() {
-            let members = user
-                .get_group_members(group_id)
-                .await
-                .map_err(|e| e.to_string())?;
-
             let group_config = user
                 .get_group_config(group_id)
                 .await
                 .map_err(|e| e.to_string())?;
-            let users_permisions = group_config.permissions;
-            let default_permissions = group_config.default_permissions;
-            let user_permissions = users_permisions
-                .get(&user.user_id())
-                .unwrap_or(&default_permissions);
-            let avatar = group_config
-                .avatar
-                .map(|avatar| general_purpose::STANDARD.encode(avatar));
             let last_message = user
                 .groups
                 .messages
@@ -229,8 +216,8 @@ pub async fn get_groups(
 
             let last_message: Option<serde_json::Value> = if let Some(message) = last_message {
                 Some(serde_json::json!({
-                    "message_id": message.message_id,
-                    "text": message.text,
+                    "id": message.message_id,
+                    "content": message.text,
                     "timestamp": message.date,
                     "sender_id": message.sender_id,
                     "media_name": message.media_name,
@@ -244,18 +231,8 @@ pub async fn get_groups(
             };
 
             groups_list.push(serde_json::json!({
-                "group_name": group_config.name,
                 "group_id": group_id.to_string(),
-                "description": group_config.description,
-                "avatar": avatar,
-                "member_count": members.len(),
-                "members": members,
-                "user_permissions": user_permissions,
-                "users_permisions": users_permisions,
-                "owner_id": group_config.creator_id,
-                "admins": group_config.admins,
-                "date": group_config.created_at.timestamp,
-                "default_permissions": default_permissions,
+                "group_config": group_config,
                 "last_message": last_message
             }));
         }
@@ -370,6 +347,7 @@ pub async fn remove_from_group(
 pub async fn send_group_message(
     app_handle: AppHandle,
     group_id: String,
+    message_id: u64,
     text: String,
     file: Option<String>,
     reply_message_id: Option<String>,
@@ -378,7 +356,6 @@ pub async fn send_group_message(
     group_user_state: tauri::State<'_, SafeGroupUser>,
 ) -> Result<String, String> {
     let group_user = group_user_state.inner().clone();
-    let message_id = Device::generate_message_id(); // replace with actual generation of message_Id
     tauri::async_runtime::spawn(async move {
         if let Some(user) = group_user.read().await.as_ref() {
             let mut builder = MessageBuilder::new(group_id.clone(), text);
@@ -747,33 +724,7 @@ pub async fn update_member_permissions(
             .await
             .map_err(|e| e.to_string())?;
 
-        let avatar = new_config
-            .avatar
-            .clone()
-            .map(|avatar| general_purpose::STANDARD.encode(avatar));
-
-        let users_permisions = &new_config.permissions;
-        let default_permissions = &new_config.default_permissions;
-        let user_permissions = users_permisions
-            .get(&user_id)
-            .unwrap_or(default_permissions);
-
-        let event_payload = serde_json::json!({
-            "type": "group_config_updated",
-            "data": {
-                "group_id": group_id.to_string(),
-                "group_name": new_config.name,
-                "description": new_config.description,
-                "avatar": avatar,
-                "owner_id": new_config.creator_id,
-                "admins": new_config.admins,
-                "members": new_config.members,
-                "created_at": new_config.created_at.timestamp,
-                "user_permissions": user_permissions,
-                "users_permisions": users_permisions,
-                "default_permissions": default_permissions,
-            }
-        });
+        let event_payload = format_group_config(&group_config, group_id, user_id);
         app_handle.emit("server-event", event_payload).unwrap();
 
         Ok(serde_json::json!({

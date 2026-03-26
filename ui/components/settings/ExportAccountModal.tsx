@@ -10,6 +10,7 @@ import {
 import { Button, Modal, Spinner, toast } from "@heroui/react";
 import { useEffect } from "react";
 import { useAccountExport } from "@/hooks/useAccountExport";
+import Image from "next/image";
 
 interface ExportAccountModalProps {
 	isOpen: boolean;
@@ -114,10 +115,11 @@ export function ExportAccountModal({
 								<div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in-95 duration-300">
 									{/* QR Code */}
 									<div className="p-4 bg-white rounded-2xl shadow-lg border border-border/50">
-										<img
+										<Image
 											src={exportedData.qrCodeUrl}
 											alt="Export QR Code"
-											className="w-56 h-56 object-contain"
+											width={224}
+											height={224}
 										/>
 									</div>
 

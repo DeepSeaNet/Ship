@@ -310,13 +310,14 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 			upsertUser,
 		}),
 		[
-			addMessage, 
-			setActiveChatId, 
-			fetchChatsStable, 
-			editMessage, 
-			updateMessageStatus, 
-			updateMessageId, 
-			upsertUser, setGroups
+			addMessage,
+			setActiveChatId,
+			fetchChatsStable,
+			editMessage,
+			updateMessageStatus,
+			updateMessageId,
+			upsertUser,
+			setGroups,
 			// setIsLoading, setCurrentUser, setGroups, setChats, setUIState are from useState/useGroups and are stable
 		],
 	);

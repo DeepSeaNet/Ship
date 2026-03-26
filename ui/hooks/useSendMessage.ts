@@ -4,19 +4,17 @@ import { useState } from "react";
 import type { Message } from "./messengerTypes";
 import { useMessengerState } from "./useMessengerState";
 
-// Helper for temporary ID generation
-const generateTempId = () =>
-	`temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+const generateMessageId = () => Math.floor(Math.random() * 1000000000000);
 
 export function useSendMessage() {
-	const { addMessage, updateMessageStatus, updateMessageId, editMessage } =
-		useMessengerState();
+	const { addMessage, updateMessageStatus, editMessage } = useMessengerState();
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	const sendMessage = async (
 		chatId: string,
 		content: string,
+		userId: string,
 		options: {
 			file?: string;
 			replyTo?: string;
@@ -31,20 +29,16 @@ export function useSendMessage() {
 
 		setSending(true);
 		setError(null);
-
-		let tempId: string | null = null;
+		const messageId = generateMessageId();
 
 		if (options.editId) {
 			// Optimistically update the existing message
 			editMessage(chatId, options.editId, content.trim());
 			updateMessageStatus(chatId, options.editId, "sending");
 		} else {
-			tempId = generateTempId();
-			const userId =
-				typeof window !== "undefined" ? localStorage.getItem("userId") : "0";
 			const fileName = options.file?.split(/[\\/]/).pop();
 			const newMessage: Message = {
-				id: tempId,
+				id: messageId.toString(),
 				chatId,
 				senderId: userId || "0",
 				content: content.trim(),
@@ -64,8 +58,9 @@ export function useSendMessage() {
 		}
 
 		try {
-			const messageId = await invoke<string>("send_group_message", {
+			await invoke<number>("send_group_message", {
 				groupId: chatId,
+				messageId: messageId,
 				text: content.trim(),
 				file: options.file || null,
 				replyMessageId: options.replyTo || null,
@@ -75,14 +70,14 @@ export function useSendMessage() {
 
 			if (options.editId) {
 				updateMessageStatus(chatId, options.editId, "sent");
-			} else if (tempId) {
-				updateMessageId(chatId, tempId, messageId);
-				updateMessageStatus(chatId, messageId, "sent");
+			} else {
+				updateMessageStatus(chatId, messageId.toString(), "sent");
 			}
 
 			setSending(false);
 			return {
-				id: messageId,
+				id: messageId.toString(),
+				senderId: userId,
 				chatId,
 				content: content.trim(),
 				status: "sent",
@@ -96,8 +91,8 @@ export function useSendMessage() {
 
 			if (options.editId) {
 				updateMessageStatus(chatId, options.editId, "error");
-			} else if (tempId) {
-				updateMessageStatus(chatId, tempId, "error");
+			} else {
+				updateMessageStatus(chatId, messageId.toString(), "error");
 			}
 
 			toast(`Failed to send message: ${errorMessage}`, { variant: "danger" });

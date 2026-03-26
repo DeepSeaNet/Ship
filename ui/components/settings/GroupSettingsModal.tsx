@@ -23,10 +23,15 @@ import {
 	Tabs,
 	TextArea,
 	TextField,
+	toast,
 } from "@heroui/react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState, type ChangeEvent } from "react";
-import type { Chat, Permissions } from "@/hooks/messengerTypes";
+import type {
+	Chat,
+	GroupPermissions,
+	Permissions,
+} from "@/hooks/messengerTypes";
 import { useGroups } from "@/hooks/useGroups";
 import { useMessengerState } from "@/hooks/useMessengerState";
 import { useNotificationSettings } from "@/hooks/useNotificationSettings";
@@ -87,7 +92,6 @@ export const GroupSettingsModal = ({
 	const {
 		updateGroupConfig,
 		removeUserFromGroup,
-		inviteUserToGroup,
 		checkPermission,
 		updateMemberPermissions,
 	} = useGroups();
@@ -102,7 +106,9 @@ export const GroupSettingsModal = ({
 
 	// State for general settings
 	const [name, setName] = useState(group.name);
-	const [description, setDescription] = useState(group.description || "");
+	const [description, setDescription] = useState(
+		group.group_config?.description || "",
+	);
 	const [visibility, setVisibility] = useState(
 		group.group_config?.visibility?.toLowerCase() || "private",
 	);
@@ -112,8 +118,8 @@ export const GroupSettingsModal = ({
 	const [isLoading, setIsLoading] = useState(false);
 
 	// State for default permissions
-	const [defaultPerms, setDefaultPerms] = useState<any>(() => ({
-		...(group.default_permissions || {
+	const [defaultPerms, setDefaultPerms] = useState<GroupPermissions>(() => ({
+		...(group.group_config?.default_permissions || {
 			manage_members: false,
 			send_messages: true,
 			delete_messages: false,
@@ -131,7 +137,7 @@ export const GroupSettingsModal = ({
 	}));
 
 	// State for member management
-	const [memberToEdit, setMemberToEdit] = useState<number | null>(null);
+	const [memberToEdit, setMemberToEdit] = useState<string | null>(null);
 	const [memberPermissions, setMemberPermissions] =
 		useState<Permissions | null>(null);
 	const [memberRole, setMemberRole] = useState<string>("Member");
@@ -143,22 +149,35 @@ export const GroupSettingsModal = ({
 	// Sync state if group changes
 	useEffect(() => {
 		setName(group.name);
-		setDescription(group.description || "");
+		setDescription(group.group_config?.description || "");
 		setVisibility(group.group_config?.visibility?.toLowerCase() || "private");
 		setJoinMode(group.group_config?.join_mode?.toLowerCase() || "invite_only");
-		if (group.default_permissions) setDefaultPerms(group.default_permissions);
+		setDefaultPerms((prev) => ({
+			...prev,
+			...(group.group_config?.permissions || {}),
+			allow_stickers: group.group_config?.allow_stickers ?? prev.allow_stickers,
+			allow_gifs: group.group_config?.allow_gifs ?? prev.allow_gifs,
+			allow_voice_messages:
+				group.group_config?.allow_voice_messages ?? prev.allow_voice_messages,
+			allow_video_messages:
+				group.group_config?.allow_video_messages ?? prev.allow_video_messages,
+			allow_links: group.group_config?.allow_links ?? prev.allow_links,
+		}));
 	}, [group]);
 
 	const handleSaveGeneral = async () => {
 		setIsLoading(true);
-		const _success = await updateGroupConfig(group.id, {
+		const success = await updateGroupConfig(group.id, {
 			name,
 			description,
-			visibility: visibility as any,
-			joinMode: joinMode as any,
+			visibility: visibility as "private" | "public",
+			joinMode: joinMode as "invite_only" | "request_to_join" | "open",
 			// Also save default permissions if we are on the permissions tab or just in general
 			allowMessages: defaultPerms.send_messages,
 		});
+		if (!success) {
+			toast("Failed to update group settings", { variant: "danger" });
+		}
 		setIsLoading(false);
 	};
 
@@ -239,21 +258,23 @@ export const GroupSettingsModal = ({
 		}
 	};
 
-	const isOwner = group.owner_id?.toString() === localStorage.getItem("userId");
+	const isOwner =
+		group.group_config?.creator_id?.toString() ===
+		localStorage.getItem("userId");
 	const canManageMembers = checkPermission(group, "manage_members");
 	const canRename = checkPermission(group, "rename_group");
 	const canManagePermissions = checkPermission(group, "manage_permissions");
 
-	const openMemberPermissionEdit = (memberId: number) => {
+	const openMemberPermissionEdit = (memberId: string) => {
 		setMemberToEdit(memberId);
 		const currentPerms =
-			group.users_permissions?.[memberId] ||
-			group.default_permissions ||
+			group.group_config?.permissions?.[memberId] ||
+			group.group_config?.default_permissions ||
 			defaultPerms;
 		setMemberPermissions(currentPerms);
 
-		const isAdmin = group.admins?.includes(memberId);
-		const isOwnerOfGroup = group.owner_id === memberId;
+		const isAdmin = group.group_config?.admins?.includes(memberId);
+		const isOwnerOfGroup = group.group_config?.creator_id === memberId;
 
 		if (isOwnerOfGroup) {
 			setMemberRole("Owner");
@@ -289,7 +310,7 @@ export const GroupSettingsModal = ({
 		// Note: Owner cannot be changed via this UI normally.
 		const success = await updateMemberPermissions(
 			group.id,
-			memberToEdit,
+			parseInt(memberToEdit, 10),
 			memberPermissions,
 			memberRole !== "Custom" && memberRole !== "Owner"
 				? memberRole.toLowerCase()
@@ -425,7 +446,9 @@ export const GroupSettingsModal = ({
 												<Label>Group Name</Label>
 												<Input
 													value={name}
-													onChange={(e: ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+													onChange={(e: ChangeEvent<HTMLInputElement>) =>
+														setName(e.target.value)
+													}
 													placeholder="Enter group name"
 												/>
 											</TextField>
@@ -434,7 +457,9 @@ export const GroupSettingsModal = ({
 												<Label>Description</Label>
 												<TextArea
 													value={description}
-													onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
+													onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+														setDescription(e.target.value)
+													}
 													placeholder="Short description of the group"
 													rows={3}
 												/>
@@ -449,7 +474,7 @@ export const GroupSettingsModal = ({
 												isDisabled={
 													!canRename ||
 													(name === group.name &&
-														description === group.description)
+														description === group.group_config?.description)
 												}
 											>
 												Save Changes
@@ -480,13 +505,13 @@ export const GroupSettingsModal = ({
 										</div>
 
 										<div className="space-y-3">
-											{group.members?.map((memberId) => {
+											{group.group_config?.members?.map((memberId) => {
 												const member = contacts[memberId.toString()];
 												const isSelf =
 													memberId.toString() ===
 													localStorage.getItem("userId");
-												const _isAdmin = group.admins?.includes(memberId);
-												const isOwnerOfGroup = group.owner_id === memberId;
+												const isOwnerOfGroup =
+													group.group_config?.creator_id === memberId;
 
 												return (
 													<div
@@ -510,15 +535,23 @@ export const GroupSettingsModal = ({
 																</span>
 																<span className="text-xs text-muted">
 																	{(() => {
-																		const mId =
-																			Number(member?.id) || Number(memberId);
-																		if (group.owner_id === mId) return "Owner";
-																		if (group.admins?.includes(mId))
+																		if (
+																			group.group_config?.creator_id ===
+																			memberId
+																		)
+																			return "Owner";
+																		if (
+																			group.group_config?.admins?.includes(
+																				memberId,
+																			)
+																		)
 																			return "Admin";
 
 																		const perms =
-																			group.users_permissions?.[mId] ||
-																			group.default_permissions ||
+																			group.group_config?.permissions?.[
+																				memberId
+																			] ||
+																			group.group_config?.default_permissions ||
 																			defaultPerms;
 																		if (
 																			JSON.stringify(perms) ===
@@ -563,7 +596,10 @@ export const GroupSettingsModal = ({
 																		size="sm"
 																		className="text-danger hover:bg-danger/10"
 																		onPress={() =>
-																			removeUserFromGroup(group.id, memberId)
+																			removeUserFromGroup(
+																				group.id,
+																				parseInt(memberId, 10),
+																			)
 																		}
 																	>
 																		<TrashBin className="w-4 h-4" />
@@ -590,53 +626,59 @@ export const GroupSettingsModal = ({
 										</div>
 
 										<div className="space-y-4">
-											{[
-												{
-													key: "send_messages",
-													label: "Send Messages",
-													desc: "Allow members to send text messages.",
-												},
-												{
-													key: "manage_members",
-													label: "Invite Users",
-													desc: "Allow members to invite new participants.",
-												},
-												{
-													key: "pin_messages",
-													label: "Pin Messages",
-													desc: "Allow members to pin important messages.",
-												},
-												{
-													key: "delete_messages",
-													label: "Delete Messages",
-													desc: "Allow members to delete any message.",
-												},
-												{
-													key: "rename_group",
-													label: "Rename Group",
-													desc: "Allow members to change group name and avatar.",
-												},
-												{
-													key: "manage_permissions",
-													label: "Manage Permissions",
-													desc: "Allow members to change group permissions.",
-												},
-												{
-													key: "manage_admins",
-													label: "Manage Admins",
-													desc: "Allow members to promote/demote admins.",
-												},
-												{
-													key: "allow_stickers",
-													label: "Stickers",
-													desc: "Allow sending stickers.",
-												},
-												{
-													key: "allow_gifs",
-													label: "GIFs",
-													desc: "Allow sending GIFs.",
-												},
-											].map(({ key, label, desc }) => (
+											{(
+												[
+													{
+														key: "send_messages",
+														label: "Send Messages",
+														desc: "Allow members to send text messages.",
+													},
+													{
+														key: "manage_members",
+														label: "Invite Users",
+														desc: "Allow members to invite new participants.",
+													},
+													{
+														key: "pin_messages",
+														label: "Pin Messages",
+														desc: "Allow members to pin important messages.",
+													},
+													{
+														key: "delete_messages",
+														label: "Delete Messages",
+														desc: "Allow members to delete any message.",
+													},
+													{
+														key: "rename_group",
+														label: "Rename Group",
+														desc: "Allow members to change group name and avatar.",
+													},
+													{
+														key: "manage_permissions",
+														label: "Manage Permissions",
+														desc: "Allow members to change group permissions.",
+													},
+													{
+														key: "manage_admins",
+														label: "Manage Admins",
+														desc: "Allow members to promote/demote admins.",
+													},
+													{
+														key: "allow_stickers",
+														label: "Stickers",
+														desc: "Allow sending stickers.",
+													},
+													{
+														key: "allow_gifs",
+														label: "GIFs",
+														desc: "Allow sending GIFs.",
+													},
+												] as {
+													key: keyof GroupPermissions;
+													label: string;
+													desc: string;
+												}[]
+											).map(({ key, label, desc }) => (
 												<div
 													key={key}
 													className="flex items-center justify-between"
@@ -646,9 +688,9 @@ export const GroupSettingsModal = ({
 														<p className="text-xs text-muted">{desc}</p>
 													</div>
 													<Switch
-														isSelected={(defaultPerms as any)[key]}
+														isSelected={defaultPerms[key]}
 														onChange={(val: boolean) =>
-															setDefaultPerms((prev: any) => ({
+															setDefaultPerms((prev) => ({
 																...prev,
 																[key]: val,
 															}))
@@ -829,25 +871,27 @@ export const GroupSettingsModal = ({
 									</p>
 
 									{memberPermissions &&
-										[
-											{ key: "send_messages", label: "Send Messages" },
-											{ key: "manage_members", label: "Invite Users" },
-											{ key: "pin_messages", label: "Pin Messages" },
-											{ key: "delete_messages", label: "Delete Messages" },
-											{ key: "rename_group", label: "Rename Group" },
-											{
-												key: "manage_permissions",
-												label: "Manage Permissions",
-											},
-											{ key: "manage_admins", label: "Manage Admins" },
-										].map(({ key, label }) => (
+										(
+											[
+												{ key: "send_messages", label: "Send Messages" },
+												{ key: "manage_members", label: "Invite Users" },
+												{ key: "pin_messages", label: "Pin Messages" },
+												{ key: "delete_messages", label: "Delete Messages" },
+												{ key: "rename_group", label: "Rename Group" },
+												{
+													key: "manage_permissions",
+													label: "Manage Permissions",
+												},
+												{ key: "manage_admins", label: "Manage Admins" },
+											] as { key: keyof Permissions; label: string }[]
+										).map(({ key, label }) => (
 											<div
 												key={key}
 												className="flex items-center justify-between"
 											>
 												<Label className="text-sm">{label}</Label>
 												<Switch
-													isSelected={(memberPermissions as any)[key]}
+													isSelected={memberPermissions[key]}
 													onChange={(val: boolean) => {
 														setMemberPermissions((prev) =>
 															prev ? { ...prev, [key]: val } : null,

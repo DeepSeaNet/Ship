@@ -103,7 +103,10 @@ export const updateAvatar = async (
 		const fileSize = bytes.length;
 
 		// Calculate hash
-		const hashBuffer = await crypto.subtle.digest("SHA-256", bytes as BufferSource);
+		const hashBuffer = await crypto.subtle.digest(
+			"SHA-256",
+			bytes as BufferSource,
+		);
 		const hash = Array.from(new Uint8Array(hashBuffer))
 			.map((b) => b.toString(16).padStart(2, "0"))
 			.join("");

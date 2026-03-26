@@ -48,7 +48,7 @@ export function parseSdpForCodecMapping(sdp: string): void {
 
 	// Регулярное выражение для извлечения строк rtpmap
 	const rtpmapRegex = /a=rtpmap:(\d+) ([^/]+)/g;
-	let match: RegExpExecArray | null = rtpmapRegex.exec(sdp);
+	const match: RegExpExecArray | null = rtpmapRegex.exec(sdp);
 
 	while (match !== null) {
 		const payloadType = parseInt(match[1], 10);

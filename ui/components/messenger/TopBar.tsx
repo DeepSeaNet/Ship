@@ -47,7 +47,7 @@ export function TopBar({ onInfoClick }: TopBarProps) {
 						</h3>
 						<p className="text-xs text-muted">
 							{activeChat.isGroup
-								? `${activeChat.members?.length || 0} members`
+								? `${activeChat.group_config?.members?.length || 0} members`
 								: "Online"}
 						</p>
 					</div>

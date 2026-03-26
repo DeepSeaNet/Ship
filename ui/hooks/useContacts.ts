@@ -55,7 +55,7 @@ export function useContacts() {
 		setLoading(true);
 		setError(null);
 		try {
-			const result = await invoke<any[]>("get_contacts");
+			const result = await invoke<ContactInfo[]>("get_contacts");
 			await invoke("subscribe_to_users", {
 				userIds: result.map((c) => c.user_id),
 			});
@@ -83,7 +83,7 @@ export function useContacts() {
 
 	const getUserInfo = useCallback(async (userId: string | number) => {
 		try {
-			const result = await invoke<any>("get_user_info", {
+			const result = await invoke<ContactInfo>("get_user_info", {
 				userId: Number(userId),
 			});
 			const contact: User = {

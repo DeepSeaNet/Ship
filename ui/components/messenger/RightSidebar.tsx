@@ -12,13 +12,13 @@ import {
 	Xmark,
 } from "@gravity-ui/icons";
 import { Avatar, Badge, ScrollShadow, Spinner } from "@heroui/react";
-import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 import type { MediaItem } from "@/hooks/messengerTypes";
 import { useChats } from "@/hooks/useChats";
 import { getStatusColor } from "@/hooks/useContacts";
 import { useMessengerState } from "@/hooks/useMessengerState";
 import { GroupSettingsModal } from "../settings/GroupSettingsModal";
+import { useGroups } from "@/hooks/useGroups";
 
 interface RightSidebarProps {
 	onClose?: () => void;
@@ -28,6 +28,7 @@ interface RightSidebarProps {
 export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 	const { uiState, contacts, getUserInfo, upsertUser } = useMessengerState();
 	const { getChatById } = useChats();
+	const { getGroupMedia } = useGroups();
 	const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 	const [mediaLoading, setMediaLoading] = useState(false);
 	const [groupMedia, setGroupMedia] = useState<{
@@ -59,7 +60,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 
 	// Fetch media when active chat changes
 	useEffect(() => {
-		if (!activeChat || !activeChat.isGroup) {
+		if (!activeChat?.isGroup) {
 			setGroupMedia(null);
 			return;
 		}
@@ -67,10 +68,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 		const fetchMedia = async () => {
 			setMediaLoading(true);
 			try {
-				const mediaResponse = await invoke<any>("get_all_group_media", {
-					groupName: activeChat.id,
-				});
-				const mediaList: any[] = mediaResponse.media || [];
+				const mediaList = await getGroupMedia(activeChat.id);
 
 				const photos: MediaItem[] = [];
 				const audio: MediaItem[] = [];
@@ -80,12 +78,13 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 				mediaList.forEach((m) => {
 					const item: MediaItem = {
 						id: m.media_id,
-						name: m.filename,
+						name: m.media_type,
 						timestamp: new Date(m.timestamp * 1000).toISOString(),
 						type: "document", // Default
 					};
 
-					const ext = m.filename.split(".").pop()?.toLowerCase();
+					const ext = m.media_type.split(".").pop()?.toLowerCase();
+					if (!ext) return;
 					if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
 						item.type = "photo";
 						photos.push(item);
@@ -115,11 +114,13 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 
 	// Fetch missing users for this chat
 	useEffect(() => {
-		if (!activeChat?.members) return;
+		if (!activeChat?.group_config?.members) return;
 
 		const fetchMissingUsers = async () => {
 			const missingIds =
-				activeChat.members?.filter((id) => !contacts[id.toString()]) || [];
+				activeChat.group_config?.members?.filter(
+					(id) => !contacts[id.toString()],
+				) || [];
 
 			const users = await Promise.all(missingIds.map((id) => getUserInfo(id)));
 
@@ -129,7 +130,7 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 		};
 
 		fetchMissingUsers();
-	}, [activeChat?.members]);
+	}, [activeChat?.group_config?.members]);
 
 	if (!uiState.activeChatId) {
 		return (
@@ -151,10 +152,10 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 	const audioCount = groupMedia?.audio.length || 0;
 	const videosCount = groupMedia?.videos.length || 0;
 	const documentsCount = groupMedia?.documents.length || 0;
-	const membersCount = activeChat.members?.length || 0;
+	const membersCount = activeChat.group_config?.members?.length || 0;
 
 	// Resolve members from IDs
-	const memberList = (activeChat.members || []).map((id) => {
+	const memberList = (activeChat.group_config?.members || []).map((id) => {
 		const idStr = id.toString();
 		const user = contacts[idStr] || {
 			id: idStr,
@@ -163,9 +164,9 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 		};
 
 		const role =
-			activeChat.owner_id === id
+			activeChat.group_config?.creator_id === id
 				? "owner"
-				: activeChat.admins?.includes(id)
+				: activeChat.group_config?.admins?.includes(id)
 					? "admin"
 					: "member";
 		return { ...user, role };
@@ -223,7 +224,8 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 								{activeChat.name}
 							</h2>
 							<p className="text-sm text-muted line-clamp-3">
-								{activeChat.description || "No description provided"}
+								{activeChat.group_config?.description ||
+									"No description provided"}
 							</p>
 						</div>
 						<div className="flex w-full gap-2">

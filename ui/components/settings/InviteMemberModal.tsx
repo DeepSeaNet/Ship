@@ -26,10 +26,9 @@ export function InviteMemberModal({
 	onOpenChange,
 	group,
 }: InviteMemberModalProps) {
-	const { inviteUserToGroup, checkPermission } = useGroups();
+	const { inviteUserToGroup } = useGroups();
 	const { contacts } = useMessengerState();
 
-	const canManageMembers = checkPermission(group, "manage_members");
 	const [inviteMethod, setInviteMethod] = useState<"contacts" | "id">(
 		"contacts",
 	);

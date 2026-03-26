@@ -5,7 +5,14 @@ import { listen } from "@tauri-apps/api/event";
 import type React from "react";
 import { useEffect, useRef } from "react";
 import { createMediaUrl } from "./helper";
-import type { Chat, Group, Message, UIState, User } from "./messengerTypes";
+import type {
+	Chat,
+	Group,
+	GroupConfig,
+	Message,
+	UIState,
+	User,
+} from "./messengerTypes";
 import { getNotificationSettings } from "./useNotificationSettings";
 
 interface ListenerProps {
@@ -68,7 +75,7 @@ export function useListener({
 				const payload = event.payload;
 				console.log("Received server event:", payload);
 
-				if (!payload || !payload.type) return;
+				if (!payload?.type) return;
 
 				switch (payload.type) {
 					case "new_group_message":
@@ -90,8 +97,6 @@ export function useListener({
 							id: data.message_id.toString(),
 							chatId: chatId,
 							senderId,
-							senderName,
-							senderAvatar: sender?.avatar,
 							content: data.text,
 							timestamp: new Date(data.timestamp * 1000).toISOString(),
 							isOwn:
@@ -203,18 +208,11 @@ export function useListener({
 									return {
 										...g,
 										name: groupData.group_name ?? g.name,
-										description: groupData.description ?? g.description,
 										avatar: createMediaUrl(groupData.avatar) ?? g.avatar,
-										owner_id: groupData.owner_id ?? g.owner_id,
-										admins: groupData.admins ?? g.admins,
-										members: groupData.members ?? g.members,
-										group_config: { ...g.group_config, ...groupData } as any,
-										user_permissions:
-											groupData.user_permissions ?? g.user_permissions,
-										users_permissions:
-											groupData.users_permisions ?? g.users_permissions,
-										default_permissions:
-											groupData.default_permissions ?? g.default_permissions,
+										group_config: {
+											...g.group_config,
+											...groupData,
+										} as GroupConfig,
 									};
 								}
 								return g;
@@ -227,18 +225,11 @@ export function useListener({
 									return {
 										...c,
 										name: groupData.group_name ?? c.name,
-										description: groupData.description ?? c.description,
 										avatar: createMediaUrl(groupData.avatar) ?? c.avatar,
-										members: groupData.members ?? c.members,
-										owner_id: groupData.owner_id ?? c.owner_id,
-										admins: groupData.admins ?? c.admins,
-										user_permissions:
-											groupData.user_permissions ?? c.user_permissions,
-										users_permissions:
-											groupData.users_permisions ?? c.users_permissions,
-										default_permissions:
-											groupData.default_permissions ?? c.default_permissions,
-										group_config: { ...c.group_config, ...groupData } as any,
+										group_config: {
+											...c.group_config,
+											...groupData,
+										} as GroupConfig,
 									};
 								}
 								return c;
