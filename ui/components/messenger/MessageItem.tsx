@@ -7,6 +7,7 @@ import { formatChatTime } from "@/hooks/helper";
 import type { Message } from "@/hooks/messengerTypes";
 import { useMessageActions } from "@/hooks/useMessageActions";
 import { useMessengerState } from "@/hooks/useMessengerState";
+import Image from "next/image";
 
 interface MessageItemProps {
 	message: Message;
@@ -57,12 +58,14 @@ function MediaPreview({
 	const fileName = message.media_name;
 	const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(fileName);
 
-	if (isImage) {
+	if (isImage && message.media) {
 		return (
 			<div className="mb-2 max-w-full overflow-hidden rounded-xl bg-accent/5">
-				<img
+				<Image
 					src={message.media}
 					alt={fileName}
+					width={300}
+					height={300}
 					className="max-h-[300px] w-full object-contain cursor-zoom-in rounded-xl"
 				/>
 			</div>
@@ -100,7 +103,7 @@ function MediaPreview({
 
 export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 	const isOwn = message.isOwn;
-	const { messagesByChat } = useMessengerState();
+	const { messagesByChat, contacts } = useMessengerState();
 	const ownUsername =
 		typeof window !== "undefined" ? localStorage.getItem("username") || "" : "";
 
@@ -110,7 +113,8 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 	});
 	const [isOpen, setIsOpen] = useState(false);
 	const [position, setPosition] = useState({ x: 0, y: 0 });
-
+	const user = contacts[message.senderId];
+	
 	const handleContextMenu = (e: React.MouseEvent) => {
 		e.preventDefault();
 		const menuWidth = 230;
@@ -129,6 +133,8 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 				.flat()
 				.find((m) => String(m.id) === String(message.reply_to))
 		: null;
+
+	const repliedUser = message.reply_to ? contacts[repliedMessage?.senderId || ""] : null;
 
 	const scrollToReplied = () => {
 		if (!message.reply_to) return;
@@ -153,14 +159,14 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 			>
 				{!isOwn && (
 					<Avatar size="sm" className="bg-default text-default-foreground mt-1">
-						{message.senderAvatar && (
+						{user?.avatar && (
 							<Avatar.Image
-								src={message.senderAvatar}
-								alt={message.senderName}
+								src={user.avatar}
+								alt={user.name}
 							/>
 						)}
 						<Avatar.Fallback>
-							{message.senderName?.slice(0, 2).toUpperCase() || "??"}
+							{user.name?.slice(0, 2).toUpperCase() || "??"}
 						</Avatar.Fallback>
 					</Avatar>
 				)}
@@ -170,7 +176,7 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 				>
 					{!isOwn && (
 						<p className="text-xs text-muted mb-1 px-1">
-							{message.senderName || `User ${message.senderId}`}
+							{user.name || `User ${message.senderId}`}
 						</p>
 					)}
 
@@ -190,7 +196,7 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 							} cursor-default min-w-[60px] max-w-full`}
 						>
 							{/* Reply-to preview */}
-							{repliedMessage && (
+							{repliedMessage && repliedUser && (
 								<div
 									onClick={scrollToReplied}
 									className={`mb-1.5 px-2 py-1 rounded-lg text-xs border-l-2 cursor-pointer hover:opacity-80 transition-opacity ${
@@ -202,7 +208,7 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 									<p
 										className={`font-semibold mb-0.5 ${isOwn ? "text-white/70" : "text-accent"}`}
 									>
-										{repliedMessage.senderName ?? "User"}
+										{repliedUser.name ?? "User"}
 									</p>
 									<p className="opacity-70 truncate max-w-[300px]">
 										{repliedMessage.content.length > 25

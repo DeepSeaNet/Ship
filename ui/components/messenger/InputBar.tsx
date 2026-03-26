@@ -179,9 +179,10 @@ export function InputBar({
 	const suggestions = memberSuggestions();
 	const showAutocomplete = mentionQuery !== null && suggestions.length > 0;
 
-	const isEditing = !!editTarget;
-	const isReplying = !!replyTo;
-	const isAttaching = !!selectedFile;
+	const isEditing = Boolean(editTarget);
+	const isReplying = Boolean(replyTo);
+	const isAttaching = Boolean(selectedFile);
+	const repliedUser = contacts[replyTo?.senderId || ""];
 
 	const attachedFileName = selectedFile?.split(/[\\/]/).pop() || "File";
 
@@ -216,7 +217,7 @@ export function InputBar({
 					<ArrowLeft className="w-4 h-4 text-accent shrink-0" />
 					<div className="flex-1 min-w-0">
 						<p className="text-xs text-accent font-semibold">
-							{replyTo?.senderName ?? "User"}
+							{repliedUser.name ?? "User"}
 						</p>
 						<p className="text-xs text-muted truncate">{replyTo?.content}</p>
 					</div>

@@ -434,7 +434,7 @@ impl GroupManager {
                 .await
                 .unwrap_or_default();
 
-                let max_inline_size = 1024 * 1024;
+                let max_inline_size = 1024 * 1024 * 1024;
                 let mut result_messages = Vec::with_capacity(rows.len());
 
                 for row in rows {

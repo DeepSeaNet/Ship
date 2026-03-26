@@ -16,7 +16,7 @@ import {
 	Label,
 	ListBox,
 	Modal,
-	Selection,
+	type Selection,
 	Separator,
 	Surface,
 	Switch,

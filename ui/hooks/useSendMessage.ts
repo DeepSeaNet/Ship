@@ -47,7 +47,6 @@ export function useSendMessage() {
 				id: tempId,
 				chatId,
 				senderId: userId || "0",
-				senderName: "You",
 				content: content.trim(),
 				timestamp: new Date().toISOString(),
 				isOwn: true,

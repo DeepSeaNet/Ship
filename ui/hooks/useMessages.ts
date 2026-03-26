@@ -48,7 +48,6 @@ export function useMessages(chatId: string | null) {
 
 				// If sender name is missing, we'll need to fetch it (handled below)
 				const senderName = sender?.name || `User ${senderId}`;
-
 				return {
 					id: msg.id?.toString() || "",
 					chatId: msg.chat_id || chatId,
