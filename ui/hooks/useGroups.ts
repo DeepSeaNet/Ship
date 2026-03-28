@@ -19,7 +19,7 @@ export function useGroups(currentUser?: User | null) {
 			const formattedGroups: Group[] = loadedGroups.map((group) => ({
 				id: group.group_id,
 				name: group.group_config.name,
-				avatar: createMediaUrl(group.group_config.avatar),
+				avatar: createMediaUrl(group.avatar),
 				unreadCount: 0,
 				isGroup: true,
 				group_config: group.group_config,

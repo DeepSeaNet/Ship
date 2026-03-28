@@ -10,7 +10,6 @@ use mls_rs::{
         ProposalSource,
     },
 };
-use tonic::async_trait;
 
 use crate::api::device::types::{
     config::CREDENTIAL_V1, custom_mls::credentials::DeviceCredential, errors::GroupError,
@@ -28,11 +27,10 @@ use crate::api::device::types::extensions::roster::{
 #[derive(Debug, Clone, Copy)]
 pub struct CustomMlsRules;
 
-#[async_trait]
 impl MlsRules for CustomMlsRules {
     type Error = GroupError;
 
-    async fn filter_proposals(
+    fn filter_proposals(
         &self,
         _: CommitDirection,
         commit_source: CommitSource,

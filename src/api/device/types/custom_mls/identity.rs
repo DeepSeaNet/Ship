@@ -13,17 +13,15 @@ use mls_rs_core::{
     identity::{Credential, CredentialType, MemberValidationContext, SigningIdentity},
     time::MlsTime,
 };
-use tonic::async_trait;
 
 /// Custom identity provider that validates member credentials against the user roster
 #[derive(Debug, Clone, Copy)]
 pub struct CustomIdentityProvider;
 
-#[async_trait]
 impl IdentityProvider for CustomIdentityProvider {
     type Error = GroupError;
 
-    async fn validate_member(
+    fn validate_member(
         &self,
         signing_identity: &SigningIdentity,
         _timestamp: Option<MlsTime>,
@@ -64,7 +62,6 @@ impl IdentityProvider for CustomIdentityProvider {
 
         cipher_suite()
             .verify(&member.user_public_key, &member.signature, &tbs)
-            .await
             .map_err(|_| GroupError::MlsError("Verify error".to_string()))?;
 
         // Verify that the user who owns this member is in the authorized roster
@@ -80,7 +77,7 @@ impl IdentityProvider for CustomIdentityProvider {
         Ok(())
     }
 
-    async fn identity(
+    fn identity(
         &self,
         signing_identity: &SigningIdentity,
         _extensions: &ExtensionList,
@@ -100,7 +97,7 @@ impl IdentityProvider for CustomIdentityProvider {
         vec![CREDENTIAL_V1]
     }
 
-    async fn valid_successor(
+    fn valid_successor(
         &self,
         _predecessor: &SigningIdentity,
         _successor: &SigningIdentity,
@@ -109,7 +106,7 @@ impl IdentityProvider for CustomIdentityProvider {
         Ok(true)
     }
 
-    async fn validate_external_sender(
+    fn validate_external_sender(
         &self,
         _identity: &SigningIdentity,
         _timestamp: Option<MlsTime>,

@@ -1,5 +1,5 @@
 use base64::{Engine as _, engine::general_purpose};
-use rand::Rng;
+use rand::RngExt;
 use std::sync::Arc;
 use tauri::AppHandle;
 use tauri::Emitter;
@@ -230,9 +230,15 @@ pub async fn get_groups(
                 None
             };
 
+            let avatar = group_config
+                .avatar
+                .clone()
+                .map(|avatar| general_purpose::STANDARD.encode(avatar));
+
             groups_list.push(serde_json::json!({
                 "group_id": group_id.to_string(),
                 "group_config": group_config,
+                "avatar": avatar,
                 "last_message": last_message
             }));
         }

@@ -40,7 +40,7 @@ mod tests {
     async fn create_test_user_credential(name: &str) -> AccountCredential {
         let (_signer, public_key) = cipher_suite()
             .signature_key_generate()
-            .await
+            //.await
             .expect("Failed to generate signature key");
 
         AccountCredential {

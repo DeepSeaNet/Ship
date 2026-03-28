@@ -84,7 +84,7 @@ impl GroupHandler {
         let key_package = self
             .client
             .generate_key_package_message(Default::default(), Default::default(), None)
-            .await
+            //.await
             .map_err(|e| GroupError::MlsError(format!("Key package generation failed: {}", e)))?;
         let key_package_bytes = key_package.mls_encode_to_vec().map_err(|e| {
             GroupError::EncodingError(format!("Failed to encode key package: {}", e))
@@ -109,9 +109,13 @@ impl GroupHandler {
     }
 
     async fn join(&mut self, welcome_message: &MlsMessage) -> Result<GroupId, GroupError> {
-        let (mut group, _) = self.client.join_group(None, welcome_message, None).await?;
+        let (mut group, _) = self.client.join_group(None, welcome_message, None)
+            //.await
+            ?;
 
-        group.write_to_storage().await?;
+        group.write_to_storage()
+            //.await
+            ?;
         let group_config = self.extract_group_config(&group)?;
 
         let group_id = GroupId::new(group.group_id().to_vec());
@@ -139,10 +143,13 @@ impl GroupHandler {
 
         let group_arc = self.groups.get(&group_id).await?;
         let mut group = group_arc.write().await;
-        let received_message = group.process_incoming_message(message).await.map_err(|e| {
-            log::error!("Failed to process incoming message: {:#}", e);
-            GroupError::MessageProcessingError(e.to_string())
-        })?;
+        let received_message = group
+            .process_incoming_message(message)
+            //.await
+            .map_err(|e| {
+                log::error!("Failed to process incoming message: {:#}", e);
+                GroupError::MessageProcessingError(e.to_string())
+            })?;
 
         self.process_received_message(received_message, &group)
             .await
@@ -151,7 +158,9 @@ impl GroupHandler {
                 GroupError::MessageProcessingError(e.to_string())
             })?;
 
-        group.write_to_storage().await?;
+        group.write_to_storage()
+            //.await
+            ?;
 
         Ok(())
     }

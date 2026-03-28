@@ -62,7 +62,7 @@ impl VoiceUser {
         let cipher_suite = crypto_provider
             .cipher_suite_provider(CIPHERSUITE)
             .ok_or_else(|| anyhow::anyhow!("Cipher suite not supported"))?;
-        let (secret, public) = cipher_suite.signature_key_generate().await?;
+        let (secret, public) = cipher_suite.signature_key_generate()?;
         let basic_identity = BasicCredential::new(user_id.to_le_bytes().to_vec());
         let signing_identity = SigningIdentity::new(basic_identity.into_credential(), public);
 
@@ -182,11 +182,10 @@ impl VoiceUser {
         let group = self
             .client
             .create_group_with_id(group_id.to_vec(), extension_list, Default::default(), None)
-            .await
             .map_err(|e| anyhow::anyhow!("Failed to create MLS group: {}", e))?;
 
         // Get group_info for server to observe
-        let group_info = group.group_info_message_allowing_ext_commit(true).await?;
+        let group_info = group.group_info_message_allowing_ext_commit(true)?;
         let group_info_bytes = group_info.mls_encode_to_vec()?;
 
         let secret = group
@@ -194,8 +193,7 @@ impl VoiceUser {
                 EXPORT_SECRET_LABEL.as_bytes(),
                 self.user_id.to_le_bytes().as_slice(),
                 EXPORT_SECRET_LENGTH,
-            )
-            .await?;
+            )?;
         let secret_array: [u8; EXPORT_SECRET_LENGTH] = secret.as_bytes().try_into()?;
 
         let signature_key = group
@@ -244,12 +242,10 @@ impl VoiceUser {
         let (mut group, _) = self
             .client
             .join_group(None, &welcome, None)
-            .await
             .map_err(|e| anyhow::anyhow!("Failed to join group: {}", e))?;
 
         group
             .write_to_storage()
-            .await
             .map_err(|e| anyhow::anyhow!("Failed to write to storage: {}", e))?;
 
         // Export secret for ratchet manager
@@ -259,7 +255,6 @@ impl VoiceUser {
                 self.user_id.to_le_bytes().as_slice(),
                 EXPORT_SECRET_LENGTH,
             )
-            .await
             .map_err(|e| anyhow::anyhow!("Failed to export secret: {}", e))?;
 
         let secret_array: [u8; EXPORT_SECRET_LENGTH] = secret
@@ -316,7 +311,6 @@ impl VoiceUser {
             let key_package = self
                 .client
                 .generate_key_package_message(Default::default(), Default::default(), None)
-                .await
                 .map_err(|e| anyhow::anyhow!("Failed to generate key package: {}", e))?;
 
             let key_package_bytes = key_package
@@ -373,7 +367,6 @@ impl VoiceUser {
             let mut voice_mls_group = voice.mls_group.write().await;
             let leave_message = voice_mls_group
                 .propose_self_remove(Vec::new())
-                .await
                 .map_err(|e| anyhow::anyhow!("Failed to propose self remove: {}", e))?;
 
             // Сериализуем сообщение для отправки

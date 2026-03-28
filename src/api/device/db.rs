@@ -267,7 +267,7 @@ impl GroupManager {
         let mut hasher = sha2::Sha256::new();
         hasher.update(media_data);
         let hash = hasher.finalize();
-        let media_id = format!("{:x}", hash);
+        let media_id = hex::encode(hash);
 
         // Check existence cache first
         if let Some(exists) = self.media_exists_cache.get(&media_id).await {
@@ -323,7 +323,7 @@ impl GroupManager {
                     let mut hasher = sha2::Sha256::new();
                     hasher.update(media_data);
                     let hash = hasher.finalize();
-                    media_id = Some(format!("{:x}", hash));
+                    media_id = Some(hex::encode(hash));
                 }
 
                 // Start transaction
