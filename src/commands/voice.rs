@@ -1,7 +1,5 @@
 use crate::api::connection::get_avaliable_voice_servers;
-use crate::api::voice::VoiceUser;
-use crate::api::voice::grpc_generated::echolocator::ClientMessage;
-use crate::api::voice::types::ratchet_key::VoiceKeysPayload;
+use crate::api::voice::{VoiceKeysPayload, VoiceUser, echolocator::ClientMessage};
 use std::sync::Arc;
 use tauri::State;
 use tokio::sync::RwLock;

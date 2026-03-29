@@ -1,7 +1,7 @@
 use crate::api::connection::get_avaliable_voice_servers;
-use crate::api::voice::grpc_generated::echolocator::signaling_service_client::SignalingServiceClient;
-use crate::api::voice::grpc_generated::echolocator::{
-    ClientMessage, ServerInfoRequest, TryGetRoomRequest,
+use crate::api::voice::connection::echolocator::{
+    self, ClientMessage, ServerInfoRequest, TryGetRoomRequest,
+    signaling_service_client::SignalingServiceClient,
 };
 use anyhow::{Result, anyhow};
 use std::sync::Arc;
@@ -143,7 +143,7 @@ impl Backend {
             group_info.len()
         );
 
-        let request = crate::api::voice::grpc_generated::echolocator::GetOrCreateRoomRequest {
+        let request = echolocator::GetOrCreateRoomRequest {
             room_id: room_id.clone(),
             group_info: group_info.clone(),
         };
@@ -175,7 +175,7 @@ impl Backend {
 
         log::info!("Joining room {} with key package", room_id);
 
-        let request = crate::api::voice::grpc_generated::echolocator::JoinRoomRequest {
+        let request = echolocator::JoinRoomRequest {
             voice_id: room_id.clone(),
             key_package,
         };
@@ -208,14 +208,14 @@ impl Backend {
         let sender_guard = self.signaling_message_sender.lock().await;
 
         if let Some(sender) = sender_guard.as_ref() {
-            let commit_message = crate::api::voice::grpc_generated::echolocator::ClientMessage {
-                message: Some(crate::api::voice::grpc_generated::echolocator::client_message::Message::ClientCommit(
-                    crate::api::voice::grpc_generated::echolocator::ClientCommitRequest {
+            let commit_message = echolocator::ClientMessage {
+                message: Some(echolocator::client_message::Message::ClientCommit(
+                    echolocator::ClientCommitRequest {
                         voice_id,
                         commit,
                         welcome_message,
-                    }
-                ))
+                    },
+                )),
             };
 
             log::info!("Sending client commit");
@@ -246,14 +246,14 @@ impl Backend {
         let sender_guard = self.signaling_message_sender.lock().await;
 
         if let Some(sender) = sender_guard.as_ref() {
-            let ack_message = crate::api::voice::grpc_generated::echolocator::ClientMessage {
-                message: Some(crate::api::voice::grpc_generated::echolocator::client_message::Message::CommitAck(
-                    crate::api::voice::grpc_generated::echolocator::CommitAckRequest {
+            let ack_message = echolocator::ClientMessage {
+                message: Some(echolocator::client_message::Message::CommitAck(
+                    echolocator::CommitAckRequest {
                         commit_id: commit_id.clone(),
                         success,
                         error_message: error_message.unwrap_or_default(),
-                    }
-                ))
+                    },
+                )),
             };
 
             log::info!("Sending commit ACK for commit_id: {}", commit_id);
@@ -280,12 +280,12 @@ impl Backend {
 
         if let Some(sender) = sender_guard.as_ref() {
             let voice_data_message = ClientMessage {
-                message: Some(crate::api::voice::grpc_generated::echolocator::client_message::Message::VoiceData(
-                    crate::api::voice::grpc_generated::echolocator::VoiceDataRequest {
+                message: Some(echolocator::client_message::Message::VoiceData(
+                    echolocator::VoiceDataRequest {
                         voice_id: voice_id.clone(),
                         data: data.clone(),
-                    }
-                ))
+                    },
+                )),
             };
 
             log::info!(
@@ -330,10 +330,8 @@ impl Backend {
         let init_message = if let Some(rtp_caps_json) = rtp_capabilities {
             log::info!("RTP capabilities: {}", rtp_caps_json);
 
-            use crate::api::voice::grpc_generated::echolocator::*;
-
-            let rtp_caps = RtpCapabilities {
-                codecs: vec![RtpCodecCapability {
+            let rtp_caps = echolocator::RtpCapabilities {
+                codecs: vec![echolocator::RtpCodecCapability {
                     kind: "audio".to_string(),
                     mime_type: rtp_caps_json,
                     preferred_payload_type: None,
@@ -346,31 +344,25 @@ impl Backend {
             };
 
             ClientMessage {
-                message: Some(
-                    crate::api::voice::grpc_generated::echolocator::client_message::Message::Init(
-                        crate::api::voice::grpc_generated::echolocator::InitRequest {
-                            room_id: room_id.clone(),
-                            rtp_capabilities: Some(rtp_caps),
-                        },
-                    ),
-                ),
+                message: Some(echolocator::client_message::Message::Init(
+                    echolocator::InitRequest {
+                        room_id: room_id.clone(),
+                        rtp_capabilities: Some(rtp_caps),
+                    },
+                )),
             }
         } else {
             // Если RTP capabilities не переданы, используем минимальные
             ClientMessage {
-                message: Some(
-                    crate::api::voice::grpc_generated::echolocator::client_message::Message::Init(
-                        crate::api::voice::grpc_generated::echolocator::InitRequest {
-                            room_id: room_id.clone(),
-                            rtp_capabilities: Some(
-                                crate::api::voice::grpc_generated::echolocator::RtpCapabilities {
-                                    codecs: vec![],
-                                    header_extensions: vec![],
-                                },
-                            ),
-                        },
-                    ),
-                ),
+                message: Some(echolocator::client_message::Message::Init(
+                    echolocator::InitRequest {
+                        room_id: room_id.clone(),
+                        rtp_capabilities: Some(echolocator::RtpCapabilities {
+                            codecs: vec![],
+                            header_extensions: vec![],
+                        }),
+                    },
+                )),
             }
         };
 
@@ -418,36 +410,60 @@ impl Backend {
                         // Check message type and handle accordingly
                         if let Some(ref msg) = server_message.message {
                             match msg {
-                                crate::api::voice::grpc_generated::echolocator::server_message::Message::VoiceData(voice_data) => {
-                                    log::debug!("Received voice data: user_id={}, voice_id={}, size={} bytes", 
-                                        voice_data.user_id, voice_data.voice_id, voice_data.data.len());
+                                echolocator::server_message::Message::VoiceData(voice_data) => {
+                                    log::debug!(
+                                        "Received voice data: user_id={}, voice_id={}, size={} bytes",
+                                        voice_data.user_id,
+                                        voice_data.voice_id,
+                                        voice_data.data.len()
+                                    );
                                     // Call voice data handler if set
                                     let handler_guard = voice_data_handler.lock().await;
                                     if let Some(handler) = handler_guard.as_ref() {
-                                        handler(voice_data.user_id, voice_data.voice_id.clone(), voice_data.data.clone());
+                                        handler(
+                                            voice_data.user_id,
+                                            voice_data.voice_id.clone(),
+                                            voice_data.data.clone(),
+                                        );
                                     } else {
                                         log::warn!("Voice data received but no handler set");
                                     }
                                     continue;
                                 }
-                                crate::api::voice::grpc_generated::echolocator::server_message::Message::AddProposal(add_proposal) => {
-                                    log::info!("Received add proposal for voice_id: {}", add_proposal.voice_id);
+                                echolocator::server_message::Message::AddProposal(add_proposal) => {
+                                    log::info!(
+                                        "Received add proposal for voice_id: {}",
+                                        add_proposal.voice_id
+                                    );
                                     // Call MLS event handler for AddProposal
                                     let handler_guard = mls_event_handler.lock().await;
                                     if let Some(handler) = handler_guard.as_ref() {
-                                        handler(add_proposal.voice_id.clone(), add_proposal.proposal.clone(), None);
+                                        handler(
+                                            add_proposal.voice_id.clone(),
+                                            add_proposal.proposal.clone(),
+                                            None,
+                                        );
                                     } else {
                                         log::warn!("AddProposal received but no MLS handler set");
                                     }
                                     continue;
                                 }
-                                crate::api::voice::grpc_generated::echolocator::server_message::Message::ServerCommit(server_commit) => {
-                                    log::info!("Received server commit for voice_id: {}, commit_id: {}", 
-                                        server_commit.voice_id, server_commit.commit_id);
+                                echolocator::server_message::Message::ServerCommit(
+                                    server_commit,
+                                ) => {
+                                    log::info!(
+                                        "Received server commit for voice_id: {}, commit_id: {}",
+                                        server_commit.voice_id,
+                                        server_commit.commit_id
+                                    );
                                     // Call MLS event handler for ServerCommit
                                     let handler_guard = mls_event_handler.lock().await;
                                     if let Some(handler) = handler_guard.as_ref() {
-                                        handler(server_commit.voice_id.clone(), server_commit.commit.clone(), Some(server_commit.commit_id.clone()));
+                                        handler(
+                                            server_commit.voice_id.clone(),
+                                            server_commit.commit.clone(),
+                                            Some(server_commit.commit_id.clone()),
+                                        );
                                     } else {
                                         log::warn!("ServerCommit received but no MLS handler set");
                                     }
@@ -457,33 +473,49 @@ impl Backend {
                                             "data": server_message
                                         });
 
-                                        if let Err(e) = app_handle.emit("voice-event", event_payload) {
+                                        if let Err(e) =
+                                            app_handle.emit("voice-event", event_payload)
+                                        {
                                             log::error!("Failed to emit voice-event: {}", e);
                                         }
                                     }
                                     continue;
                                 }
-                                crate::api::voice::grpc_generated::echolocator::server_message::Message::ServerCommitResponse(commit_response) => {
-                                    log::info!("Received server commit response for voice_id: {}, accepted: {}", 
-                                        commit_response.voice_id, commit_response.accepted);
+                                echolocator::server_message::Message::ServerCommitResponse(
+                                    commit_response,
+                                ) => {
+                                    log::info!(
+                                        "Received server commit response for voice_id: {}, accepted: {}",
+                                        commit_response.voice_id,
+                                        commit_response.accepted
+                                    );
                                     // Call commit response handler
                                     let handler_guard = commit_response_handler.lock().await;
                                     if let Some(handler) = handler_guard.as_ref() {
-                                        handler(commit_response.voice_id.clone(), commit_response.accepted, commit_response.error_message.clone());
+                                        handler(
+                                            commit_response.voice_id.clone(),
+                                            commit_response.accepted,
+                                            commit_response.error_message.clone(),
+                                        );
                                     } else {
-                                        log::warn!("ServerCommitResponse received but no handler set");
+                                        log::warn!(
+                                            "ServerCommitResponse received but no handler set"
+                                        );
                                     }
                                     if commit_response.accepted
-                                        && let Some(app_handle) = &app_handle {
-                                            let event_payload = serde_json::json!({
-                                                "type": "server_commit",
-                                                "data": server_message
-                                            });
+                                        && let Some(app_handle) = &app_handle
+                                    {
+                                        let event_payload = serde_json::json!({
+                                            "type": "server_commit",
+                                            "data": server_message
+                                        });
 
-                                            if let Err(e) = app_handle.emit("voice-event", event_payload) {
-                                                log::error!("Failed to emit voice-event: {}", e);
-                                            }
+                                        if let Err(e) =
+                                            app_handle.emit("voice-event", event_payload)
+                                        {
+                                            log::error!("Failed to emit voice-event: {}", e);
                                         }
+                                    }
                                     continue;
                                 }
                                 _ => {

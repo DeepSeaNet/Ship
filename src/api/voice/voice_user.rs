@@ -20,12 +20,13 @@ use tokio::{
 
 use anyhow::Error;
 
-use crate::api::voice::types::basic_types::{
-    EXPORT_SECRET_LABEL, EXPORT_SECRET_LENGTH, Voice, VoiceId,
-};
 use crate::api::voice::types::ratchet_key::GroupRatchetManager;
 use crate::api::voice::types::ratchet_key::RatchetConfig;
 use crate::api::voice::voice_handler::VoiceHandler;
+use crate::api::voice::{
+    connection::echolocator,
+    types::basic_types::{EXPORT_SECRET_LABEL, EXPORT_SECRET_LENGTH, Voice, VoiceId},
+};
 use crate::api::voice::{connection::voice_connection::Backend, types::basic_types::VoiceUserData};
 use mls_rs_crypto_awslc::AwsLcCryptoProvider;
 use std::path::PathBuf;
@@ -429,7 +430,7 @@ impl VoiceUser {
     // Отправка signaling сообщения
     pub async fn send_signaling_message(
         &self,
-        message: crate::api::voice::grpc_generated::echolocator::ClientMessage,
+        message: echolocator::ClientMessage,
     ) -> Result<(), anyhow::Error> {
         self.backend.send_signaling_message(message).await?;
         Ok(())
