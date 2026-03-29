@@ -246,7 +246,7 @@ export class GrpcSignalingAdapter {
 				action: `consumed:${producerId}`,
 				id: c.consumerId ?? c.consumer_id ?? "",
 				producerId,
-				kind: c.kind === 2 ? "video" : "audio",
+				kind: c.kind === "video" ? "video" : "audio",
 				rtpParameters: this.parseRtpParameters(
 					c.rtpParameters ?? c.rtp_parameters,
 				),
@@ -432,12 +432,12 @@ export class GrpcSignalingAdapter {
 								codecs: [
 									{
 										mimeType: JSON.stringify(message.rtpCapabilities),
-										kind: "serialized",
+										kind: message.kind || "audio",
 										preferredPayloadType: 0,
 										clockRate: 0,
 										channels: 0,
-										parameters: "",
-										rtcpFeedback: "",
+										parameters: [],
+										rtcpFeedback: [],
 									},
 								],
 								headerExtensions: [],
@@ -474,7 +474,7 @@ export class GrpcSignalingAdapter {
 				return {
 					message: {
 						produce: {
-							kind: message.kind === "audio" ? 1 : 2,
+							kind: message.kind,
 							rtpParameters: {
 								mid: JSON.stringify(message.rtpParameters),
 								codecs: [],

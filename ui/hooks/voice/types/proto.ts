@@ -56,7 +56,7 @@ export interface ProtoConsumed {
 	consumer_id?: string;
 	producerId?: string;
 	producer_id?: string;
-	kind?: number;
+	kind?: string;
 	rtpParameters?: ProtoRtpParameters;
 	rtp_parameters?: ProtoRtpParameters;
 }

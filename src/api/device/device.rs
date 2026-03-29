@@ -437,16 +437,16 @@ pub fn get_default_db_path(account_id: u64, device_id: &str) -> std::path::PathB
     #[cfg(not(target_os = "ios"))]
     {
         let mut path = dirs::home_dir().expect("Could not find home directory");
-        path.push(".anongram/group");
-        std::fs::create_dir_all(&path).expect("Could not create .anongram directory");
+        path.push(".ship/group");
+        std::fs::create_dir_all(&path).expect("Could not create .ship directory");
         path.push(format!("group_{}_{}.db", account_id, device_id));
         path
     }
     #[cfg(target_os = "ios")]
     {
         let mut path = dirs::document_dir().expect("Could not find home directory");
-        path.push(".anongram/group");
-        std::fs::create_dir_all(&path).expect("Could not create .anongram directory");
+        path.push(".ship/group");
+        std::fs::create_dir_all(&path).expect("Could not create .ship directory");
         path.push(format!("group_{}_{}.db", account_id, device_id));
         path
     }

@@ -328,28 +328,32 @@ impl Backend {
 
         // Создаем начальное Init сообщение
         let init_message = if let Some(rtp_caps_json) = rtp_capabilities {
-            // Парсим RTP capabilities из JSON
-            let rtp_caps: serde_json::Value = serde_json::from_str(&rtp_caps_json)
-                .map_err(|e| anyhow!("Failed to parse RTP capabilities: {}", e))?;
+            log::info!("RTP capabilities: {}", rtp_caps_json);
+
+            use crate::api::voice::grpc_generated::echolocator::*;
+
+            let rtp_caps = RtpCapabilities {
+                codecs: vec![RtpCodecCapability {
+                    kind: "audio".to_string(),
+                    mime_type: rtp_caps_json,
+                    preferred_payload_type: None,
+                    clock_rate: 0,
+                    channels: 0,
+                    parameters: vec![],
+                    rtcp_feedback: vec![],
+                }],
+                header_extensions: vec![],
+            };
 
             ClientMessage {
-                message: Some(crate::api::voice::grpc_generated::echolocator::client_message::Message::Init(
-                    crate::api::voice::grpc_generated::echolocator::InitRequest {
-                        room_id: room_id.clone(),
-                        rtp_capabilities: Some(crate::api::voice::grpc_generated::echolocator::RtpCapabilities {
-                            codecs: vec![crate::api::voice::grpc_generated::echolocator::RtpCodecCapability {
-                                kind: "serialized".to_string(),
-                                mime_type: rtp_caps.to_string(),
-                                preferred_payload_type: 0,
-                                clock_rate: 0,
-                                channels: 0,
-                                parameters: String::new(),
-                                rtcp_feedback: String::new(),
-                            }],
-                            header_extensions: vec![],
-                        }),
-                    }
-                ))
+                message: Some(
+                    crate::api::voice::grpc_generated::echolocator::client_message::Message::Init(
+                        crate::api::voice::grpc_generated::echolocator::InitRequest {
+                            room_id: room_id.clone(),
+                            rtp_capabilities: Some(rtp_caps),
+                        },
+                    ),
+                ),
             }
         } else {
             // Если RTP capabilities не переданы, используем минимальные
@@ -534,5 +538,13 @@ impl Backend {
             log::error!("Signaling stream not initialized");
             Err(anyhow!("Signaling stream not initialized"))
         }
+    }
+
+    pub async fn close_signaling_stream(&self) -> Result<()> {
+        let mut client_guard = self.client.lock().await;
+        *client_guard = None;
+        let mut sender_guard = self.signaling_message_sender.lock().await;
+        *sender_guard = None;
+        Ok(())
     }
 }

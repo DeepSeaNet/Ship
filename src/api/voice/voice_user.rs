@@ -188,12 +188,11 @@ impl VoiceUser {
         let group_info = group.group_info_message_allowing_ext_commit(true)?;
         let group_info_bytes = group_info.mls_encode_to_vec()?;
 
-        let secret = group
-            .export_secret(
-                EXPORT_SECRET_LABEL.as_bytes(),
-                self.user_id.to_le_bytes().as_slice(),
-                EXPORT_SECRET_LENGTH,
-            )?;
+        let secret = group.export_secret(
+            EXPORT_SECRET_LABEL.as_bytes(),
+            self.user_id.to_le_bytes().as_slice(),
+            EXPORT_SECRET_LENGTH,
+        )?;
         let secret_array: [u8; EXPORT_SECRET_LENGTH] = secret.as_bytes().try_into()?;
 
         let signature_key = group
@@ -381,6 +380,7 @@ impl VoiceUser {
         // Удаляем информацию о группе из локального хранилища
         let mut lock = self.current_voice.write().await;
         *lock = None;
+        self.backend.close_signaling_stream().await?;
         Ok(())
     }
 
