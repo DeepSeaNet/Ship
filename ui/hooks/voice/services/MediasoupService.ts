@@ -1,11 +1,11 @@
 import { Device, type types as mediasoupTypes } from "mediasoup-client";
 import type { Consumer, Producer, Transport } from "mediasoup-client/types";
 import type {
+	AppData,
 	ConsumerId,
 	LoggerFunction,
 	ServerConsumed,
 	ServerProduced,
-	TransformApi,
 } from "../types/mediasoup";
 
 import {
@@ -29,7 +29,6 @@ export interface MediasoupServiceOptions {
 	userId: string;
 	addLog: LoggerFunction;
 	onTransportsInitialized?: () => void;
-	transformApi: TransformApi;
 	workerManager: WorkerManager;
 }
 
@@ -37,15 +36,14 @@ export class MediasoupService {
 	private device: Device | null = null;
 	private sendTransport: Transport | null = null;
 	private recvTransport: Transport | null = null;
-	private producers: Map<string, Producer> = new Map();
-	private consumers: Map<ConsumerId, Consumer> = new Map();
+	private producers: Map<string, Producer<AppData>> = new Map();
+	private consumers: Map<ConsumerId, Consumer<AppData>> = new Map();
 	private responseCallbacks: Map<string, (data: CallbackResponse) => void> =
 		new Map();
 	private initialized = false;
 
 	private addLog: LoggerFunction;
 	private onTransportsInitialized?: () => void;
-	private transformApi: TransformApi;
 	private sessionId: string;
 	private userId: string;
 	private workerManager: WorkerManager;
@@ -54,7 +52,6 @@ export class MediasoupService {
 		this.addLog = options.addLog;
 		this.sessionId = options.sessionId;
 		this.userId = options.userId;
-		this.transformApi = options.transformApi;
 		this.onTransportsInitialized = options.onTransportsInitialized;
 		this.workerManager = options.workerManager;
 	}
@@ -71,11 +68,11 @@ export class MediasoupService {
 		return this.recvTransport;
 	}
 
-	public getProducers(): Map<string, Producer> {
+	public getProducers(): Map<string, Producer<AppData>> {
 		return this.producers;
 	}
 
-	public getConsumers(): Map<ConsumerId, Consumer> {
+	public getConsumers(): Map<ConsumerId, Consumer<AppData>> {
 		return this.consumers;
 	}
 
@@ -146,16 +143,10 @@ export class MediasoupService {
 			return;
 		}
 
-		const isEncoded = this.transformApi === "encodedStreams";
-		const additionalSettings = isEncoded
-			? { encodedInsertableStreams: true }
-			: {};
-
 		// 1. Create Send Transport
 		this.addLog("Creating Producer Transport...", "info");
 		this.sendTransport = this.device.createSendTransport({
 			...producerTransportOptions,
-			additionalSettings: additionalSettings as any,
 		});
 
 		this.sendTransport.on("connect", ({ dtlsParameters }, callback) => {
@@ -198,7 +189,6 @@ export class MediasoupService {
 		this.addLog("Creating Consumer Transport...", "info");
 		this.recvTransport = this.device.createRecvTransport({
 			...consumerTransportOptions,
-			additionalSettings: additionalSettings as any,
 		});
 
 		this.recvTransport.on("connect", ({ dtlsParameters }, callback) => {
@@ -228,7 +218,7 @@ export class MediasoupService {
 	public async createProducer(
 		track: MediaStreamTrack,
 		sourceType: string,
-	): Promise<Producer | null> {
+	): Promise<Producer<AppData> | null> {
 		if (!this.sendTransport) {
 			this.addLog(
 				`Cannot create producer for ${track.kind}: SendTransport not initialized`,
@@ -238,7 +228,7 @@ export class MediasoupService {
 		}
 
 		try {
-			const producer = await this.sendTransport.produce({
+			const producer = await this.sendTransport.produce<AppData>({
 				track,
 				appData: {
 					sourceType,
@@ -262,33 +252,28 @@ export class MediasoupService {
 		}
 	}
 
-	private async applyEncryptionToProducer(producer: Producer): Promise<void> {
+	private async applyEncryptionToProducer(
+		producer: Producer<AppData>,
+	): Promise<void> {
 		if (!producer.rtpSender) return;
 
-		if (this.transformApi === "encodedStreams") {
-			this.addLog(
-				`Applying Encoded Transform encryption to ${producer.kind} Producer`,
-				"info",
+		this.addLog(
+			`Applying Encoded Transform encryption to ${producer.kind} Producer`,
+			"info",
+		);
+		try {
+			const worker = this.workerManager.getEncodedStreamWorker();
+			if (!worker) throw new Error("Worker not available");
+			await applyEncryptionToSender(
+				producer.rtpSender,
+				this.userId,
+				this.sessionId,
 			);
-			try {
-				const worker = this.workerManager.getEncodedStreamWorker();
-				if (!worker) throw new Error("Worker not available");
-				await applyEncryptionToSender(
-					producer.rtpSender,
-					this.userId,
-					this.sessionId,
-				);
-				this.addLog(`Encryption applied to Producer ${producer.id}`, "success");
-			} catch (e) {
-				this.addLog(
-					`Encryption error for Producer ${producer.id}: ${e}`,
-					"error",
-				);
-			}
-		} else {
+			this.addLog(`Encryption applied to Producer ${producer.id}`, "success");
+		} catch (e) {
 			this.addLog(
-				`No encryption applied (API: ${this.transformApi})`,
-				"warning",
+				`Encryption error for Producer ${producer.id}: ${e}`,
+				"error",
 			);
 		}
 	}
@@ -302,7 +287,7 @@ export class MediasoupService {
 			producerId: string,
 		) => void,
 		sendMessage: (message: WebSocketMessage) => void,
-	): Promise<Consumer | null> {
+	): Promise<Consumer<AppData> | null> {
 		if (!this.recvTransport) {
 			this.addLog(
 				`Cannot create consumer for producer ${consumedMessage.producerId}: RecvTransport not initialized`,
@@ -316,11 +301,12 @@ export class MediasoupService {
 				`Consuming Producer ${consumedMessage.producerId}...`,
 				"info",
 			);
-			const consumer = await this.recvTransport.consume({
+			const consumer = await this.recvTransport.consume<AppData>({
 				id: consumedMessage.id,
 				producerId: consumedMessage.producerId,
 				kind: consumedMessage.kind,
 				rtpParameters: consumedMessage.rtpParameters,
+				appData: consumedMessage.appData,
 			});
 
 			this.consumers.set(consumer.id, consumer);
@@ -342,31 +328,29 @@ export class MediasoupService {
 	}
 
 	private async applyDecryptionToConsumer(
-		consumer: Consumer,
+		consumer: Consumer<AppData>,
 		senderId: string,
 	): Promise<void> {
 		if (!consumer.rtpReceiver) return;
 
-		if (this.transformApi === "encodedStreams") {
-			this.addLog(
-				`Applying Encoded Transform decryption to ${consumer.kind} Consumer`,
-				"info",
+		this.addLog(
+			`Applying Encoded Transform decryption to ${consumer.kind} Consumer`,
+			"info",
+		);
+		try {
+			const worker = this.workerManager.getEncodedStreamWorker();
+			if (!worker) throw new Error("Worker not available");
+			await applyDecryptionToReceiver(
+				consumer.rtpReceiver,
+				senderId,
+				this.sessionId,
 			);
-			try {
-				const worker = this.workerManager.getEncodedStreamWorker();
-				if (!worker) throw new Error("Worker not available");
-				await applyDecryptionToReceiver(
-					consumer.rtpReceiver,
-					senderId,
-					this.sessionId,
-				);
-				this.addLog(`Decryption applied to Consumer ${consumer.id}`, "success");
-			} catch (e) {
-				this.addLog(
-					`Decryption error for Consumer ${consumer.id}: ${e}`,
-					"error",
-				);
-			}
+			this.addLog(`Decryption applied to Consumer ${consumer.id}`, "success");
+		} catch (e) {
+			this.addLog(
+				`Decryption error for Consumer ${consumer.id}: ${e}`,
+				"error",
+			);
 		}
 	}
 
@@ -384,9 +368,13 @@ export class MediasoupService {
 
 	public cleanup(): void {
 		this.addLog("Cleaning up Mediasoup resources...", "info");
-		this.consumers.forEach((c) => c.close());
+		this.consumers.forEach((c) => {
+			c.close();
+		});
 		this.consumers.clear();
-		this.producers.forEach((p) => p.close());
+		this.producers.forEach((p) => {
+			p.close();
+		});
 		this.producers.clear();
 
 		if (this.sendTransport) this.sendTransport.close();

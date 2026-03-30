@@ -48,5 +48,13 @@
 			"icons/Square89x89Logo.png",
 			"icons/StoreLogo.png"
 		]
+	},
+	"plugins": {
+		"typegen": {
+			"project_path": "./",
+			"output_path": "./ui/hooks/generated",
+			"validation_library": "zod",
+			"verbose": true
+		}
 	}
 }

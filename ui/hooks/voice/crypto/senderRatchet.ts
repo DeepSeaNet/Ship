@@ -67,7 +67,20 @@ export class SenderCryptoRatchet {
 	 *
 	 * Wire format: [epoch(4 LE)][generation(4 LE)][nonce(12)][ciphertext][tag(8)]
 	 */
+	private processingQueue: Promise<void> = Promise.resolve();
+
 	async encrypt(plaintext: Uint8Array): Promise<Uint8Array> {
+		const result = this.processingQueue.then(() =>
+			this.internalEncrypt(plaintext),
+		);
+		this.processingQueue = result.then(
+			() => {},
+			() => {},
+		);
+		return result;
+	}
+
+	private async internalEncrypt(plaintext: Uint8Array): Promise<Uint8Array> {
 		const generation = this.generation;
 		const { key, nonce, nextSecret } = await mlsRatchetStep(
 			this.secret,

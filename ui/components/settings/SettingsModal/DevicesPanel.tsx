@@ -2,7 +2,7 @@
 import { Button, Card, toast } from "@heroui/react";
 import { TrashBin } from "@gravity-ui/icons";
 import { useEffect, useState } from "react";
-import { getUserDevices } from "@/hooks/useAccounts";
+import { getUserDevices } from "@/hooks/generated";
 
 export function DevicesPanel() {
 	const [devices, setDevices] = useState<
@@ -13,11 +13,8 @@ export function DevicesPanel() {
 	useEffect(() => {
 		const loadDevices = async () => {
 			try {
-				const userId = Number(localStorage.getItem("userId"));
-				if (userId) {
-					const deps = await getUserDevices(userId);
-					setDevices(deps);
-				}
+				const deps = await getUserDevices();
+				setDevices(deps);
 			} catch {
 				toast("Failed to load devices", { variant: "danger" });
 			} finally {

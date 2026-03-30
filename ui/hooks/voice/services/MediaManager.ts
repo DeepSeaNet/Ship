@@ -1,5 +1,9 @@
 import type { Producer } from "mediasoup-client/types";
-import type { ClientMessage, LoggerFunction } from "../types/mediasoup";
+import type {
+	AppData,
+	ClientMessage,
+	LoggerFunction,
+} from "../types/mediasoup";
 import type { MediasoupService } from "./MediasoupService";
 import {
 	type AdvancedMicrophoneController,
@@ -103,7 +107,7 @@ export class MediaManager {
 	/**
 	 * Запустить камеру и создать видео producer
 	 */
-	public async startVideo(): Promise<Producer | null> {
+	public async startVideo(): Promise<Producer<AppData> | null> {
 		if (!this.mediasoupService.isInitialized()) {
 			this.addLog("Cannot start camera: Mediasoup not initialized", "error");
 			return null;
@@ -120,7 +124,7 @@ export class MediaManager {
 				video: { width: 640, height: 360 },
 			});
 
-			if (!stream || !stream.getVideoTracks().length) {
+			if (!stream?.getVideoTracks().length) {
 				this.addLog("Failed to get video stream or no video tracks", "error");
 				return null;
 			}
@@ -215,7 +219,9 @@ export class MediaManager {
 	 * Создать контроллер микрофона
 	 * @param producer аудио producer
 	 */
-	private async createMicrophoneController(producer: Producer): Promise<void> {
+	private async createMicrophoneController(
+		producer: Producer<AppData>,
+	): Promise<void> {
 		this.addLog("Initializing microphone controller...", "info");
 		try {
 			const advancedController = await initializeAdvancedMicrophone(
@@ -240,7 +246,7 @@ export class MediaManager {
 	/**
 	 * Запустить микрофон и создать аудио producer
 	 */
-	public async startAudio(): Promise<Producer | null> {
+	public async startAudio(): Promise<Producer<AppData> | null> {
 		if (!this.mediasoupService.isInitialized()) {
 			this.addLog(
 				"Cannot start microphone: Mediasoup not initialized",
@@ -258,7 +264,7 @@ export class MediaManager {
 			this.addLog("Starting microphone...", "info");
 			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-			if (!stream || !stream.getAudioTracks().length) {
+			if (!stream?.getAudioTracks().length) {
 				this.addLog("Failed to get audio stream or no audio tracks", "error");
 				return null;
 			}
@@ -395,7 +401,7 @@ export class MediaManager {
 				audio: true, // Запрашиваем звук экрана
 			});
 
-			if (!stream || !stream.getVideoTracks().length) {
+			if (!stream?.getVideoTracks().length) {
 				this.addLog(
 					"Failed to get screen share stream or no video tracks",
 					"error",

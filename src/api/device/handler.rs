@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use super::types::group::MlsGroup;
 use crate::api::device::types::custom_mls::credentials::DeviceCredential;
-use crate::api::device::types::extensions::group_config::group_config::GroupConfig;
+use crate::api::device::types::extensions::group_config::group_config::{GroupConfig, Permissions};
 use crate::api::device::types::extensions::group_config::group_extension::{
     GroupConfigExtension, UPDATE_GROUP_CONFIG_PROPOSAL_V1, UpdateGroupConfigProposal,
 };
@@ -25,6 +25,72 @@ use super::mls_client::MlsClient;
 use super::types::errors::GroupError;
 use super::types::group::{GroupId, GroupStorage};
 use crate::api::account::Account;
+
+#[derive(serde::Serialize, Clone)]
+struct SystemEvent<'a, T: Clone> {
+    #[serde(rename = "type")]
+    event_type: &'a str,
+    data: T,
+}
+
+#[derive(serde::Serialize, Clone)]
+struct JoinGroupData<'a> {
+    group_name: &'a str,
+    group_id: String,
+    description: &'a Option<String>,
+    avatar: &'a Option<Vec<u8>>,
+    member_count: usize,
+    members: &'a [u64],
+    user_permissions: &'a Permissions,
+    users_permisions: &'a std::collections::HashMap<u64, Permissions>,
+    owner_id: u64,
+    admins: &'a [u64],
+    date: u64,
+    default_permissions: &'a Permissions,
+}
+
+#[derive(serde::Serialize, Clone)]
+struct NewGroupMessageData<'a> {
+    group_id: String,
+    group_name: &'a str,
+    sender_id: String,
+    text: &'a str,
+    timestamp: i64,
+    media: &'a Option<Vec<u8>>,
+    media_name: &'a Option<String>,
+    message_id: String,
+    reply_message_id: Option<String>,
+    edit_date: Option<String>,
+    is_edit: bool,
+    expires: Option<String>,
+}
+
+#[derive(serde::Serialize, Clone)]
+struct MessageDeliveryData {
+    message_id: String,
+    success: bool,
+}
+
+#[derive(serde::Serialize, Clone)]
+struct WelcomeMessageData {
+    message_id: String,
+    success: bool,
+}
+
+#[derive(serde::Serialize, Clone)]
+struct GroupConfigUpdatedData<'a> {
+    group_id: String,
+    group_name: &'a str,
+    description: &'a Option<String>,
+    avatar: &'a Option<Vec<u8>>,
+    owner_id: u64,
+    admins: &'a [u64],
+    members: &'a [u64],
+    created_at: u64,
+    user_permissions: &'a Permissions,
+    users_permisions: &'a std::collections::HashMap<u64, Permissions>,
+    default_permissions: &'a Permissions,
+}
 
 pub struct GroupHandler {
     pub user_id: u64,
@@ -173,23 +239,23 @@ impl GroupHandler {
     ) -> Result<(), GroupError> {
         match text_msg {
             UserGroupMessage::TextMessage(text_msg) => {
-                let event_payload = serde_json::json!({
-                        "type": "new_group_message",
-                            "data": {
-                            "group_id": group_id.to_string(),
-                            "group_name": group_config.name,
-                            "sender_id": text_msg.sender_id.to_string(),
-                            "text": text_msg.text,
-                            "timestamp": text_msg.date,
-                            "media": text_msg.media,
-                            "media_name": text_msg.media_name,
-                            "message_id": text_msg.message_id.to_string(),
-                            "reply_message_id": text_msg.reply_message_id.map(|id| id.to_string()),
-                            "edit_date": text_msg.edit_date.map(|date| date.to_string()),
-                            "is_edit": text_msg.edit_date.is_some(),
-                            "expires": text_msg.expires.map(|date| date.to_string())
-                    }
-                });
+                let event_payload = SystemEvent {
+                    event_type: "new_group_message",
+                    data: NewGroupMessageData {
+                        group_id: group_id.to_string(),
+                        group_name: &group_config.name,
+                        sender_id: text_msg.sender_id.to_string(),
+                        text: &text_msg.text,
+                        timestamp: text_msg.date,
+                        media: &text_msg.media,
+                        media_name: &text_msg.media_name,
+                        message_id: text_msg.message_id.to_string(),
+                        reply_message_id: text_msg.reply_message_id.map(|id| id.to_string()),
+                        edit_date: text_msg.edit_date.map(|date| date.to_string()),
+                        is_edit: text_msg.edit_date.is_some(),
+                        expires: text_msg.expires.map(|date| date.to_string()),
+                    },
+                };
 
                 if let Some(app_handle) = &self.app_handle {
                     app_handle
@@ -211,23 +277,23 @@ impl GroupHandler {
         let user_permissions = users_permisions
             .get(&self.user_id)
             .unwrap_or(default_permissions);
-        let event_payload = serde_json::json!({
-            "type": "join_group",
-            "data": {
-                "group_name": group_config.name,
-                "group_id": group_id.to_string(),
-                "description": group_config.description,
-                "avatar": group_config.avatar,
-                "member_count": group_config.members.len(),
-                "members": group_config.members,
-                "user_permissions": user_permissions,
-                "users_permisions": users_permisions,
-                "owner_id": group_config.creator_id,
-                "admins": group_config.admins,
-                "date": group_config.created_at.timestamp,
-                "default_permissions": default_permissions
-            }
-        });
+        let event_payload = SystemEvent {
+            event_type: "join_group",
+            data: JoinGroupData {
+                group_name: &group_config.name,
+                group_id: group_id.to_string(),
+                description: &group_config.description,
+                avatar: &group_config.avatar,
+                member_count: group_config.members.len(),
+                members: &group_config.members,
+                user_permissions,
+                users_permisions,
+                owner_id: group_config.creator_id,
+                admins: &group_config.admins,
+                date: group_config.created_at.timestamp,
+                default_permissions,
+            },
+        };
 
         if let Some(app_handle) = &self.app_handle {
             app_handle
@@ -242,13 +308,13 @@ impl GroupHandler {
         message_id: u64,
         success: bool,
     ) -> Result<(), GroupError> {
-        let event_payload = serde_json::json!({
-            "type": "message_delivery",
-            "data": {
-                "message_id": (message_id as i64).to_string(),
-                "success": success
-            }
-        });
+        let event_payload = SystemEvent {
+            event_type: "message_delivery",
+            data: MessageDeliveryData {
+                message_id: (message_id as i64).to_string(),
+                success,
+            },
+        };
 
         if let Some(app_handle) = &self.app_handle {
             app_handle
@@ -263,13 +329,13 @@ impl GroupHandler {
         message_id: u64,
         success: bool,
     ) -> Result<(), GroupError> {
-        let event_payload = serde_json::json!({
-            "type": "welcome_message",
-            "data": {
-                "message_id": message_id.to_string(),
-                "success": success
-            }
-        });
+        let event_payload = SystemEvent {
+            event_type: "welcome_message",
+            data: WelcomeMessageData {
+                message_id: message_id.to_string(),
+                success,
+            },
+        };
 
         if let Some(app_handle) = &self.app_handle {
             app_handle
@@ -289,22 +355,22 @@ impl GroupHandler {
         let user_permissions = users_permisions
             .get(&self.user_id)
             .unwrap_or(default_permissions);
-        let event_payload = serde_json::json!({
-            "type": "group_config_updated",
-            "data": {
-                "group_id": group_id.to_string(),
-                "group_name": group_config.name,
-                "description": group_config.description,
-                "avatar": group_config.avatar,
-                "owner_id": group_config.creator_id,
-                "admins": group_config.admins,
-                "members": group_config.members,
-                "created_at": group_config.created_at.timestamp,
-                "user_permissions": user_permissions,
-                "users_permisions": users_permisions,
-                "default_permissions": default_permissions,
-            }
-        });
+        let event_payload = SystemEvent {
+            event_type: "group_config_updated",
+            data: GroupConfigUpdatedData {
+                group_id: group_id.to_string(),
+                group_name: &group_config.name,
+                description: &group_config.description,
+                avatar: &group_config.avatar,
+                owner_id: group_config.creator_id,
+                admins: &group_config.admins,
+                members: &group_config.members,
+                created_at: group_config.created_at.timestamp,
+                user_permissions,
+                users_permisions,
+                default_permissions,
+            },
+        };
 
         if let Some(app_handle) = &self.app_handle {
             app_handle

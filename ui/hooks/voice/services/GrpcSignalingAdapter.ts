@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { types as mediasoupTypes } from "mediasoup-client";
 import type {
+	AppData,
 	ClientMessage,
 	LoggerFunction,
 	ServerConsumed,
@@ -12,7 +13,7 @@ import type {
 	ServerProducerRemoved,
 } from "../types/mediasoup";
 import { minimalCapabilities } from "../utils/rtpCapabilities";
-import type { AppData, IceCandidate } from "mediasoup-client/types";
+import type { IceCandidate } from "mediasoup-client/types";
 import type {
 	ProtoFingerprint,
 	ProtoRtpCapabilities,

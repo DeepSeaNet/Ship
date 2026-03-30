@@ -1,10 +1,12 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
 import type { Message } from "./messengerTypes";
 import { useMessengerState } from "./useMessengerState";
+import { getGroupMessages, getUserInfo } from "./generated";
 
 // Helper for media URLs
-const createMediaUrl = (mediaData: string | undefined): string | undefined => {
+const createMediaUrl = (
+	mediaData: string | null | undefined,
+): string | undefined => {
 	if (!mediaData) return undefined;
 	if (mediaData.startsWith("data:") || mediaData.startsWith("http"))
 		return mediaData;
@@ -19,6 +21,7 @@ export function useMessages(chatId: string | null) {
 		markChatAsLoaded,
 		setMessagesForChat,
 		upsertUser,
+		currentUser,
 	} = useMessengerState();
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -33,7 +36,7 @@ export function useMessages(chatId: string | null) {
 		setLoading(true);
 		setError(null);
 		try {
-			const response = await invoke<any>("get_group_messages", {
+			const response = await getGroupMessages({
 				groupId: chatId,
 			});
 
@@ -42,11 +45,9 @@ export function useMessages(chatId: string | null) {
 				return;
 			}
 
-			const formattedMessages: Message[] = response.messages.map((msg: any) => {
+			const formattedMessages: Message[] = response.messages.map((msg) => {
 				const senderId = msg.sender_id?.toString() || "0";
 				const sender = contacts[senderId];
-
-				// If sender name is missing, we'll need to fetch it (handled below)
 				const senderName = sender?.name || `User ${senderId}`;
 				return {
 					id: msg.id?.toString() || "",
@@ -56,7 +57,7 @@ export function useMessages(chatId: string | null) {
 					senderAvatar: sender?.avatar,
 					content: msg.content || "",
 					timestamp: new Date(msg.timestamp * 1000).toISOString(),
-					isOwn: senderId === localStorage.getItem("userId"),
+					isOwn: senderId === currentUser?.id,
 					status: "sent",
 					media_name: msg.media_name,
 					media: createMediaUrl(msg.media_data),
@@ -79,13 +80,13 @@ export function useMessages(chatId: string | null) {
 				Promise.all(
 					missingUserIds.map(async (id) => {
 						try {
-							const userInfo = await invoke<any>("get_user_info", {
+							const userInfo = await getUserInfo({
 								userId: parseInt(id, 10),
 							});
 							if (userInfo) {
 								upsertUser({
 									id: id,
-									name: userInfo.username || userInfo.name || `User ${id}`,
+									name: userInfo.username || `User ${id}`,
 									avatar: createMediaUrl(userInfo.avatar),
 								});
 							}

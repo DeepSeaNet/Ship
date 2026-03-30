@@ -8,10 +8,8 @@ export type {
 	MessengerContextType,
 	UIState,
 } from "./messengerTypes";
-export type { Account } from "./types";
 export { useAccountList } from "./useAccountList";
 export * from "./useAccounts";
-export * from "./useAuth";
 export { useChats } from "./useChats";
 export { useMessages } from "./useMessages";
 export { MessengerProvider, useMessengerState } from "./useMessengerState";

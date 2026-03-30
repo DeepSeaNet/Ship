@@ -15,6 +15,12 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
+			"a11y": {
+				"useMediaCaption": "off"
+			},
+			"correctness": {
+				"useExhaustiveDependencies": "off"
+			},
 			"recommended": true
 		}
 	},

@@ -1,5 +1,6 @@
 import { MicVAD } from "@ricky0123/vad-web";
 import type { Producer } from "mediasoup-client/types";
+import type { AppData } from "../types/mediasoup";
 
 /**
  * Интерфейс для опций продвинутого контроллера микрофона
@@ -21,7 +22,7 @@ export interface AdvancedMicrophoneOptions {
  * и улучшенной обработкой звука
  */
 export class AdvancedMicrophoneController {
-	private producer: Producer;
+	private producer: Producer<AppData>;
 	private originalTrack: MediaStreamTrack | null = null;
 
 	// Настройки
@@ -57,7 +58,10 @@ export class AdvancedMicrophoneController {
 	 * @param producer mediasoup producer для управления
 	 * @param options настройки для контроллера
 	 */
-	constructor(producer: Producer, options: AdvancedMicrophoneOptions = {}) {
+	constructor(
+		producer: Producer<AppData>,
+		options: AdvancedMicrophoneOptions = {},
+	) {
 		this.producer = producer;
 		this.originalTrack = producer.track;
 
@@ -495,7 +499,7 @@ export class AdvancedMicrophoneController {
  * @param options настройки для контроллера
  */
 export async function initializeAdvancedMicrophone(
-	producer: Producer,
+	producer: Producer<AppData>,
 	options: AdvancedMicrophoneOptions = {},
 ): Promise<AdvancedMicrophoneController | null> {
 	const micController = new AdvancedMicrophoneController(producer, {

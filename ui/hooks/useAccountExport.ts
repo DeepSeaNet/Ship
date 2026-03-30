@@ -1,6 +1,6 @@
 "use client";
 
-import { invoke } from "@tauri-apps/api/core";
+import { exportAccount as exportAccountCommand } from "./generated/commands";
 import QRCode from "qrcode";
 import { useCallback, useState } from "react";
 
@@ -24,11 +24,10 @@ export function useAccountExport() {
 
 			try {
 				// Call Tauri backend to export the account
-				const result = await invoke<[string, string]>("export_account");
-				const [cipherText, keyBase64] = result;
+				const { encrypted_data, key } = await exportAccountCommand();
 
 				// Combine data into JSON for QR code
-				const qrData = JSON.stringify({ c: cipherText, k: keyBase64 });
+				const qrData = JSON.stringify({ c: encrypted_data, k: key });
 
 				// Generate QR code with optimized settings
 				const qrCodeUrl = await QRCode.toDataURL(qrData, {
@@ -41,7 +40,11 @@ export function useAccountExport() {
 					},
 				});
 
-				const data: ExportedAccountData = { cipherText, keyBase64, qrCodeUrl };
+				const data: ExportedAccountData = {
+					cipherText: encrypted_data,
+					keyBase64: key,
+					qrCodeUrl,
+				};
 				setExportedData(data);
 				return data;
 			} catch (err) {

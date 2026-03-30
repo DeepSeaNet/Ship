@@ -3,6 +3,7 @@ import { MediaManager } from "./MediaManager";
 import { MediasoupService } from "./MediasoupService";
 import { WorkerManager } from "./WorkerManager";
 import type {
+	AppData,
 	ClientMessage,
 	LogEntry,
 	LogEntryType,
@@ -42,7 +43,7 @@ export class VoiceSessionManager {
 	private pendingProducers: Array<{
 		producerId: string;
 		participantId: string;
-		appData: any;
+		appData: AppData;
 	}> = [];
 	private starting = false;
 
@@ -116,8 +117,8 @@ export class VoiceSessionManager {
 		track: MediaStreamTrack,
 		consumerId: string,
 		producerId: string,
-		participantId?: string,
-		appData?: any,
+		participantId: string,
+		appData?: AppData,
 	) => {
 		const prev = this.state.remoteTracks;
 		if (prev.some((t) => t.id === track.id)) return;
@@ -273,7 +274,6 @@ export class VoiceSessionManager {
 				sessionId: newSessionId,
 				userId: this.userId || "",
 				addLog: this.addLog,
-				transformApi: "encodedStreams",
 				workerManager: this.workerManager,
 			});
 
@@ -383,7 +383,7 @@ export class VoiceSessionManager {
 	private requestConsume = async (
 		producerId: string,
 		participantId: string,
-		appData: any,
+		appData: AppData,
 	) => {
 		if (!this.mediasoupService || !this.signaling) return;
 

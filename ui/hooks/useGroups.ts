@@ -1,11 +1,39 @@
 "use client";
 
 import { toast } from "@heroui/react";
-import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useState } from "react";
 import { createMediaUrl } from "./helper";
-import type { Group, Permissions, User } from "./messengerTypes";
-import type { TauriGroup } from "./tauri_types";
+import type { Group, GroupConfig, User } from "./messengerTypes";
+import type {
+	GroupConfig as BackendGroupConfig,
+	Permissions,
+} from "./generated";
+import {
+	getGroups,
+	inviteToGroup as invokeInviteUserToGroup,
+	removeFromGroup as invokeRemoveFromGroup,
+	createGroup as invokeCreateGroup,
+	updateGroupConfig as invokeUpdateGroupConfig,
+	getAllGroupMedia,
+	getGroupDisplayKey as invokeGetGroupDisplayKey,
+} from "./generated";
+
+function mapGroupConfig(config: BackendGroupConfig): GroupConfig {
+	return {
+		...config,
+		creator_id: String(config.creator_id),
+		members: config.members.map(String),
+		admins: config.admins.map(String),
+		banned: config.banned.map(String),
+		permissions: Object.fromEntries(
+			Object.entries(config.permissions).map(([k, v]) => [String(k), v]),
+		),
+
+		muted: Object.fromEntries(
+			Object.entries(config.muted).map(([k, v]) => [String(k), v]),
+		),
+	};
+}
 
 export function useGroups(currentUser?: User | null) {
 	const [groups, setGroups] = useState<Group[]>([]);
@@ -14,15 +42,18 @@ export function useGroups(currentUser?: User | null) {
 	const fetchGroups = useCallback(async () => {
 		setIsLoading(true);
 		try {
-			const loadedGroups = await invoke<TauriGroup[]>("get_groups");
-			console.log(loadedGroups);
+			const loadedGroups = await getGroups();
+			if (!loadedGroups) {
+				console.error("Failed to fetch groups");
+				return [];
+			}
 			const formattedGroups: Group[] = loadedGroups.map((group) => ({
 				id: group.group_id,
 				name: group.group_config.name,
 				avatar: createMediaUrl(group.avatar),
 				unreadCount: 0,
 				isGroup: true,
-				group_config: group.group_config,
+				group_config: mapGroupConfig(group.group_config),
 				lastMessage: group.last_message?.content || "",
 				lastMessageTime: group.last_message?.timestamp
 					? new Date(group.last_message.timestamp).toISOString()
@@ -62,11 +93,11 @@ export function useGroups(currentUser?: User | null) {
 			const user_permissions = group.group_config?.permissions[userId];
 
 			if (user_permissions) {
-				return !!user_permissions[permissionKey];
+				return Boolean(user_permissions[permissionKey]);
 			}
 
 			if (group.group_config?.default_permissions) {
-				return !!group.group_config.default_permissions[permissionKey];
+				return Boolean(group.group_config.default_permissions[permissionKey]);
 			}
 
 			return false;
@@ -79,10 +110,7 @@ export function useGroups(currentUser?: User | null) {
 	const inviteUserToGroup = useCallback(
 		async (groupId: string, userId: number) => {
 			try {
-				await invoke("invite_to_group", {
-					clientId: userId,
-					groupName: groupId,
-				});
+				await invokeInviteUserToGroup({ userId, groupId });
 				return true;
 			} catch (err) {
 				console.error("Error inviting user:", err);
@@ -96,7 +124,7 @@ export function useGroups(currentUser?: User | null) {
 	const removeUserFromGroup = useCallback(
 		async (groupId: string, userId: number) => {
 			try {
-				await invoke("remove_from_group", {
+				await invokeRemoveFromGroup({
 					userId,
 					groupId,
 				});
@@ -125,7 +153,7 @@ export function useGroups(currentUser?: User | null) {
 			} = {},
 		) => {
 			try {
-				const result = await invoke<any>("create_group", {
+				const result = await invokeCreateGroup({
 					groupName,
 					visibility: options.visibility || null,
 					joinMode: options.joinMode || null,
@@ -175,8 +203,6 @@ export function useGroups(currentUser?: User | null) {
 			try {
 				console.log("Updating group config:", updates);
 				let avatarHash = updates.avatarHash;
-				const width = updates.avatarWidth;
-				const height = updates.avatarHeight;
 				let mimeType = updates.avatarMimeType;
 
 				if (updates.avatarBytes) {
@@ -193,17 +219,13 @@ export function useGroups(currentUser?: User | null) {
 					mimeType = mimeType || "image/jpeg";
 				}
 
-				await invoke("update_group_config", {
+				await invokeUpdateGroupConfig({
 					groupId,
 					groupName: updates.name,
 					visibility: updates.visibility,
 					joinMode: updates.joinMode,
 					description: updates.description,
 					avatar: updates.avatarBytes ? Array.from(updates.avatarBytes) : null,
-					avatarHash,
-					width,
-					height,
-					mimeType,
 					maxMembers: updates.maxMembers,
 					slowModeDelay: updates.slowModeDelay,
 					allowStickers: updates.allowStickers,
@@ -229,7 +251,7 @@ export function useGroups(currentUser?: User | null) {
 
 	const getGroupDisplayKey = useCallback(async (groupId: string) => {
 		try {
-			const key = await invoke<number[]>("get_group_display_key", { groupId });
+			const key = await invokeGetGroupDisplayKey({ groupId });
 			return new Uint8Array(key);
 		} catch (err) {
 			console.error("Error getting group display key:", err);
@@ -245,12 +267,7 @@ export function useGroups(currentUser?: User | null) {
 			role?: string,
 		) => {
 			try {
-				await invoke("update_member_permissions", {
-					groupId,
-					memberId,
-					permissions,
-					role: role || null,
-				});
+				await updateMemberPermissions(groupId, memberId, permissions, role);
 				toast("Member permissions updated successfully", {
 					variant: "success",
 				});
@@ -269,15 +286,10 @@ export function useGroups(currentUser?: User | null) {
 
 	const getGroupMedia = useCallback(async (groupId: string) => {
 		try {
-			const mediaResponse = await invoke<any>("get_all_group_media", {
+			const mediaResponse = await getAllGroupMedia({
 				groupName: groupId,
 			});
-			const mediaList: {
-				media_id: string;
-				media_type: string;
-				timestamp: number;
-			}[] = mediaResponse.media || [];
-			return mediaList;
+			return mediaResponse.media;
 		} catch (err) {
 			console.error("Error getting group media:", err);
 			return [];

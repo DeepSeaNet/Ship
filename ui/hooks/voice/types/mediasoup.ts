@@ -13,7 +13,6 @@ export type LoggerFunction = (message: string, type?: LogEntryType) => void;
 
 export type MediaTrackType = "audio" | "video";
 export type MediaSourceType = "camera" | "microphone" | "screen";
-export type TransformApi = "script" | "encodedStreams" | "none";
 
 export interface MediaTrackInfo {
 	id: string;
@@ -38,8 +37,8 @@ export interface BaseMessage {
 
 export interface ClientMessage extends BaseMessage {
 	[key: string]: unknown;
-	dtlsParameters?: any;
-	rtpCapabilities?: any;
+	dtlsParameters?: mediasoupTypes.DtlsParameters;
+	rtpCapabilities?: mediasoupTypes.RtpCapabilities;
 	kind?: string;
 	appData?: AppData;
 	producerId?: string;
@@ -73,11 +72,9 @@ export interface ServerConsumed extends ServerMessage {
 	id: string;
 	producerId: string;
 	kind: MediaTrackType;
-	rtpParameters: any;
+	rtpParameters: mediasoupTypes.RtpParameters;
 	type?: MediaTrackType;
-	appData?: {
-		source?: MediaSourceType;
-	};
+	appData?: AppData;
 }
 
 export interface ServerError extends ServerMessage {
@@ -86,8 +83,8 @@ export interface ServerError extends ServerMessage {
 }
 
 export type AppData = {
-	sourceType: string;
-	mediaType: string;
+	sourceType: MediaSourceType | string;
+	mediaType: MediaTrackType | string;
 	shared: boolean;
 	userId?: string;
 };

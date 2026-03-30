@@ -37,14 +37,11 @@ function getVp8EncryptionOffset(data: Uint8Array): number {
 	return pFlag === 0 ? Math.min(10, data.length) : Math.min(1, data.length);
 }
 
-function isVp8Frame(
-	chunk: RTCEncodedVideoFrame,
-	metadata: RTCEncodedVideoFrameMetadata,
-): boolean {
-	if ((metadata as any)?.mimeType) {
-		return (metadata as any).mimeType.toLowerCase().includes("vp8");
+function isVp8Frame(metadata: RTCEncodedVideoFrameMetadata): boolean {
+	if (metadata.mimeType) {
+		return metadata.mimeType.toLowerCase().includes("vp8");
 	}
-	const pt = (chunk as any).payloadType ?? (metadata as any)?.payloadType;
+	const pt = metadata.payloadType;
 	return pt !== undefined && codecMapping[pt] === 1;
 }
 
@@ -70,7 +67,7 @@ function resolveSenderId(
 	}
 
 	// 2. SSRC → userId lookup.
-	const ssrc = (metadata as any).synchronizationSource as number | undefined;
+	const ssrc = metadata.synchronizationSource as number | undefined;
 	if (ssrc !== undefined) {
 		const userId = ssrcToUserId.get(ssrc);
 		if (userId !== undefined) return userId;
@@ -78,7 +75,7 @@ function resolveSenderId(
 
 	throw new Error(
 		`Cannot resolve senderId: no options.senderId and SSRC ${
-			(metadata as any).synchronizationSource
+			metadata.synchronizationSource
 		} not in ssrcToUserId map`,
 	);
 }
@@ -98,10 +95,10 @@ async function processChunk(
 	}
 
 	const originalData = new Uint8Array(chunk.data);
-	const metadata = chunk.getMetadata() as any;
+	const metadata = chunk.getMetadata();
 
 	// VP8 partial encryption (only for video frames).
-	const isVp8 = isVp8Frame(chunk as RTCEncodedVideoFrame, metadata);
+	const isVp8 = isVp8Frame(metadata);
 	const offset = isVp8 ? getVp8EncryptionOffset(originalData) : 0;
 	try {
 		let processedBuffer: Uint8Array;
@@ -134,9 +131,9 @@ async function processChunk(
 
 		chunk.data = processedBuffer.buffer as ArrayBuffer;
 		controller.enqueue(chunk);
-	} catch (error: any) {
+	} catch (error) {
 		// Drop the frame on error — better than forwarding corrupt data.
-		console.error(`[Worker] ${mode} failed:`, error.message);
+		console.error(`[Worker] ${mode} failed:`, error);
 	}
 }
 
@@ -193,9 +190,9 @@ self.onmessage = async (event: MessageEvent) => {
 };
 
 // ==================== RTCTransformEvent ====================
-
-if ((self as any).RTCTransformEvent) {
-	(self as any).onrtctransform = (event: any) => {
+const workerScope = self as DedicatedWorkerGlobalScope;
+if (workerScope) {
+	workerScope.onrtctransform = (event) => {
 		const { readable, writable, options } = event.transformer;
 
 		// options.name:     "senderTransform" | "receiverTransform"

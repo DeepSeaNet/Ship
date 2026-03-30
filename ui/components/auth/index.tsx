@@ -4,11 +4,12 @@ import { Alert, Button, Card } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { LandscapeBackground } from "@/components/landscape";
 import { MainMenu } from "@/components/messenger";
-import { import_account, register, useAccountList } from "@/hooks";
+import { useAccountList } from "@/hooks";
 import { AccountSelection } from "./AccountSelection";
 import { LoginForm } from "./LoginForm";
 import { QRCodeModal } from "./QRCodeModal";
 import { RegisterForm } from "./RegisterForm";
+import { importAccount, register } from "@/hooks/generated";
 
 type AuthMode = "login" | "register";
 
@@ -60,7 +61,6 @@ export default function AuthPage() {
 
 	const handleRegisterSubmit = async (
 		username: string,
-		email: string,
 		password: string,
 		confirmPassword: string,
 	) => {
@@ -70,7 +70,7 @@ export default function AuthPage() {
 				throw new Error("Passwords do not match");
 			}
 			try {
-				await register(username, email, password);
+				await register({ username });
 			} catch (error) {
 				console.error("Registration failed:", error);
 				alert(`Registration failed: ${error}`);
@@ -104,7 +104,7 @@ export default function AuthPage() {
 	const handleBase64Import = async (data: string, key: string) => {
 		setIsLoading(true);
 		try {
-			const userId = await import_account(data, key);
+			const userId = await importAccount({ exportedAccount: data, key });
 
 			setSuccessMessage(`Account imported successfully (ID: ${userId})!`);
 			setTimeout(() => {

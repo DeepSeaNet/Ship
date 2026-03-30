@@ -1,6 +1,7 @@
 pub mod config;
 pub mod custom_mls;
 pub mod errors;
+pub mod event;
 pub mod extensions;
 pub mod group;
 pub mod identity_keypair;

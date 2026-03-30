@@ -35,7 +35,7 @@ import {
 import { useEffect, useState } from "react";
 import { useNotificationSettings } from "@/hooks/useNotificationSettings";
 import { ExportAccountModal } from "../settings/ExportAccountModal";
-import { getUserDevices } from "@/hooks/useAccounts";
+import { getUserDevices } from "@/hooks/generated";
 
 function DevicesPanelContent() {
 	const [devices, setDevices] = useState<
@@ -46,11 +46,8 @@ function DevicesPanelContent() {
 	useEffect(() => {
 		const loadDevices = async () => {
 			try {
-				const userId = Number(localStorage.getItem("userId"));
-				if (userId) {
-					const deps = await getUserDevices(userId);
-					setDevices(deps);
-				}
+				const deps = await getUserDevices();
+				setDevices(deps);
 			} catch (err) {
 				console.error("Failed to load devices:", err);
 				toast(`Failed to load devices: ${err}`, { variant: "danger" });
@@ -478,12 +475,11 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
 																);
 
 													return (
-														<div
+														<Button
 															key={theme.id}
-															role="button"
-															tabIndex={0}
-															className={`relative group cursor-pointer overflow-hidden border-2 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] ${isActive ? "border-primary ring-2 ring-primary/20" : "border-transparent bg-surface/50 hover:border-border"}`}
-															onClick={() => {
+															variant="ghost"
+															className={`relative group h-auto p-0 flex-col items-stretch cursor-pointer overflow-hidden border-2 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] ${isActive ? "border-primary ring-2 ring-primary/20" : "border-transparent bg-surface/50 hover:border-border"}`}
+															onPress={() => {
 																if (theme.id === "terminal") {
 																	document.documentElement.setAttribute(
 																		"data-theme",
@@ -507,12 +503,6 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
 																		? "terminal-green-dark"
 																		: theme.id,
 																);
-															}}
-															onKeyDown={(e) => {
-																if (e.key === "Enter" || e.key === " ") {
-																	e.preventDefault();
-																	(e.currentTarget as HTMLElement).click();
-																}
 															}}
 														>
 															<div
@@ -541,7 +531,7 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
 															<div className="px-3 py-2 text-center text-xs font-semibold">
 																{theme.name}
 															</div>
-														</div>
+														</Button>
 													);
 												})}
 											</div>
@@ -574,10 +564,11 @@ export function SettingsModal({ isOpen, onOpenChange }: SettingsModalProps) {
 												].map((accent) => (
 													<Tooltip key={accent.name} delay={0}>
 														<Tooltip.Trigger>
-															<button
-																className="size-8 rounded-full border-2 border-transparent hover:border-primary hover:scale-110 transition-all focus:ring-2 ring-primary/30 outline-none"
+															<Button
+																isIconOnly
+																className="size-8 min-w-0 rounded-full border-2 border-transparent hover:border-primary hover:scale-110 transition-all focus:ring-2 ring-primary/30 outline-none"
 																style={{ backgroundColor: accent.color }}
-																onClick={() => {
+																onPress={() => {
 																	document.documentElement.style.setProperty(
 																		"--accent",
 																		accent.color,
