@@ -1,5 +1,6 @@
 "use client";
 import { Check, Display, MagicWand, Palette } from "@gravity-ui/icons";
+import { useState } from "react";
 import {
 	Avatar,
 	Button,
@@ -160,7 +161,12 @@ export function AppearancePanel({
 	updateSetting,
 	resetSettings,
 }: AppearancePanelProps) {
-	const activeTheme = getActiveTheme();
+	const [activeTheme, setActiveTheme] = useState(getActiveTheme());
+
+	const handleThemeChange = (id: (typeof THEMES)[number]["id"]) => {
+		applyTheme(id);
+		setActiveTheme(id);
+	};
 
 	return (
 		<div className="space-y-8">
@@ -220,50 +226,44 @@ export function AppearancePanel({
 					{THEMES.map((theme) => {
 						const isActive = activeTheme === theme.id;
 						return (
-							<div
+							<Button
 								key={theme.id}
-								role="button"
-								tabIndex={0}
-								className={`relative cursor-pointer overflow-hidden border-2 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] ${
+								variant="ghost"
+								fullWidth
+								className={`relative group h-auto p-0 flex-col items-stretch cursor-pointer overflow-hidden border-2 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] ${
 									isActive
 										? "border-primary ring-2 ring-primary/20"
 										: "border-transparent bg-surface/50 hover:border-border"
 								}`}
-								onClick={() => applyTheme(theme.id)}
-								onKeyDown={(e) => {
-									if (e.key === "Enter" || e.key === " ") {
-										e.preventDefault();
-										(e.currentTarget as HTMLElement).click();
-									}
-								}}
+								onPress={() => handleThemeChange(theme.id)}
 							>
 								<div
-									className={`h-24 ${theme.bg} p-3 flex flex-col gap-2 relative`}
+									className={`h-28 w-full ${theme.bg} p-4 flex flex-col gap-2 relative transition-colors`}
 								>
 									<div
 										className={`w-full h-2 rounded-sm ${theme.id === "terminal" ? "bg-[#003b00]" : theme.id === "dark" ? "bg-neutral-800" : "bg-neutral-100"}`}
 									/>
 									<div className="flex gap-2">
 										<div
-											className={`w-3 h-3 rounded-full ${theme.id === "terminal" ? "bg-[#00ff41]" : "bg-primary"}`}
+											className={`w-4 h-4 rounded-full ${theme.id === "terminal" ? "bg-[#00ff41]" : "bg-primary"}`}
 										/>
 										<div
-											className={`flex-1 h-3 rounded-sm ${theme.id === "terminal" ? "bg-[#002200]" : theme.id === "dark" ? "bg-neutral-700" : "bg-neutral-200"}`}
+											className={`flex-1 h-4 rounded-sm ${theme.id === "terminal" ? "bg-[#002200]" : theme.id === "dark" ? "bg-neutral-700" : "bg-neutral-200"}`}
 										/>
 									</div>
 									<div
 										className={`w-3/4 h-2 rounded-sm ${theme.id === "terminal" ? "bg-[#003b00]" : theme.id === "dark" ? "bg-neutral-800" : "bg-neutral-100"}`}
 									/>
 									{isActive && (
-										<div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1 shadow-lg">
-											<Check className="size-3" />
+										<div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1.5 shadow-lg animate-in zoom-in duration-200">
+											<Check className="size-3.5" />
 										</div>
 									)}
 								</div>
-								<div className="px-3 py-2 text-center text-xs font-semibold">
+								<div className="px-3 py-2.5 text-center text-xs font-bold uppercase tracking-wider">
 									{theme.name}
 								</div>
-							</div>
+							</Button>
 						);
 					})}
 				</div>
@@ -280,10 +280,11 @@ export function AppearancePanel({
 					{ACCENTS.map((accent) => (
 						<Tooltip key={accent.name} delay={0}>
 							<Tooltip.Trigger>
-								<button
-									className="size-8 rounded-full border-2 border-transparent hover:border-primary hover:scale-110 transition-all focus:ring-2 ring-primary/30 outline-none"
+								<Button
+									isIconOnly
+									className="size-10 min-w-0 rounded-full border-2 border-transparent hover:border-primary hover:scale-110 transition-all focus:ring-2 ring-primary/30 outline-none shadow-md"
 									style={{ backgroundColor: accent.color }}
-									onClick={() => {
+									onPress={() => {
 										document.documentElement.style.setProperty(
 											"--accent",
 											accent.color,
@@ -414,17 +415,19 @@ export function AppearancePanel({
 					<span className="text-sm font-medium">Bubble Shape</span>
 					<div className="flex gap-3">
 						{BUBBLE_RADIUS_OPTIONS.map(({ value, label }) => (
-							<button
+							<Button
 								key={value}
-								onClick={() => updateSetting("bubbleRadius", value)}
-								className={`flex-1 py-2 text-sm font-medium rounded-lg border transition-all ${
+								variant="ghost"
+								fullWidth
+								onPress={() => updateSetting("bubbleRadius", value)}
+								className={`flex-1 min-w-0 h-10 font-bold rounded-lg border transition-all ${
 									settings.bubbleRadius === value
-										? "border-primary bg-primary/10 text-primary"
+										? "border-primary bg-primary/10 text-primary shadow-sm"
 										: "border-border bg-surface/50 hover:border-primary/50"
 								}`}
 							>
 								{label}
-							</button>
+							</Button>
 						))}
 					</div>
 					<p className="text-[10px] text-muted">

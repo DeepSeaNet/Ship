@@ -8,6 +8,7 @@ import type {
 	LogEntry,
 	LogEntryType,
 	MediaTrackInfo,
+	ServerConsumed,
 	ServerInit,
 } from "../types/mediasoup";
 import { invoke } from "@tauri-apps/api/core";
@@ -256,8 +257,8 @@ export class VoiceSessionManager {
 									);
 								}
 							}
-						} catch (error: any) {
-							this.addLog(`Initialization Error: ${error.message}`, "error");
+						} catch (error) {
+							this.addLog(`Initialization Error: ${error}`, "error");
 							this.updateState({ status: "error" });
 						}
 					}
@@ -288,8 +289,8 @@ export class VoiceSessionManager {
 			});
 
 			await this.signaling.connect();
-		} catch (err: any) {
-			this.addLog(`Failed to start call: ${err.message}`, "error");
+		} catch (error) {
+			this.addLog(`Failed to start call: ${error}`, "error");
 			this.updateState({ status: "error" });
 		} finally {
 			this.starting = false;
@@ -370,8 +371,8 @@ export class VoiceSessionManager {
 						};
 					}
 				}
-			} catch (err: any) {
-				this.addLog(`Screen share error: ${err.message || err}`, "error");
+			} catch (error) {
+				this.addLog(`Screen share error: ${error}`, "error");
 				this.updateState({
 					isScreenShareEnabled: false,
 					screenShareStream: null,
@@ -395,7 +396,7 @@ export class VoiceSessionManager {
 		// Set callback FIRST to avoid race condition
 		this.mediasoupService.setResponseCallback(
 			`consumed:${producerId}`,
-			async (data: any) => {
+			async (data) => {
 				const userId = appData?.userId;
 				if (typeof userId === "string") {
 					this.addLog(
@@ -403,7 +404,7 @@ export class VoiceSessionManager {
 						"info",
 					);
 					const consumer = await this.mediasoupService?.createConsumer(
-						data,
+						data as ServerConsumed,
 						userId,
 						(track, consumerId, newProducerId) => {
 							this.handleTrackAdded(

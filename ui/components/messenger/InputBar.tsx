@@ -262,14 +262,16 @@ export function InputBar({
 			{showAutocomplete && (
 				<div className="mx-4 mb-1 border border-border rounded-xl bg-surface shadow-lg overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-150">
 					{suggestions.slice(0, 6).map((user, index) => (
-						<button
+						<Button
 							key={user.id}
-							className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors text-left ${
+							type="button"
+							variant="ghost"
+							className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors text-left border-none shadow-none justify-start min-h-0 h-auto ${
 								index === selectedIndex
 									? "bg-accent/20 text-accent font-semibold"
-									: "hover:bg-accent/10"
+									: "bg-transparent hover:bg-accent/10"
 							}`}
-							onMouseDown={(e) => {
+							onMouseDown={(e: React.MouseEvent) => {
 								e.preventDefault();
 								insertMention(user.name);
 							}}
@@ -280,7 +282,7 @@ export function InputBar({
 								@
 							</span>
 							<span>{user.name}</span>
-						</button>
+						</Button>
 					))}
 				</div>
 			)}

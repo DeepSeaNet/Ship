@@ -50,8 +50,8 @@ export interface ServerMessage extends BaseMessage {
 export interface ServerInit extends ServerMessage {
 	action: "Init";
 	routerRtpCapabilities: mediasoupTypes.RtpCapabilities;
-	producerTransportOptions: mediasoupTypes.TransportOptions;
-	consumerTransportOptions: mediasoupTypes.TransportOptions;
+	producerTransportOptions: mediasoupTypes.TransportOptions<AppData>;
+	consumerTransportOptions: mediasoupTypes.TransportOptions<AppData>;
 }
 
 export interface ServerConnectedProducerTransport extends ServerMessage {
@@ -74,7 +74,7 @@ export interface ServerConsumed extends ServerMessage {
 	kind: MediaTrackType;
 	rtpParameters: mediasoupTypes.RtpParameters;
 	type?: MediaTrackType;
-	appData?: AppData;
+	appData: AppData;
 }
 
 export interface ServerError extends ServerMessage {

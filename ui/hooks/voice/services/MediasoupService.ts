@@ -2,9 +2,11 @@ import { Device, type types as mediasoupTypes } from "mediasoup-client";
 import type { Consumer, Producer, Transport } from "mediasoup-client/types";
 import type {
 	AppData,
+	ClientMessage,
 	ConsumerId,
 	LoggerFunction,
 	ServerConsumed,
+	ServerMessage,
 	ServerProduced,
 } from "../types/mediasoup";
 
@@ -14,15 +16,7 @@ import {
 } from "../utils/encodedStreamsTransform";
 import type { WorkerManager } from "./WorkerManager";
 
-// Type definitions for callback responses
-interface CallbackResponse {
-	[key: string]: unknown;
-}
 
-interface WebSocketMessage {
-	action: string;
-	[key: string]: unknown;
-}
 
 export interface MediasoupServiceOptions {
 	sessionId: string;
@@ -34,11 +28,11 @@ export interface MediasoupServiceOptions {
 
 export class MediasoupService {
 	private device: Device | null = null;
-	private sendTransport: Transport | null = null;
-	private recvTransport: Transport | null = null;
+	private sendTransport: Transport<AppData> | null = null;
+	private recvTransport: Transport<AppData> | null = null;
 	private producers: Map<string, Producer<AppData>> = new Map();
 	private consumers: Map<ConsumerId, Consumer<AppData>> = new Map();
-	private responseCallbacks: Map<string, (data: CallbackResponse) => void> =
+	private responseCallbacks: Map<string, (data: ServerMessage) => void> =
 		new Map();
 	private initialized = false;
 
@@ -92,12 +86,12 @@ export class MediasoupService {
 
 	public setResponseCallback(
 		action: string,
-		callback: (data: CallbackResponse) => void,
+		callback: (data: ServerMessage) => void,
 	): void {
 		this.responseCallbacks.set(action, callback);
 	}
 
-	public handleCallback(action: string, data: CallbackResponse): boolean {
+	public handleCallback(action: string, data: ServerMessage): boolean {
 		const callback = this.responseCallbacks.get(action);
 		if (callback) {
 			this.responseCallbacks.delete(action);
@@ -134,9 +128,9 @@ export class MediasoupService {
 	}
 
 	public createTransports(
-		producerTransportOptions: mediasoupTypes.TransportOptions,
-		consumerTransportOptions: mediasoupTypes.TransportOptions,
-		sendMessage: (message: WebSocketMessage) => void | Promise<void>,
+		producerTransportOptions: mediasoupTypes.TransportOptions<AppData>,
+		consumerTransportOptions: mediasoupTypes.TransportOptions<AppData>,
+		sendMessage: (message: ClientMessage) => void | Promise<void>,
 	): void {
 		if (!this.device) {
 			this.addLog("Cannot create transports: Device not initialized", "error");
@@ -145,9 +139,9 @@ export class MediasoupService {
 
 		// 1. Create Send Transport
 		this.addLog("Creating Producer Transport...", "info");
-		this.sendTransport = this.device.createSendTransport({
-			...producerTransportOptions,
-		});
+		this.sendTransport = this.device.createSendTransport<AppData>(
+			producerTransportOptions,
+		);
 
 		this.sendTransport.on("connect", ({ dtlsParameters }, callback) => {
 			this.addLog("SendTransport event: connect", "info");
@@ -162,7 +156,12 @@ export class MediasoupService {
 			"produce",
 			async ({ kind, rtpParameters, appData }, callback) => {
 				this.addLog(`SendTransport event: produce (${kind})`, "info");
-				sendMessage({ action: "Produce", kind, rtpParameters, appData });
+				sendMessage({
+					action: "Produce",
+					kind,
+					rtpParameters,
+					appData: appData as AppData,
+				});
 				this.setResponseCallback("Produced", (response) => {
 					const serverRes = response as ServerProduced;
 					this.addLog(
@@ -187,9 +186,9 @@ export class MediasoupService {
 
 		// 2. Create Receive Transport
 		this.addLog("Creating Consumer Transport...", "info");
-		this.recvTransport = this.device.createRecvTransport({
-			...consumerTransportOptions,
-		});
+		this.recvTransport = this.device.createRecvTransport<AppData>(
+			consumerTransportOptions,
+		);
 
 		this.recvTransport.on("connect", ({ dtlsParameters }, callback) => {
 			this.addLog("RecvTransport event: connect", "info");
@@ -286,7 +285,7 @@ export class MediasoupService {
 			consumerId: ConsumerId,
 			producerId: string,
 		) => void,
-		sendMessage: (message: WebSocketMessage) => void,
+		sendMessage: (message: ClientMessage) => void,
 	): Promise<Consumer<AppData> | null> {
 		if (!this.recvTransport) {
 			this.addLog(

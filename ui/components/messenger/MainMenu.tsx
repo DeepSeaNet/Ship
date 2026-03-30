@@ -14,7 +14,7 @@ import { TopBar } from "./TopBar";
 import { ContactsMenu } from "./ContactsMenu";
 import "./messenger.css";
 import { getStatusColor, handleStatusChange } from "@/hooks/useContacts";
-import { SettingsModal } from "../settings/SettingsModal/index";
+import { SettingsModal } from "../settings/SettingsModal";
 import { useAppearanceSettings } from "@/hooks/useAppearanceSettings";
 
 function MessengerContent() {

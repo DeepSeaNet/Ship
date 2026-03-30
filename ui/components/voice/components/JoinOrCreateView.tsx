@@ -77,12 +77,13 @@ export function JoinOrCreateView({
 				</Button>
 			</div>
 
-			<button
-				onClick={onCancel}
+			<Button
+				variant="ghost"
+				onPress={onCancel}
 				className="text-neutral-600 hover:text-neutral-400 text-sm transition-colors"
 			>
 				Cancel
-			</button>
+			</Button>
 		</div>
 	);
 }

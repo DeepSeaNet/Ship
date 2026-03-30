@@ -18,6 +18,21 @@ export interface AdvancedMicrophoneOptions {
 }
 
 /**
+ * Данные для событий микрофона
+ */
+export interface MicrophoneEventData {
+	timestamp: number;
+}
+
+/**
+ * Карта событий микрофона
+ */
+export interface MicrophoneEventMap {
+	voiceStart: MicrophoneEventData;
+	voiceEnd: MicrophoneEventData;
+}
+
+/**
  * Продвинутый контроллер микрофона с обнаружением голосовой активности
  * и улучшенной обработкой звука
  */
@@ -51,7 +66,9 @@ export class AdvancedMicrophoneController {
 	private silencePacketInterval: number | null = null;
 
 	// Система событий
-	private eventListeners: Record<string, Array<(data: any) => void>> = {};
+	private eventListeners: Partial<
+		Record<keyof MicrophoneEventMap, Array<(data: MicrophoneEventData) => void>>
+	> = {};
 
 	/**
 	 * Создает новый продвинутый контроллер микрофона
@@ -364,11 +381,14 @@ export class AdvancedMicrophoneController {
 	 * @param event название события
 	 * @param callback функция обратного вызова
 	 */
-	addEventListener(event: string, callback: (data: any) => void): void {
+	addEventListener<K extends keyof MicrophoneEventMap>(
+		event: K,
+		callback: (data: MicrophoneEventMap[K]) => void,
+	): void {
 		if (!this.eventListeners[event]) {
 			this.eventListeners[event] = [];
 		}
-		this.eventListeners[event].push(callback);
+		this.eventListeners[event]?.push(callback);
 	}
 
 	/**
@@ -376,15 +396,19 @@ export class AdvancedMicrophoneController {
 	 * @param event название события
 	 * @param data данные события
 	 */
-	private dispatchEvent(event: string, data: any): void {
-		if (this.eventListeners[event]) {
-			this.eventListeners[event].forEach((callback) => {
+	private dispatchEvent<K extends keyof MicrophoneEventMap>(
+		event: K,
+		data: MicrophoneEventMap[K],
+	): void {
+		const listeners = this.eventListeners[event];
+		if (listeners) {
+			for (const callback of listeners) {
 				try {
 					callback(data);
 				} catch (error) {
-					console.error(`Ошибка в обработчике события ${event}:`, error);
+					console.error(`Error in event handler ${event}:`, error);
 				}
-			});
+			}
 		}
 	}
 

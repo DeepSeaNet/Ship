@@ -1,6 +1,6 @@
 "use client";
 import { Check, CheckDouble, Clock, Folder } from "@gravity-ui/icons";
-import { Avatar, Card, Dropdown, Kbd, Label } from "@heroui/react";
+import { Avatar, Button, Card, Dropdown, Kbd, Label } from "@heroui/react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { formatChatTime } from "@/hooks/helper";
@@ -29,18 +29,19 @@ function MentionText({
 	return (
 		<>
 			{parts.map((part, i) => {
+				const key = `${part}-${i}`;
 				if (part.startsWith("@")) {
 					const isOwnMention = ownUsername && part === `@${ownUsername}`;
 					return (
 						<span
-							key={i}
+							key={key}
 							className={`font-semibold ${isOwnMention && !isOwn ? "bg-accent/20 text-accent rounded px-0.5" : !isOwn ? "text-accent" : "text-foreground"}`}
 						>
 							{part}
 						</span>
 					);
 				}
-				return <span key={i}>{part}</span>;
+				return <span key={key}>{part}</span>;
 			})}
 		</>
 	);
@@ -179,9 +180,9 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 
 					<div
 						className={`flex items-start gap-2 ${isOwn ? "flex-row-reverse" : "flex-row"}`}
-						onContextMenu={handleContextMenu}
 					>
 						<Card
+							onContextMenu={handleContextMenu}
 							style={{
 								borderRadius: "var(--bubble-radius, 18px)",
 								fontSize: "var(--msg-font-size, 14px)",
@@ -194,16 +195,17 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 						>
 							{/* Reply-to preview */}
 							{repliedMessage && repliedUser && (
-								<div
-									onClick={scrollToReplied}
-									className={`mb-1.5 px-2 py-1 rounded-lg text-xs border-l-2 cursor-pointer hover:opacity-80 transition-opacity ${
+								<Button
+									variant="ghost"
+									onPress={scrollToReplied}
+									className={`h-auto rounded-lg text-xs border-l-2 cursor-pointer hover:opacity-80 transition-opacity flex flex-col items-start w-full min-w-0 px-2 py-1 ${
 										isOwn
 											? "border-white/40 bg-white/10"
 											: "border-accent bg-accent/10"
 									}`}
 								>
 									<p
-										className={`font-semibold mb-0.5 ${isOwn ? "text-white/70" : "text-accent"}`}
+										className={`font-semibold ${isOwn ? "text-white/70" : "text-accent"}`}
 									>
 										{repliedUser.name ?? "User"}
 									</p>
@@ -212,7 +214,7 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 											? `${repliedMessage.content.slice(0, 25)}...`
 											: repliedMessage.content}
 									</p>
-								</div>
+								</Button>
 							)}
 
 							<MediaPreview message={message} isOwn={isOwn} />

@@ -75,9 +75,10 @@ export function InfoPanel({
 					</p>
 					{sessionId ? (
 						<Tooltip delay={0}>
-							<button
-								onClick={copySessionId}
-								className="w-full flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-3 py-2.5 transition-colors group text-left"
+							<Button
+								variant="ghost"
+								onPress={copySessionId}
+								className="w-full flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-3 py-2.5 transition-colors group text-left h-auto min-w-0"
 							>
 								<span className="text-accent font-mono text-[11px] truncate flex-1 leading-relaxed">
 									{sessionId}
@@ -89,7 +90,7 @@ export function InfoPanel({
 										<MdContentCopy size={14} />
 									)}
 								</span>
-							</button>
+							</Button>
 							<Tooltip.Content>
 								{copied ? "Copied!" : "Click to copy"}
 							</Tooltip.Content>

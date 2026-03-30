@@ -163,12 +163,14 @@ export default function AuthPage() {
 									{/* Header */}
 									<Card.Header className="flex flex-col gap-2 relative">
 										{accounts.length > 0 && (
-											<button
-												onClick={handleBackToAccounts}
-												className="absolute left-0 top-4 text-blue-600 hover:text-blue-700 text-sm font-medium"
+											<Button
+												type="button"
+												variant="ghost"
+												onPress={handleBackToAccounts}
+												className="absolute left-0 top-4 text-blue-600 hover:text-blue-700 text-sm font-medium border-none shadow-none"
 											>
 												← Back to Accounts
-											</button>
+											</Button>
 										)}
 										<Card.Title>
 											{authMode === "login" ? "Welcome Back" : "Create Account"}
@@ -202,22 +204,26 @@ export default function AuthPage() {
 										{authMode === "login" ? (
 											<p className="text-sm text-center">
 												Dont have an account?{" "}
-												<button
-													onClick={() => setAuthMode("register")}
-													className="text-blue-600 hover:text-blue-700 font-semibold"
+												<Button
+													type="button"
+													onPress={() => setAuthMode("register")}
+													className="text-blue-600 hover:text-blue-700 font-semibold h-auto p-0 border-none shadow-none bg-transparent min-w-0"
+													variant="ghost"
 												>
 													Sign up here
-												</button>
+												</Button>
 											</p>
 										) : (
 											<p className="text-sm text-center">
 												Already have an account?{" "}
-												<button
-													onClick={() => setAuthMode("login")}
-													className="text-blue-600 hover:text-blue-700 font-semibold"
+												<Button
+													type="button"
+													onPress={() => setAuthMode("login")}
+													className="text-blue-600 hover:text-blue-700 font-semibold h-auto p-0 border-none shadow-none bg-transparent min-w-0"
+													variant="ghost"
 												>
 													Sign in here
-												</button>
+												</Button>
 											</p>
 										)}
 
