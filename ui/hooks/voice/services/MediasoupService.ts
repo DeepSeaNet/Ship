@@ -16,8 +16,6 @@ import {
 } from "../utils/encodedStreamsTransform";
 import type { WorkerManager } from "./WorkerManager";
 
-
-
 export interface MediasoupServiceOptions {
 	sessionId: string;
 	userId: string;

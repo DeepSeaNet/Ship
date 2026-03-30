@@ -24,11 +24,8 @@ export class MediaManager {
 	private localVideoStream: MediaStream | null = null;
 	private localAudioStream: MediaStream | null = null;
 	private screenShareStream: MediaStream | null = null;
-	private screenShareProducerId: string | null = null;
-	private videoActive = false;
 	private audioActive = false;
 	private audioPaused = false;
-	private screenShareActive = false;
 	private addLog: LoggerFunction;
 	private microphoneController: AdvancedMicrophoneController | null = null;
 	private microphoneOptions: AdvancedMicrophoneOptions;
@@ -415,7 +412,6 @@ export class MediaManager {
 			);
 
 			this.screenShareStream = stream;
-			this.screenShareActive = true;
 
 			// Добавляем обработчик для отслеживания остановки демонстрации
 			stream.getVideoTracks()[0].onended = () => {
@@ -429,7 +425,6 @@ export class MediaManager {
 			return stream;
 		} catch (error) {
 			this.addLog(`Error starting screen share: ${error}`, "error");
-			this.screenShareActive = false;
 			return null;
 		}
 	}
@@ -452,7 +447,6 @@ export class MediaManager {
 					videoTrack,
 					"screen-video",
 				);
-				this.screenShareProducerId = videoProducerId?.toString() ?? "";
 				this.addLog(
 					`Screen share video published, producerId: ${videoProducerId}`,
 					"success",
@@ -478,7 +472,6 @@ export class MediaManager {
 			this.addLog("Screen share published successfully", "success");
 		} catch (error) {
 			this.addLog(`Error publishing screen share: ${error}`, "error");
-			this.screenShareActive = false;
 			this.stopScreenShare();
 			throw error;
 		}
@@ -530,9 +523,6 @@ export class MediaManager {
 
 			// Очищаем поток и статус
 			this.screenShareStream = null;
-			this.screenShareActive = false;
-			this.screenShareProducerId = null;
-
 			this.addLog("Screen share stopped", "success");
 		} else {
 			this.addLog("No active screen share stream to stop", "info");

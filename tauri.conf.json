@@ -53,7 +53,6 @@
 		"typegen": {
 			"project_path": "./",
 			"output_path": "./ui/hooks/generated",
-			"validation_library": "zod",
 			"verbose": true
 		}
 	}

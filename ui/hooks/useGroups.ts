@@ -18,7 +18,7 @@ import {
 	getGroupDisplayKey as invokeGetGroupDisplayKey,
 } from "./generated";
 
-function mapGroupConfig(config: BackendGroupConfig): GroupConfig {
+export function mapGroupConfig(config: BackendGroupConfig): GroupConfig {
 	return {
 		...config,
 		creator_id: String(config.creator_id),
@@ -161,9 +161,23 @@ export function useGroups(currentUser?: User | null) {
 					maxMembers: options.maxMembers || null,
 				});
 
-				if (result.success) {
+				if (result) {
 					toast("Group created successfully", { variant: "success" });
-					await fetchGroups(); // Refresh the list
+					setGroups((prevGroups) => {
+							const groupData = result;
+							const groupId = groupData.group_id;
+							const groupConfig = groupData.group_config;
+							const avatar = groupData.avatar;
+							const group: Group = {
+								id: groupId,
+								name: groupConfig.name,
+								avatar: createMediaUrl(avatar),
+								unreadCount: 0,
+								isGroup: true,
+								group_config: mapGroupConfig(groupConfig),
+							};
+							return [...prevGroups, group];
+						});
 					return true;
 				}
 				return false;

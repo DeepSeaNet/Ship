@@ -59,8 +59,6 @@ export class GroupCryptoManager {
 		// advanced the ratchet; we just restore the current state directly.
 		this.senderRatchet = new SenderCryptoRatchet(
 			new Uint8Array(payload.sender_secret),
-			new Uint8Array(payload.sender_public_key),
-			BigInt(payload.sender_user_id),
 			payload.sender_epoch,
 			payload.sender_generation,
 		);

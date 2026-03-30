@@ -63,7 +63,7 @@ export interface Message {
 	isOwn: boolean;
 	status?: "sending" | "sent" | "read" | "error";
 	media_name?: string | null;
-	media?: string; // URL or base64
+	media?: string | null; // URL or base64
 	media_id?: string | null;
 	media_data?: string | null;
 	reply_to?: string | null;

@@ -31,6 +31,13 @@ pub struct GroupMessageResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateGroupResponse {
+    pub group_id: String,
+    pub group_config: GroupConfig,
+    pub avatar: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupResponse {
     pub group_id: String,
     pub group_config: GroupConfig,
@@ -119,7 +126,7 @@ pub fn format_group_config(
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn create_group(
-    app_handle: AppHandle,
+    _app_handle: AppHandle,
     group_name: String,
     group_user_state: tauri::State<'_, SafeGroupUser>,
     visibility: Option<String>,
@@ -132,7 +139,7 @@ pub async fn create_group(
     allow_voice_messages: Option<bool>,
     allow_video_messages: Option<bool>,
     allow_links: Option<bool>,
-) -> Result<GroupActionResponse, String> {
+) -> Result<CreateGroupResponse, String> {
     let mut group_user = group_user_state.write().await;
     log::info!("Creating group: {}", group_name);
     if let Some(user) = group_user.as_mut() {
@@ -201,31 +208,15 @@ pub async fn create_group(
             .await
             .map_err(|e| e.to_string())?;
 
-        let event_payload = serde_json::json!(
-            {
-                "type": "create_group",
-                "data": {
-                    "group_name": group_config.name,
-                    "group_id": group_id.to_string(),
-                    "group_config": group_config,
-                    "members_count": group_config.members.len(),
-                    "members": group_config.members,
-                    "user_permission": group_config.permissions.get(&user.user_id()).unwrap(),
-                    "users_permisions": group_config.permissions,
-                    "description": group_config.description,
-                    "owner_id": group_config.creator_id,
-                    "admins": group_config.admins,
-                    "date": std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs() as i64
-                }
-            }
-        );
-        app_handle.emit("server-event", event_payload).unwrap();
-        Ok(GroupActionResponse {
-            success: true,
-            message: "Group created successfully".to_string(),
+        let avatar = group_config
+            .avatar
+            .clone()
+            .map(|avatar| general_purpose::STANDARD.encode(avatar));
+
+        Ok(CreateGroupResponse {
+            group_id: group_id.to_string(),
+            group_config,
+            avatar,
         })
     } else {
         Err("Group user not initialized. Call init_group_user first.".to_string())
@@ -293,7 +284,7 @@ pub async fn get_groups(
                     sender_id: message.sender_id,
                     media: message.media.is_some(),
                     media_name: message.media_name,
-                    media_data: media_data,
+                    media_data,
                     reply_to: message.reply_message_id.map(|id| id.to_string()),
                     edit_date: message.edit_date.map(|date| date.to_string()),
                     is_edit: message.edit_date.is_some(),
@@ -310,9 +301,9 @@ pub async fn get_groups(
 
             groups_list.push(GroupResponse {
                 group_id: group_id.to_string(),
-                group_config: group_config,
-                avatar: avatar,
-                last_message: last_message,
+                group_config,
+                avatar,
+                last_message,
             });
         }
 
@@ -772,7 +763,7 @@ pub async fn update_member_permissions(
 
         Ok(GroupActionResponse {
             success: true,
-            message: format!("User permissions updated successfully"),
+            message: "User permissions updated successfully".to_string(),
         })
     } else {
         Err("Group has no configuration".to_string())

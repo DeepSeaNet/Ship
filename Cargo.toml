@@ -71,3 +71,6 @@ tauri-typegen = "0.5.0"
 [lib]
 name = "ship_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+[patch.crates-io]
+tauri-typegen = { git = "https://github.com/ap-apely/tauri-typegen.git", branch = "event-dirpath-fix" }

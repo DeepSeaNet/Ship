@@ -1,9 +1,9 @@
 "use client";
 
 import { toast } from "@heroui/react";
-import { listen } from "@tauri-apps/api/event";
 import type React from "react";
 import { useEffect, useRef } from "react";
+import { onServerEvent } from "./generated";
 import { createMediaUrl } from "./helper";
 import type {
 	Chat,
@@ -14,6 +14,7 @@ import type {
 	User,
 } from "./messengerTypes";
 import { getNotificationSettings } from "./useNotificationSettings";
+import { mapGroupConfig } from "./useGroups";
 
 interface ListenerProps {
 	currentUser: User | null;
@@ -69,29 +70,26 @@ export function useListener({
 			}
 
 			// Setup Tauri Event Listener FIRST
-			const unlisten = await listen<any>("server-event", (event) => {
+			const unlisten = await onServerEvent((payload) => {
 				if (!isMounted) return;
 
-				const payload = event.payload;
 				console.log("Received server event:", payload);
 
 				if (!payload?.type) return;
 
 				switch (payload.type) {
-					case "new_group_message":
-					case "new_message": {
+					case "new_group_message": {
 						const data = payload.data;
-						const chatId = data.group_id || data.chat_id;
+						const chatId = data.group_id;
 
 						const chats = chatsRef.current;
 						const contacts = contactsRef.current;
 						const currentLocalUser = currentUserRef.current;
 
-						const chat = chats.find((c) => c.id === chatId);
+						const chat = chats?.find((c) => c.id === chatId);
 						const senderId = data.sender_id?.toString() || "0";
-						const sender = contacts[senderId];
-						const senderName =
-							data.sender_name || sender?.name || `User ${senderId}`;
+						const sender = contacts?.[senderId];
+						const senderName = sender?.name || `User ${senderId}`;
 
 						const message: Message = {
 							id: data.message_id.toString(),
@@ -105,13 +103,12 @@ export function useListener({
 							status: "sent",
 							media: data.media,
 							media_name: data.media_name,
-							reply_to: (data.reply_message_id || data.reply_to)?.toString(),
+							reply_to: data.reply_message_id?.toString(),
 							edited: !!data.edit_date,
 							expires: data.expires,
-							is_file: data.is_file,
 						};
 
-						if (data.is_edit || data.is_edit === "true") {
+						if (data.is_edit) {
 							actions.editMessage(
 								chatId,
 								data.message_id.toString(),
@@ -123,8 +120,8 @@ export function useListener({
 
 						const currentUI = uiStateRef.current;
 						const isCurrentlyActive =
-							currentUI.activeChatId === chatId ||
-							currentUI.activeGroupId === chatId;
+							currentUI?.activeChatId === chatId ||
+							currentUI?.activeGroupId === chatId;
 
 						if (!isCurrentlyActive && !message.isOwn) {
 							const notifSettings = getNotificationSettings();
@@ -170,33 +167,23 @@ export function useListener({
 						break;
 					}
 
-					case "leave_group":
 					case "join_group":
-					case "create_group":
-						actions.fetchChats();
-						if (payload.type === "leave_group") {
-							const leftGroupId = payload.data.group_id;
-							actions.setUIState((prev) => {
-								if (
-									prev.activeChatId === leftGroupId ||
-									prev.activeGroupId === leftGroupId
-								) {
-									return { ...prev, activeChatId: null, activeGroupId: null };
-								}
-								return prev;
-							});
-						}
+						actions.setGroups((prevGroups) => {
+							const groupData = payload.data;
+							const groupId = groupData.group_id;
+							const groupConfig = groupData.group_config;
+							const avatar = groupData.avatar;
+							const group: Group = {
+								id: groupId,
+								name: groupConfig.name,
+								avatar: createMediaUrl(avatar),
+								unreadCount: 0,
+								isGroup: true,
+								group_config: mapGroupConfig(groupConfig),
+							};
+							return [...prevGroups, group];
+						});
 						break;
-
-					case "message_edited":
-					case "edit_message": {
-						const d = payload.data;
-						const chatId = d.group_id || d.chat_id;
-						if (chatId && d.message_id && d.text != null) {
-							actions.editMessage(chatId, String(d.message_id), d.text);
-						}
-						break;
-					}
 
 					case "group_config_updated": {
 						const groupData = payload.data;
@@ -207,12 +194,9 @@ export function useListener({
 								if (String(g.id) === String(groupId)) {
 									return {
 										...g,
-										name: groupData.group_name ?? g.name,
+										name: groupData.group_config.name ?? g.name,
 										avatar: createMediaUrl(groupData.avatar) ?? g.avatar,
-										group_config: {
-											...g.group_config,
-											...groupData,
-										} as GroupConfig,
+										group_config: mapGroupConfig(groupData.group_config),
 									};
 								}
 								return g;
@@ -224,7 +208,7 @@ export function useListener({
 								if (c.isGroup && String(c.id) === String(groupId)) {
 									return {
 										...c,
-										name: groupData.group_name ?? c.name,
+										name: groupData.group_config.name ?? c.name,
 										avatar: createMediaUrl(groupData.avatar) ?? c.avatar,
 										group_config: {
 											...c.group_config,
@@ -250,7 +234,7 @@ export function useListener({
 
 					case "message_delivery": {
 						const { message_id, success } = payload.data;
-						uiStateRef.current.loadedChatIds.forEach((chatId) => {
+						uiStateRef.current?.loadedChatIds.forEach((chatId) => {
 							actions.updateMessageStatus(
 								chatId,
 								message_id.toString(),

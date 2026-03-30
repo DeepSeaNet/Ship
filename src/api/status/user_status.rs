@@ -1,4 +1,3 @@
-use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
@@ -13,7 +12,7 @@ use crate::api::status::types::{
     Avatar, DisplayUserInfo, DisplayUserStatus, DisplayUserTypingStatus, UpdateUserAvatarResponse,
 };
 use crate::api::status::user_db::{UserManager, get_default_db_path};
-use tauri::Emitter;
+use crate::commands::events::{emit_user_status_event, emit_user_typing_status_event};
 use tokio::sync::RwLock;
 /// Клиент для работы со статусами пользователя
 pub struct UserStatusClient {
@@ -231,17 +230,14 @@ impl UserStatusClient {
                                     .await
                                     .insert(status.user_id, user_status.clone());
                                 if let Some(app) = &app_handler {
-                                    let _ = app.emit(
-                                        "server-event",
-                                        json!({
-                                            "type": "user_status_changed",
-                                            "data": DisplayUserStatus {
-                                                status: online_status.as_str_name().to_string(),
-                                                user_id: status.user_id,
-                                                last_seen: seconds,
-                                                is_online: online_status != OnlineStatus::Offline,
-                                            },
-                                        }),
+                                    let _ = emit_user_status_event(
+                                        app,
+                                        DisplayUserStatus {
+                                            status: online_status.as_str_name().to_string(),
+                                            user_id: status.user_id,
+                                            last_seen: seconds,
+                                            is_online: online_status != OnlineStatus::Offline,
+                                        },
                                     );
                                 }
                             }
@@ -250,16 +246,13 @@ impl UserStatusClient {
                             let typing_status = TypingStatus::try_from(status.status)
                                 .unwrap_or(TypingStatus::NotTyping);
                             if let Some(app) = &app_handler {
-                                let _ = app.emit(
-                                    "server-event",
-                                    json!({
-                                        "type": "user_typing_status_changed",
-                                        "data": DisplayUserTypingStatus {
-                                            user_id: status.user_id,
-                                            chat_id: status.chat_id,
-                                            status: typing_status.as_str_name().to_string(),
-                                        },
-                                    }),
+                                let _ = emit_user_typing_status_event(
+                                    app,
+                                    DisplayUserTypingStatus {
+                                        user_id: status.user_id,
+                                        chat_id: status.chat_id,
+                                        status: typing_status.as_str_name().to_string(),
+                                    },
                                 );
                             }
                         }

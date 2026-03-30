@@ -21,19 +21,10 @@ export class SenderCryptoRatchet {
 	/** Current ratchet secret (32 bytes = SHA-256 hash_len). */
 	private secret: Uint8Array;
 	private generation: number;
-	private publicKey: Uint8Array;
-	private userId: bigint;
 
-	constructor(
-		secret: Uint8Array,
-		publicKey: Uint8Array,
-		userId: bigint,
-		epoch: number,
-		generation: number,
-	) {
+	constructor(secret: Uint8Array, epoch: number, generation: number) {
 		this.secret = secret;
-		this.publicKey = publicKey;
-		this.userId = userId;
+
 		this.currentEpoch = epoch;
 		this.generation = generation;
 	}
@@ -44,12 +35,10 @@ export class SenderCryptoRatchet {
 	 */
 	static async fromSecret(
 		baseSecret: Uint8Array,
-		publicKey: Uint8Array,
-		userId: bigint,
 		groupEpoch: number,
 	): Promise<SenderCryptoRatchet> {
 		const secret = await deriveInitialSecret(baseSecret);
-		return new SenderCryptoRatchet(secret, publicKey, userId, groupEpoch, 0);
+		return new SenderCryptoRatchet(secret, groupEpoch, 0);
 	}
 
 	/** Resets the ratchet for a new MLS epoch. */
