@@ -476,7 +476,7 @@ export class VoiceSessionManager {
 		await this.signaling.sendMessage({
 			type: "consume",
 			data: {
-				producerId: producerId,
+				producerId,
 			},
 		});
 	};

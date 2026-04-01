@@ -43,6 +43,7 @@ export function InputBar({
 	const [mentionQuery, setMentionQuery] = useState<string | null>(null);
 	const [mentionStart, setMentionStart] = useState<number>(0);
 	const [selectedIndex, setSelectedIndex] = useState(0);
+	
 
 	// When editTarget changes, pre-fill input
 	useEffect(() => {
@@ -71,6 +72,7 @@ export function InputBar({
 					u.name.toLowerCase().startsWith(mentionQuery.toLowerCase()),
 			);
 	}, [activeChat?.group_config?.members, contacts, mentionQuery]);
+	const suggestions = memberSuggestions();
 
 	const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
 		const val = e.target.value;
@@ -176,7 +178,6 @@ export function InputBar({
 		}
 	};
 
-	const suggestions = memberSuggestions();
 	const showAutocomplete = mentionQuery !== null && suggestions.length > 0;
 
 	const isEditing = Boolean(editTarget);

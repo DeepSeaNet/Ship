@@ -7,7 +7,7 @@
 		"dev": "next dev",
 		"build": "next build",
 		"start": "next start",
-		"lint": "eslint"
+		"ts": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@gravity-ui/icons": "^2.16.0",

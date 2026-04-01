@@ -1,6 +1,6 @@
 "use client";
 
-import { Alert, Button, Card } from "@heroui/react";
+import { Alert, Button, Card, toast } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { LandscapeBackground } from "@/components/landscape";
 import { MainMenu } from "@/components/messenger";
@@ -52,8 +52,7 @@ export default function AuthPage() {
 			}, 1000);
 		} catch (error) {
 			console.error("Login failed:", error);
-			// setErrorMessage would be nice but using alert for now as per current pattern
-			alert(`Login failed: ${error}`);
+			toast(`Login failed: ${error}`, { variant: "danger" });
 		} finally {
 			setIsLoading(false);
 		}
@@ -73,7 +72,7 @@ export default function AuthPage() {
 				await register({ username });
 			} catch (error) {
 				console.error("Registration failed:", error);
-				alert(`Registration failed: ${error}`);
+				toast(`Registration failed: ${error}`, { variant: "danger" });
 			}
 
 			setSuccessMessage(
@@ -91,7 +90,7 @@ export default function AuthPage() {
 			}, 2000);
 		} catch (error) {
 			console.error("Registration failed:", error);
-			alert(`Registration failed: ${error}`);
+			toast(`Registration failed: ${error}`, { variant: "danger" });
 		} finally {
 			setIsLoading(false);
 		}
@@ -114,7 +113,7 @@ export default function AuthPage() {
 			}, 2000);
 		} catch (error) {
 			console.error("Import failed:", error);
-			alert(`Import failed: ${error}`);
+			toast(`Import failed: ${error}`, { variant: "danger" });
 		} finally {
 			setIsLoading(false);
 		}

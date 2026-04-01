@@ -36,5 +36,5 @@
 		"dist/types/**/*.ts",
 		"dist/dev/types/**/*.ts"
 	],
-	"exclude": ["node_modules"]
+	"exclude": ["node_modules", "dist/dev/static/media/worker.*.ts", "dist/_next/static/media/worker.*.ts"]
 }

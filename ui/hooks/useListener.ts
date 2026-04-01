@@ -93,7 +93,7 @@ export function useListener({
 
 						const message: Message = {
 							id: data.message_id.toString(),
-							chatId: chatId,
+							chatId,
 							senderId,
 							content: data.text,
 							timestamp: new Date(data.timestamp * 1000).toISOString(),
@@ -104,7 +104,7 @@ export function useListener({
 							media: data.media,
 							media_name: data.media_name,
 							reply_to: data.reply_message_id?.toString(),
-							edited: !!data.edit_date,
+							edited: Boolean(data.edit_date),
 							expires: data.expires,
 						};
 
@@ -126,7 +126,7 @@ export function useListener({
 						if (!isCurrentlyActive && !message.isOwn) {
 							const notifSettings = getNotificationSettings();
 							const override = notifSettings.chatOverrides[chatId];
-							const isGroup = !!data.group_id;
+							const isGroup = Boolean(data.group_id);
 
 							if (override?.muted) return;
 

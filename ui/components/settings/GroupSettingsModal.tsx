@@ -31,13 +31,13 @@ import { type ChangeEvent, useEffect, useState } from "react";
 import type {
 	Chat,
 	GroupPermissions,
-	Permissions,
 } from "@/hooks/messengerTypes";
 import { useGroups } from "@/hooks/useGroups";
 import { useMessengerState } from "@/hooks/useMessengerState";
 import { useNotificationSettings } from "@/hooks/useNotificationSettings";
 import { ImageCropModal } from "./ImageCropModal";
 import { InviteMemberModal } from "./InviteMemberModal";
+import { Permissions } from "@/hooks/generated";
 
 interface GroupSettingsModalProps {
 	isOpen: boolean;

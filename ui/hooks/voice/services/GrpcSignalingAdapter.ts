@@ -139,7 +139,7 @@ export class GrpcSignalingAdapter {
 		try {
 			this.addLog(`Sending gRPC message: ${message.type}`, "info");
 			console.log(message);
-			sendWebrtcMessage({ message: message });
+			sendWebrtcMessage({ message });
 		} catch (error) {
 			this.addLog(
 				`Failed to send gRPC message (${message.type}): ${error}`,

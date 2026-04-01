@@ -35,7 +35,6 @@ export interface GroupConfig {
 	allow_voice_messages: boolean;
 	allow_video_messages: boolean;
 	allow_links: boolean;
-	allow_messages: boolean;
 }
 
 // Basic Chat interface that can be a single user or a group

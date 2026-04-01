@@ -62,7 +62,7 @@ export function useMessages(chatId: string | null) {
 					media_name: msg.media_name,
 					media: createMediaUrl(msg.media_data),
 					reply_to: msg.reply_to,
-					edited: !!msg.edit_date,
+					edited: Boolean(msg.edit_date),
 					expires: msg.expires,
 				};
 			});
@@ -85,7 +85,7 @@ export function useMessages(chatId: string | null) {
 							});
 							if (userInfo) {
 								upsertUser({
-									id: id,
+									id,
 									name: userInfo.username || `User ${id}`,
 									avatar: createMediaUrl(userInfo.avatar),
 								});

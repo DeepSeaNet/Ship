@@ -98,7 +98,7 @@ export function useNotificationSettings() {
 	const resetChatSettings = useCallback((chatId: string) => {
 		setSettingsState((prev) => {
 			const nextOverrides = { ...prev.chatOverrides };
-			delete nextOverrides[chatId];
+			delete nextOverrides.chatId;
 			const next = { ...prev, chatOverrides: nextOverrides };
 			save(next);
 			return next;

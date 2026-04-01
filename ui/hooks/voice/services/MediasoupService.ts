@@ -65,11 +65,11 @@ export class MediasoupService {
 	}
 
 	public isDeviceLoaded(): boolean {
-		return !!this.device && this.device.loaded;
+		return Boolean(this.device?.loaded);
 	}
 
 	public isTransportsReady(): boolean {
-		return !!this.sendTransport && !!this.recvTransport;
+		return Boolean(this.sendTransport) && Boolean(this.recvTransport);
 	}
 
 	public isInitialized(): boolean {
@@ -141,7 +141,7 @@ export class MediasoupService {
 			this.addLog("SendTransport event: connect", "info");
 			sendMessage({
 				type: "connectProducerTransport",
-				data: { dtlsParameters: dtlsParameters },
+				data: { dtlsParameters },
 			});
 			this.setResponseCallback("connectedProducerTransport", () => {
 				this.addLog("SendTransport connected to server", "success");
@@ -153,7 +153,7 @@ export class MediasoupService {
 			"produce",
 			async ({ kind, rtpParameters, appData }, callback) => {
 				this.addLog(`SendTransport event: produce (${kind})`, "info");
-				sendMessage({
+				await sendMessage({
 					type: "produce",
 					data: {
 						kind,
@@ -342,8 +342,8 @@ export class MediasoupService {
 				id: consumedMessage.data.consumerId,
 				producerId: consumedMessage.data.producerId,
 				kind: consumedMessage.data.kind,
-				rtpParameters: rtpParameters,
-				appData: appData,
+				rtpParameters,
+				appData,
 			});
 
 			this.consumers.set(consumer.id, consumer);

@@ -72,7 +72,7 @@ export function ParticipantGrid({
 				avatar={localUser.avatar}
 				isLocal
 				isMuted={localUser.isMuted}
-				hasVideo={!!localVideoTrack}
+				hasVideo={Boolean(localVideoTrack)}
 				videoTrack={localVideoTrack}
 			/>
 
@@ -89,7 +89,7 @@ export function ParticipantGrid({
 						participantId={pid}
 						name={name}
 						avatar={avatar}
-						hasVideo={!!videoTrack?.mediaStreamTrack}
+						hasVideo={Boolean(videoTrack?.mediaStreamTrack)}
 						videoTrack={videoTrack}
 					/>
 				);

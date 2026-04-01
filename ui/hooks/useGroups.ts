@@ -32,6 +32,7 @@ export function mapGroupConfig(config: BackendGroupConfig): GroupConfig {
 		muted: Object.fromEntries(
 			Object.entries(config.muted).map(([k, v]) => [String(k), v]),
 		),
+		pinned_message_id: String(config.pinned_message_id),
 	};
 }
 
@@ -217,7 +218,6 @@ export function useGroups(currentUser?: User | null) {
 			try {
 				console.log("Updating group config:", updates);
 				let avatarHash = updates.avatarHash;
-				let mimeType = updates.avatarMimeType;
 
 				if (updates.avatarBytes) {
 					// Calculate hash if not provided
@@ -230,7 +230,6 @@ export function useGroups(currentUser?: User | null) {
 							.map((b) => b.toString(16).padStart(2, "0"))
 							.join("");
 					}
-					mimeType = mimeType || "image/jpeg";
 				}
 
 				await invokeUpdateGroupConfig({

@@ -1,10 +1,6 @@
 import { getVoiceKeys, onVoiceEvent } from "@/hooks/generated";
 import type { LoggerFunction } from "../types/mediasoup";
 import {
-	getPayloadTypeMapping,
-	getPayloadTypeMappingString,
-} from "../utils/codecTypes";
-import {
 	getEncodedStreamWorker,
 	terminateEncodedStreamWorker,
 } from "../utils/encodedStreamsTransform";
@@ -49,13 +45,10 @@ export class WorkerManager {
 			// 2. Initialize worker (no MessagePort needed — crypto is in-worker)
 			this.encodedStreamWorker.postMessage({ type: "init" });
 
-			// 3. Sync codec mapping
-			this.updateCodecMapping();
-
-			// 4. Fetch key material from Rust and send to worker
+			// 3. Fetch key material from Rust and send to worker
 			this.fetchAndSyncKeys();
 
-			// 5. Listen for key refresh events from Rust
+			// 4. Listen for key refresh events from Rust
 			this.listenVoiceEvenets();
 
 			this.addLog("Worker initialized (SubtleCrypto mode)", "success");
@@ -94,27 +87,6 @@ export class WorkerManager {
 				this.fetchAndSyncKeys();
 			}
 		});
-	}
-
-	/**
-	 * Synchronize codec payload type mappings with the Worker
-	 */
-	public updateCodecMapping(): void {
-		if (!this.encodedStreamWorker) return;
-
-		try {
-			const mapping = getPayloadTypeMapping();
-			this.encodedStreamWorker.postMessage({
-				type: "updateCodecMapping",
-				codecMapping: mapping,
-			});
-			this.addLog(
-				`Codec mapping synced with worker: ${getPayloadTypeMappingString()}`,
-				"info",
-			);
-		} catch (error) {
-			this.addLog(`Error syncing codec mapping: ${error}`, "error");
-		}
 	}
 
 	/**

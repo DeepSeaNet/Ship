@@ -9,6 +9,7 @@ import {
 	Label,
 	Spinner,
 	TextField,
+	toast,
 } from "@heroui/react";
 import { useState } from "react";
 
@@ -32,7 +33,7 @@ export function RegisterForm({ isLoading, onSubmit }: RegisterFormProps) {
 	const handleRegisterSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		if (registerPassword !== registerConfirmPassword) {
-			alert("Passwords do not match");
+			toast("Passwords do not match", { variant: "danger" });
 			return;
 		}
 		await onSubmit(
