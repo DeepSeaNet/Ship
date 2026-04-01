@@ -28,16 +28,13 @@ import {
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { type ChangeEvent, useEffect, useState } from "react";
-import type {
-	Chat,
-	GroupPermissions,
-} from "@/hooks/messengerTypes";
+import type { Permissions } from "@/hooks/generated";
+import type { Chat, GroupPermissions } from "@/hooks/messengerTypes";
 import { useGroups } from "@/hooks/useGroups";
 import { useMessengerState } from "@/hooks/useMessengerState";
 import { useNotificationSettings } from "@/hooks/useNotificationSettings";
 import { ImageCropModal } from "./ImageCropModal";
 import { InviteMemberModal } from "./InviteMemberModal";
-import { Permissions } from "@/hooks/generated";
 
 interface GroupSettingsModalProps {
 	isOpen: boolean;

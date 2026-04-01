@@ -85,6 +85,34 @@ const BUBBLE_RADIUS_OPTIONS: {
 	{ value: "pill", label: "Pill" },
 ];
 
+// ── Sub-components ──────────────────────────────────────────────────────────
+
+function ControlledSwitch({
+	isSelected,
+	onChange,
+}: {
+	isSelected: boolean;
+	onChange: (v: boolean) => void;
+}) {
+	return (
+		<Switch isSelected={isSelected} onChange={onChange}>
+			<Switch.Control>
+				<Switch.Thumb />
+			</Switch.Control>
+		</Switch>
+	);
+}
+
+function DefaultSwitch() {
+	return (
+		<Switch defaultSelected>
+			<Switch.Control>
+				<Switch.Thumb />
+			</Switch.Control>
+		</Switch>
+	);
+}
+
 function SwitchRow({
 	label,
 	description,
@@ -103,13 +131,160 @@ function SwitchRow({
 					<span className="text-sm font-medium">{label}</span>
 					{description && <p className="text-xs text-muted">{description}</p>}
 				</div>
-				<Switch isSelected={isSelected} onChange={onChange}>
-					<Switch.Control>
-						<Switch.Thumb />
-					</Switch.Control>
-				</Switch>
+				<ControlledSwitch isSelected={isSelected} onChange={onChange} />
 			</div>
 		</Card>
+	);
+}
+
+function EffectRow({
+	label,
+	description,
+}: {
+	label: string;
+	description: string;
+}) {
+	return (
+		<Card className="bg-surface/30 border border-border/50 p-4">
+			<div className="flex items-center justify-between">
+				<div className="space-y-0.5">
+					<span className="text-sm font-medium">{label}</span>
+					<p className="text-xs text-muted">{description}</p>
+				</div>
+				<DefaultSwitch />
+			</div>
+		</Card>
+	);
+}
+
+function ThemeCardPreview({
+	theme,
+	isActive,
+}: {
+	theme: (typeof THEMES)[number];
+	isActive: boolean;
+}) {
+	const barClass =
+		theme.id === "terminal"
+			? "bg-[#003b00]"
+			: theme.id === "dark"
+				? "bg-neutral-800"
+				: "bg-neutral-100";
+
+	const dotClass = theme.id === "terminal" ? "bg-[#00ff41]" : "bg-primary";
+
+	const lineClass =
+		theme.id === "terminal"
+			? "bg-[#002200]"
+			: theme.id === "dark"
+				? "bg-neutral-700"
+				: "bg-neutral-200";
+
+	const shortBarClass =
+		theme.id === "terminal"
+			? "bg-[#003b00]"
+			: theme.id === "dark"
+				? "bg-neutral-800"
+				: "bg-neutral-100";
+
+	return (
+		<div
+			className={`h-28 w-full ${theme.bg} p-4 flex flex-col gap-2 relative transition-colors`}
+		>
+			<div className={`w-full h-2 rounded-sm ${barClass}`} />
+			<div className="flex gap-2">
+				<div className={`w-4 h-4 rounded-full ${dotClass}`} />
+				<div className={`flex-1 h-4 rounded-sm ${lineClass}`} />
+			</div>
+			<div className={`w-3/4 h-2 rounded-sm ${shortBarClass}`} />
+			{isActive && (
+				<div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1.5 shadow-lg animate-in zoom-in duration-200">
+					<Check className="size-3.5" />
+				</div>
+			)}
+		</div>
+	);
+}
+
+function ThemeCard({
+	theme,
+	isActive,
+	onPress,
+}: {
+	theme: (typeof THEMES)[number];
+	isActive: boolean;
+	onPress: () => void;
+}) {
+	return (
+		<Button
+			variant="ghost"
+			fullWidth
+			className={`relative group h-auto p-0 flex-col items-stretch cursor-pointer overflow-hidden border-2 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] ${
+				isActive
+					? "border-primary ring-2 ring-primary/20"
+					: "border-transparent bg-surface/50 hover:border-border"
+			}`}
+			onPress={onPress}
+		>
+			<ThemeCardPreview theme={theme} isActive={isActive} />
+			<div className="px-3 py-2.5 text-center text-xs font-bold uppercase tracking-wider">
+				{theme.name}
+			</div>
+		</Button>
+	);
+}
+
+function AccentButton({ accent }: { accent: (typeof ACCENTS)[number] }) {
+	return (
+		<Tooltip delay={0}>
+			<Tooltip.Trigger>
+				<Button
+					isIconOnly
+					className="size-10 min-w-0 rounded-full border-2 border-transparent hover:border-primary hover:scale-110 transition-all focus:ring-2 ring-primary/30 outline-none shadow-md"
+					style={{ backgroundColor: accent.color }}
+					onPress={() => {
+						document.documentElement.style.setProperty(
+							"--accent",
+							accent.color,
+						);
+						toast(`Applied ${accent.name} accent`, { variant: "success" });
+					}}
+				/>
+			</Tooltip.Trigger>
+			<Tooltip.Content>{accent.name}</Tooltip.Content>
+		</Tooltip>
+	);
+}
+
+function FontSelect() {
+	return (
+		<Select
+			className="max-w-xs"
+			defaultSelectedKey="sans"
+			onSelectionChange={(key) => {
+				const font =
+					key === "mono" ? "var(--font-ibm-plex-mono)" : "var(--font-inter)";
+				document.documentElement.style.setProperty("--font-sans", font);
+			}}
+		>
+			<Label className="text-xs text-muted mb-1 block">Font Family</Label>
+			<Select.Trigger>
+				<Select.Value />
+				<Select.Indicator />
+			</Select.Trigger>
+			<Select.Popover>
+				<ListBox>
+					<ListBox.Item id="sans" textValue="System Sans">
+						System Sans
+						<ListBox.ItemIndicator />
+					</ListBox.Item>
+					<ListBox.Item id="mono" textValue="Terminal Mono">
+						Terminal Mono
+						<ListBox.ItemIndicator />
+					</ListBox.Item>
+				</ListBox>
+			</Select.Popover>
+		</Select>
 	);
 }
 
@@ -156,6 +331,72 @@ function AppSlider({
 	);
 }
 
+function SliderRow({
+	label,
+	hint,
+	value,
+	unit,
+	min,
+	max,
+	step,
+	onChange,
+}: {
+	label: string;
+	hint: string;
+	value: number;
+	unit: string;
+	min: number;
+	max: number;
+	step: number;
+	onChange: (v: number) => void;
+}) {
+	return (
+		<div className="space-y-3">
+			<div className="flex items-center justify-between">
+				<span className="text-sm font-medium">{label}</span>
+				<span className="text-xs bg-surface px-2 py-0.5 rounded border border-border">
+					{value}
+					{unit}
+				</span>
+			</div>
+			<AppSlider
+				label={label}
+				value={value}
+				min={min}
+				max={max}
+				step={step}
+				onChange={onChange}
+			/>
+			<p className="text-[10px] text-muted">{hint}</p>
+		</div>
+	);
+}
+
+function PreviewBubble({
+	settings,
+	text,
+	extraStyle,
+}: {
+	settings: AppearanceSettings;
+	text: string;
+	extraStyle?: React.CSSProperties;
+}) {
+	return (
+		<Card
+			style={{
+				borderRadius: "var(--bubble-radius, 18px)",
+				fontSize: `${settings.messageFontSize}px`,
+				...extraStyle,
+			}}
+			className="bg-primary text-primary-foreground p-3 max-w-sm shadow-lg shadow-primary/20"
+		>
+			<p>{text}</p>
+		</Card>
+	);
+}
+
+// ── Main Panel ───────────────────────────────────────────────────────────────
+
 export function AppearancePanel({
 	settings,
 	updateSetting,
@@ -182,30 +423,15 @@ export function AppearancePanel({
 							<span className="font-bold text-sm">Preview User</span>
 							<span className="text-[10px] text-muted">12:34 PM</span>
 						</div>
-						<Card
-							style={{
-								borderRadius: "var(--bubble-radius, 18px)",
-								fontSize: `${settings.messageFontSize}px`,
-							}}
-							className="bg-primary text-primary-foreground p-3 max-w-sm shadow-lg shadow-primary/20"
-						>
-							<p>
-								How do you like the new theme? Everything looks so much more
-								alive! ✨
-							</p>
-						</Card>
-						<Card
-							style={{
-								borderRadius: "var(--bubble-radius, 18px)",
-								fontSize: `${settings.messageFontSize}px`,
-								marginTop: `${settings.messageSpacing}px`,
-							}}
-							className="bg-primary text-primary-foreground p-3 max-w-sm shadow-lg shadow-primary/20"
-						>
-							<p>
-								Second message — adjust spacing above to see the difference.
-							</p>
-						</Card>
+						<PreviewBubble
+							settings={settings}
+							text="How do you like the new theme? Everything looks so much more alive! ✨"
+						/>
+						<PreviewBubble
+							settings={settings}
+							text="Second message — adjust spacing above to see the difference."
+							extraStyle={{ marginTop: `${settings.messageSpacing}px` }}
+						/>
 					</div>
 				</div>
 			</div>
@@ -223,49 +449,14 @@ export function AppearancePanel({
 					<Display className="size-4" /> Interface Theme
 				</h4>
 				<div className="grid grid-cols-3 gap-4">
-					{THEMES.map((theme) => {
-						const isActive = activeTheme === theme.id;
-						return (
-							<Button
-								key={theme.id}
-								variant="ghost"
-								fullWidth
-								className={`relative group h-auto p-0 flex-col items-stretch cursor-pointer overflow-hidden border-2 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] ${
-									isActive
-										? "border-primary ring-2 ring-primary/20"
-										: "border-transparent bg-surface/50 hover:border-border"
-								}`}
-								onPress={() => handleThemeChange(theme.id)}
-							>
-								<div
-									className={`h-28 w-full ${theme.bg} p-4 flex flex-col gap-2 relative transition-colors`}
-								>
-									<div
-										className={`w-full h-2 rounded-sm ${theme.id === "terminal" ? "bg-[#003b00]" : theme.id === "dark" ? "bg-neutral-800" : "bg-neutral-100"}`}
-									/>
-									<div className="flex gap-2">
-										<div
-											className={`w-4 h-4 rounded-full ${theme.id === "terminal" ? "bg-[#00ff41]" : "bg-primary"}`}
-										/>
-										<div
-											className={`flex-1 h-4 rounded-sm ${theme.id === "terminal" ? "bg-[#002200]" : theme.id === "dark" ? "bg-neutral-700" : "bg-neutral-200"}`}
-										/>
-									</div>
-									<div
-										className={`w-3/4 h-2 rounded-sm ${theme.id === "terminal" ? "bg-[#003b00]" : theme.id === "dark" ? "bg-neutral-800" : "bg-neutral-100"}`}
-									/>
-									{isActive && (
-										<div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1.5 shadow-lg animate-in zoom-in duration-200">
-											<Check className="size-3.5" />
-										</div>
-									)}
-								</div>
-								<div className="px-3 py-2.5 text-center text-xs font-bold uppercase tracking-wider">
-									{theme.name}
-								</div>
-							</Button>
-						);
-					})}
+					{THEMES.map((theme) => (
+						<ThemeCard
+							key={theme.id}
+							theme={theme}
+							isActive={activeTheme === theme.id}
+							onPress={() => handleThemeChange(theme.id)}
+						/>
+					))}
 				</div>
 			</div>
 
@@ -278,25 +469,7 @@ export function AppearancePanel({
 				</h4>
 				<div className="flex flex-wrap gap-4">
 					{ACCENTS.map((accent) => (
-						<Tooltip key={accent.name} delay={0}>
-							<Tooltip.Trigger>
-								<Button
-									isIconOnly
-									className="size-10 min-w-0 rounded-full border-2 border-transparent hover:border-primary hover:scale-110 transition-all focus:ring-2 ring-primary/30 outline-none shadow-md"
-									style={{ backgroundColor: accent.color }}
-									onPress={() => {
-										document.documentElement.style.setProperty(
-											"--accent",
-											accent.color,
-										);
-										toast(`Applied ${accent.name} accent`, {
-											variant: "success",
-										});
-									}}
-								/>
-							</Tooltip.Trigger>
-							<Tooltip.Content>{accent.name}</Tooltip.Content>
-						</Tooltip>
+						<AccentButton key={accent.name} accent={accent} />
 					))}
 				</div>
 			</div>
@@ -331,35 +504,7 @@ export function AppearancePanel({
 			{/* ── Typography ── */}
 			<div className="space-y-4">
 				<h4 className="font-semibold text-sm">Typography</h4>
-				<Select
-					className="max-w-xs"
-					defaultSelectedKey="sans"
-					onSelectionChange={(key) => {
-						const font =
-							key === "mono"
-								? "var(--font-ibm-plex-mono)"
-								: "var(--font-inter)";
-						document.documentElement.style.setProperty("--font-sans", font);
-					}}
-				>
-					<Label className="text-xs text-muted mb-1 block">Font Family</Label>
-					<Select.Trigger>
-						<Select.Value />
-						<Select.Indicator />
-					</Select.Trigger>
-					<Select.Popover>
-						<ListBox>
-							<ListBox.Item id="sans" textValue="System Sans">
-								System Sans
-								<ListBox.ItemIndicator />
-							</ListBox.Item>
-							<ListBox.Item id="mono" textValue="Terminal Mono">
-								Terminal Mono
-								<ListBox.ItemIndicator />
-							</ListBox.Item>
-						</ListBox>
-					</Select.Popover>
-				</Select>
+				<FontSelect />
 			</div>
 
 			<Separator className="opacity-50" />
@@ -368,47 +513,27 @@ export function AppearancePanel({
 			<div className="space-y-6">
 				<h4 className="font-semibold text-sm">Chat Layout</h4>
 
-				{/* Message spacing */}
-				<div className="space-y-3">
-					<div className="flex items-center justify-between">
-						<span className="text-sm font-medium">Message Spacing</span>
-						<span className="text-xs bg-surface px-2 py-0.5 rounded border border-border">
-							{settings.messageSpacing}px
-						</span>
-					</div>
-					<AppSlider
-						label="Message spacing"
-						value={settings.messageSpacing}
-						min={2}
-						max={24}
-						step={2}
-						onChange={(v) => updateSetting("messageSpacing", v)}
-					/>
-					<p className="text-[10px] text-muted">
-						Vertical gap between individual messages.
-					</p>
-				</div>
+				<SliderRow
+					label="Message Spacing"
+					hint="Vertical gap between individual messages."
+					value={settings.messageSpacing}
+					unit="px"
+					min={2}
+					max={24}
+					step={2}
+					onChange={(v) => updateSetting("messageSpacing", v)}
+				/>
 
-				{/* Message font size */}
-				<div className="space-y-3">
-					<div className="flex items-center justify-between">
-						<span className="text-sm font-medium">Message Font Size</span>
-						<span className="text-xs bg-surface px-2 py-0.5 rounded border border-border">
-							{settings.messageFontSize}px
-						</span>
-					</div>
-					<AppSlider
-						label="Message font size"
-						value={settings.messageFontSize}
-						min={11}
-						max={20}
-						step={1}
-						onChange={(v) => updateSetting("messageFontSize", v)}
-					/>
-					<p className="text-[10px] text-muted">
-						Font size inside chat bubbles.
-					</p>
-				</div>
+				<SliderRow
+					label="Message Font Size"
+					hint="Font size inside chat bubbles."
+					value={settings.messageFontSize}
+					unit="px"
+					min={11}
+					max={20}
+					step={1}
+					onChange={(v) => updateSetting("messageFontSize", v)}
+				/>
 
 				{/* Bubble shape */}
 				<div className="space-y-3">
@@ -455,36 +580,14 @@ export function AppearancePanel({
 			<div className="space-y-4">
 				<h4 className="font-semibold text-sm">Visual Effects</h4>
 				<div className="grid gap-3">
-					<Card className="bg-surface/30 border border-border/50 p-4">
-						<div className="flex items-center justify-between">
-							<div className="space-y-0.5">
-								<span className="text-sm font-medium">Glassmorphism</span>
-								<p className="text-xs text-muted">
-									Apply frozen glass effects to panels and menus.
-								</p>
-							</div>
-							<Switch defaultSelected>
-								<Switch.Control>
-									<Switch.Thumb />
-								</Switch.Control>
-							</Switch>
-						</div>
-					</Card>
-					<Card className="bg-surface/30 border border-border/50 p-4">
-						<div className="flex items-center justify-between">
-							<div className="space-y-0.5">
-								<span className="text-sm font-medium">Smooth Transitions</span>
-								<p className="text-xs text-muted">
-									Enable fluid animations across the app.
-								</p>
-							</div>
-							<Switch defaultSelected>
-								<Switch.Control>
-									<Switch.Thumb />
-								</Switch.Control>
-							</Switch>
-						</div>
-					</Card>
+					<EffectRow
+						label="Glassmorphism"
+						description="Apply frozen glass effects to panels and menus."
+					/>
+					<EffectRow
+						label="Smooth Transitions"
+						description="Enable fluid animations across the app."
+					/>
 				</div>
 			</div>
 
