@@ -184,7 +184,7 @@ export function AppearancePanel({
 						</div>
 						<Card
 							style={{
-								borderRadius: `var(--bubble-radius, 18px)`,
+								borderRadius: "var(--bubble-radius, 18px)",
 								fontSize: `${settings.messageFontSize}px`,
 							}}
 							className="bg-primary text-primary-foreground p-3 max-w-sm shadow-lg shadow-primary/20"
@@ -196,7 +196,7 @@ export function AppearancePanel({
 						</Card>
 						<Card
 							style={{
-								borderRadius: `var(--bubble-radius, 18px)`,
+								borderRadius: "var(--bubble-radius, 18px)",
 								fontSize: `${settings.messageFontSize}px`,
 								marginTop: `${settings.messageSpacing}px`,
 							}}

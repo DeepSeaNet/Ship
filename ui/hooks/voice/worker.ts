@@ -133,6 +133,10 @@ self.onmessage = async (event: MessageEvent) => {
 		case "init":
 			console.log("[Worker] Initialized.");
 			break;
+
+		default:
+			console.warn("[Worker] Unknown message type:", type);
+			break;
 	}
 };
 

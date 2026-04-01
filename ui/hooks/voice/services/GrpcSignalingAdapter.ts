@@ -49,11 +49,11 @@ export function parseRtpParameters(
 	addLog: LoggerFunction,
 ): mediasoupTypes.RtpParameters {
 	if (proto?.type !== "consumed") {
-		addLog(`Cannot parse RtpParameters: Invalid message type`, "error");
+		addLog("Cannot parse RtpParameters: Invalid message type", "error");
 		return {} as mediasoupTypes.RtpParameters;
 	}
 	if (!proto?.data?.rtpParameters) {
-		addLog(`Cannot parse RtpParameters: Invalid RTP parameters`, "error");
+		addLog("Cannot parse RtpParameters: Invalid RTP parameters", "error");
 		return {} as mediasoupTypes.RtpParameters;
 	}
 	if (!proto?.data?.rtpParameters.mid)
@@ -138,8 +138,7 @@ export class GrpcSignalingAdapter {
 
 		try {
 			this.addLog(`Sending gRPC message: ${message.type}`, "info");
-			console.log(message);
-			sendWebrtcMessage({ message });
+			await sendWebrtcMessage({ message });
 		} catch (error) {
 			this.addLog(
 				`Failed to send gRPC message (${message.type}): ${error}`,
@@ -207,7 +206,7 @@ export class GrpcSignalingAdapter {
 
 	// ─── Proto field parsers ──────────────────────────────────────────────────
 
-	private parseCandidateType(
+	static parseCandidateType(
 		raw?: string,
 	): "host" | "srflx" | "prflx" | "relay" {
 		if (!raw) return "host";
@@ -251,20 +250,20 @@ export class GrpcSignalingAdapter {
 					ip: candidate.address,
 					protocol: candidate.protocol?.toLowerCase() === "tcp" ? "tcp" : "udp",
 					port: candidate.port,
-					type: this.parseCandidateType(candidate.type),
+					type: GrpcSignalingAdapter.parseCandidateType(candidate.type),
 					tcpType: candidate.tcpType as "passive" | "active" | "so",
 				}),
 			),
 			dtlsParameters: {
-				role: this.parseDtlsRole(dtlsParams?.role),
+				role: GrpcSignalingAdapter.parseDtlsRole(dtlsParams?.role),
 				fingerprints: (dtlsParams?.fingerprints ?? []).map((fp) =>
-					this.parseFingerprint(fp),
+					GrpcSignalingAdapter.parseFingerprint(fp),
 				),
 			},
 		};
 	}
 
-	private parseFingerprint(
+	static parseFingerprint(
 		fp: ProtoFingerprint,
 	): mediasoupTypes.DtlsFingerprint {
 		let { algorithm, value } = fp;
@@ -289,18 +288,13 @@ export class GrpcSignalingAdapter {
 				.trim();
 		}
 
-		this.addLog(
-			`Fingerprint parsed: ${algorithm} = ${value.substring(0, 20)}...`,
-			"debug",
-		);
-
 		return {
 			algorithm: algorithm as mediasoupTypes.FingerprintAlgorithm,
 			value,
 		};
 	}
 
-	private parseDtlsRole(
+	static parseDtlsRole(
 		role: string | undefined | null,
 	): "auto" | "client" | "server" {
 		const normalized = role?.toLowerCase();

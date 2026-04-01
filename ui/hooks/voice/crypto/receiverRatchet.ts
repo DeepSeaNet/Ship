@@ -127,8 +127,12 @@ export class ReceiverCryptoRatchet {
 
 		// Continue the queue even if decryption fails, while keeping it a Promise<void>
 		this.processingQueue = result.then(
-			() => {},
-			() => {},
+			() => {
+				// do nothing
+			},
+			() => {
+				// do nothing
+			},
 		);
 		return result;
 	}

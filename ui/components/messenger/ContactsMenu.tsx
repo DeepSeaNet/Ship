@@ -216,7 +216,6 @@ export function ContactsMenu({ onClose }: ContactsMenuProps) {
 										value={newUserId}
 										onChange={(e) => setNewUserId(e.target.value)}
 										variant="secondary"
-										autoFocus
 									/>
 									{addError && (
 										<span className="text-xs text-danger">{addError}</span>

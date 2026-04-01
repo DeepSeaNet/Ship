@@ -158,7 +158,7 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 			<div
 				id={`msg-${message.id}`}
 				className={`flex gap-2 ${isOwn ? "justify-end" : "justify-start"} group hover:bg-neutral-800/5 rounded-lg p-1 transition-colors relative animate-in fade-in zoom-in-95 duration-500 ${isOwn ? "slide-in-from-right-8" : "slide-in-from-left-8"} fill-mode-both`}
-				style={{ animationDelay: `40ms` }}
+				style={{ animationDelay: "40ms" }}
 			>
 				{!isOwn && (
 					<Avatar size="sm" className="bg-default text-default-foreground mt-1">

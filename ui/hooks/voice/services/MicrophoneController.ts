@@ -153,7 +153,7 @@ export class AdvancedMicrophoneController {
 		this.gainNode.gain.setValueAtTime(1.0, this.audioContext.currentTime);
 
 		// Создаем узел шумоподавления (используем Web Audio API фильтры)
-		this.noiseSuppressionNode = await this.createNoiseSuppressionNode();
+		this.noiseSuppressionNode = this.createNoiseSuppressionNode();
 
 		// Создаем выходной поток
 		this.destinationNode = this.audioContext.createMediaStreamDestination();
@@ -172,7 +172,7 @@ export class AdvancedMicrophoneController {
 	/**
 	 * Создает узел фильтра для шумоподавления
 	 */
-	private async createNoiseSuppressionNode(): Promise<BiquadFilterNode> {
+	private createNoiseSuppressionNode(): BiquadFilterNode {
 		if (!this.audioContext) {
 			throw new Error("AudioContext не инициализирован");
 		}

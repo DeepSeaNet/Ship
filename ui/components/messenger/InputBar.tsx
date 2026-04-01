@@ -73,6 +73,8 @@ export function InputBar({
 			);
 	}, [activeChat?.group_config?.members, contacts, mentionQuery]);
 	const suggestions = memberSuggestions();
+	const showAutocomplete = mentionQuery !== null && suggestions.length > 0;
+
 
 	const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
 		const val = e.target.value;
@@ -177,8 +179,6 @@ export function InputBar({
 			handleSend();
 		}
 	};
-
-	const showAutocomplete = mentionQuery !== null && suggestions.length > 0;
 
 	const isEditing = Boolean(editTarget);
 	const isReplying = Boolean(replyTo);

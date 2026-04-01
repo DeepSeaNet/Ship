@@ -210,7 +210,6 @@ export function AccountSelection({
 								value={password}
 								onChange={setPassword}
 								variant="secondary"
-								autoFocus
 								onComplete={() => handleLogin()}
 							>
 								<InputOTP.Group>

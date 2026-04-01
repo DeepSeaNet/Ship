@@ -63,8 +63,12 @@ export class SenderCryptoRatchet {
 			this.internalEncrypt(plaintext),
 		);
 		this.processingQueue = result.then(
-			() => {},
-			() => {},
+			() => {
+				// do nothing
+			},
+			() => {
+				// do nothing
+			},
 		);
 		return result;
 	}
