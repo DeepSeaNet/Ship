@@ -1,5 +1,3 @@
-import type { types as mediasoupTypes } from "mediasoup-client";
-
 // Логирование
 export type LogEntryType = "info" | "success" | "warning" | "error" | "debug";
 
@@ -33,15 +31,6 @@ export interface BaseMessage {
 	action: string;
 	timestamp?: number;
 	id?: string;
-}
-
-export interface ClientMessage extends BaseMessage {
-	[key: string]: unknown;
-	dtlsParameters?: mediasoupTypes.DtlsParameters;
-	rtpCapabilities?: mediasoupTypes.RtpCapabilities;
-	kind?: string;
-	appData?: AppData;
-	producerId?: string;
 }
 
 export type AppData = {

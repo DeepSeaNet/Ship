@@ -1,9 +1,6 @@
 import type { Producer } from "mediasoup-client/types";
-import type {
-	AppData,
-	ClientMessage,
-	LoggerFunction,
-} from "../types/mediasoup";
+import type { VoiceRequest } from "@/hooks/generated";
+import type { AppData, LoggerFunction } from "../types/mediasoup";
 import type { MediasoupService } from "./MediasoupService";
 import {
 	type AdvancedMicrophoneController,
@@ -14,7 +11,7 @@ import {
 export interface MediaManagerOptions {
 	mediasoupService: MediasoupService;
 	addLog: LoggerFunction;
-	sendMessage: (message: ClientMessage) => void;
+	sendMessage: (message: VoiceRequest) => void;
 	useAdvancedMicrophoneController?: boolean;
 	microphoneOptions?: AdvancedMicrophoneOptions;
 }
@@ -29,7 +26,7 @@ export class MediaManager {
 	private addLog: LoggerFunction;
 	private microphoneController: AdvancedMicrophoneController | null = null;
 	private microphoneOptions: AdvancedMicrophoneOptions;
-	private sendMessage: (message: ClientMessage) => void;
+	private sendMessage: (message: VoiceRequest) => void;
 
 	constructor(options: MediaManagerOptions) {
 		this.mediasoupService = options.mediasoupService;
@@ -178,8 +175,8 @@ export class MediaManager {
 			this.addLog(`Stopping video Producer ${videoProducer.id}...`, "info");
 			videoProducer.close();
 			this.sendMessage({
-				action: "CloseProducer",
-				producerId: videoProducer.id,
+				type: "closeProducer",
+				data: { producerId: videoProducer.id },
 			});
 			this.mediasoupService.getProducers().delete("video");
 		}
@@ -324,8 +321,8 @@ export class MediaManager {
 			this.addLog(`Stopping audio Producer ${audioProducer.id}...`, "info");
 			audioProducer.close();
 			this.sendMessage({
-				action: "CloseProducer",
-				producerId: audioProducer.id,
+				type: "closeProducer",
+				data: { producerId: audioProducer.id },
 			});
 			this.mediasoupService.getProducers().delete("audio");
 		}
@@ -503,8 +500,8 @@ export class MediaManager {
 			if (screenVideoProducer) {
 				screenVideoProducer.close();
 				this.sendMessage({
-					action: "CloseProducer",
-					producerId: screenVideoProducer.id,
+					type: "closeProducer",
+					data: { producerId: screenVideoProducer.id },
 				});
 				this.mediasoupService.getProducers().delete("screen-video");
 			}
@@ -515,8 +512,8 @@ export class MediaManager {
 			if (screenAudioProducer) {
 				screenAudioProducer.close();
 				this.sendMessage({
-					action: "CloseProducer",
-					producerId: screenAudioProducer.id,
+					type: "closeProducer",
+					data: { producerId: screenAudioProducer.id },
 				});
 				this.mediasoupService.getProducers().delete("screen-audio");
 			}

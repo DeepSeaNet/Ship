@@ -1,6 +1,6 @@
 "use client";
-import { Button, Card, toast } from "@heroui/react";
 import { TrashBin } from "@gravity-ui/icons";
+import { Button, Card, toast } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { getUserDevices } from "@/hooks/generated";
 

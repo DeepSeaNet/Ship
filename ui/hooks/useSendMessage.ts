@@ -1,6 +1,7 @@
 import { toast } from "@heroui/react";
-import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { useState } from "react";
+import { sendGroupMessage } from "./generated";
 import type { Message } from "./messengerTypes";
 import { useMessengerState } from "./useMessengerState";
 
@@ -58,7 +59,7 @@ export function useSendMessage() {
 		}
 
 		try {
-			await invoke<number>("send_group_message", {
+			sendGroupMessage({
 				groupId: chatId,
 				messageId: messageId,
 				text: content.trim(),

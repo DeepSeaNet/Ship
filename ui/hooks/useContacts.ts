@@ -1,15 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createMediaUrl } from "./helper";
-import type { User } from "./messengerTypes";
 import {
 	getContacts,
+	getUserInfo as getUserInfoCommand,
 	setUserStatus,
 	subscribeToUsers,
-	getUserInfo as getUserInfoCommand,
 } from "./generated";
-import { invoke } from "@tauri-apps/api/core";
+import { createMediaUrl } from "./helper";
+import type { User } from "./messengerTypes";
 
 export interface ContactInfo {
 	user_id: number;
@@ -129,15 +128,12 @@ export function useContacts() {
 			console.log(
 				`Demo: Managing trust factor for ${userId} to level ${trustLevel}`,
 			);
-			try {
-				// Demo invocation
-				await invoke("update_trust_factor", {
-					userId: Number(userId),
-					trustLevel,
-				});
-			} catch (e) {
-				console.error("Failed to update trust factor:", e);
-			}
+			//try {
+			// Demo invocation
+			//await updateTrustFactor({ userId: Number(userId), trustLevel });
+			//} catch (e) {
+			//	console.error("Failed to update trust factor:", e);
+			//}
 			// In a real app, you might update the local state with the new trust factor here
 			return true;
 		},

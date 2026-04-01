@@ -1,4 +1,5 @@
 use crate::api::connection::get_avaliable_voice_servers;
+use crate::api::voice::echolocator::client_message::VoiceRequest;
 use crate::api::voice::{VoiceKeysPayload, VoiceUser, echolocator::ClientMessage};
 use std::sync::Arc;
 use tauri::State;
@@ -98,17 +99,16 @@ pub async fn init_webrtc_signaling(
 // Команда для отправки WebRTC сообщения
 #[tauri::command]
 pub async fn send_webrtc_message(
-    message_json: String,
+    message: VoiceRequest,
     state: State<'_, SafeVoiceUser>,
 ) -> Result<(), String> {
-    // Parse JSON to ClientMessage
-    log::info!("send_webrtc_message: message_json={}", message_json);
-    let client_message: ClientMessage = serde_json::from_str(&message_json)
-        .map_err(|e| format!("Failed to parse message JSON: {}", e))?;
-    log::info!("send_webrtc_message: client_message={:?}", client_message);
+    log::info!("send_webrtc_message: message={:?}", message);
+    let voice_message = ClientMessage {
+        voice_request: Some(message),
+    };
     let voice_user = state.read().await;
     voice_user
-        .send_signaling_message(client_message)
+        .send_signaling_message(voice_message)
         .await
         .map_err(|e| e.to_string())?;
 

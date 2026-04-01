@@ -113,30 +113,3 @@ export interface ProtoAddProposal {
 	proposal?: unknown;
 }
 
-export interface ProtoServerMessage {
-	message?: {
-		init?: ProtoInitMessage;
-		producerAdded?: ProtoProducerAdded;
-		producer_added?: ProtoProducerAdded;
-		producerRemoved?: ProtoProducerRemoved;
-		producer_removed?: ProtoProducerRemoved;
-		consumed?: ProtoConsumed;
-		connectedProducerTransport?: object;
-		connected_producer_transport?: object;
-		connectedConsumerTransport?: object;
-		connected_consumer_transport?: object;
-		produced?: { producerId?: string; producer_id?: string };
-		error?: ProtoErrorMessage;
-		voiceData?: ProtoVoiceData;
-		voice_data?: ProtoVoiceData;
-		serverCommit?: ProtoServerCommit;
-		server_commit?: ProtoServerCommit;
-		addProposal?: ProtoAddProposal;
-		add_proposal?: ProtoAddProposal;
-	};
-}
-
-export interface VoiceEventPayload {
-	type: string;
-	data: ProtoServerMessage;
-}

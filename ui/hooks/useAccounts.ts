@@ -1,8 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
-import type { AccountInfo } from "./generated";
 import { toast } from "@heroui/react";
+import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
+import type { AccountInfo } from "./generated";
 
 export const loginWithAccount = async (
 	account: AccountInfo,

@@ -2,21 +2,21 @@
 
 import { toast } from "@heroui/react";
 import { useCallback, useState } from "react";
-import { createMediaUrl } from "./helper";
-import type { Group, GroupConfig, User } from "./messengerTypes";
 import type {
 	GroupConfig as BackendGroupConfig,
 	Permissions,
 } from "./generated";
 import {
+	getAllGroupMedia,
 	getGroups,
+	createGroup as invokeCreateGroup,
+	getGroupDisplayKey as invokeGetGroupDisplayKey,
 	inviteToGroup as invokeInviteUserToGroup,
 	removeFromGroup as invokeRemoveFromGroup,
-	createGroup as invokeCreateGroup,
 	updateGroupConfig as invokeUpdateGroupConfig,
-	getAllGroupMedia,
-	getGroupDisplayKey as invokeGetGroupDisplayKey,
 } from "./generated";
+import { createMediaUrl } from "./helper";
+import type { Group, GroupConfig, User } from "./messengerTypes";
 
 export function mapGroupConfig(config: BackendGroupConfig): GroupConfig {
 	return {

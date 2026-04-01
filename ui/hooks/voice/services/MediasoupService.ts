@@ -1,19 +1,16 @@
 import { Device, type types as mediasoupTypes } from "mediasoup-client";
 import type { Consumer, Producer, Transport } from "mediasoup-client/types";
-import type {
-	AppData,
-	ClientMessage,
-	ConsumerId,
-	LoggerFunction,
-} from "../types/mediasoup";
-
+import type { VoiceRequest, VoiceResponse } from "@/hooks/generated";
+import type { AppData, ConsumerId, LoggerFunction } from "../types/mediasoup";
 import {
 	applyDecryptionToReceiver,
 	applyEncryptionToSender,
 } from "../utils/encodedStreamsTransform";
+import {
+	convertRtpParameters,
+	parseRtpParameters,
+} from "./GrpcSignalingAdapter";
 import type { WorkerManager } from "./WorkerManager";
-import type { VoiceResponse } from "@/hooks/generated";
-import { parseRtpParameters } from "./GrpcSignalingAdapter";
 
 export interface MediasoupServiceOptions {
 	sessionId: string;
@@ -127,7 +124,7 @@ export class MediasoupService {
 	public createTransports(
 		producerTransportOptions: mediasoupTypes.TransportOptions<AppData>,
 		consumerTransportOptions: mediasoupTypes.TransportOptions<AppData>,
-		sendMessage: (message: ClientMessage) => void | Promise<void>,
+		sendMessage: (message: VoiceRequest) => void | Promise<void>,
 	): void {
 		if (!this.device) {
 			this.addLog("Cannot create transports: Device not initialized", "error");
@@ -142,7 +139,10 @@ export class MediasoupService {
 
 		this.sendTransport.on("connect", ({ dtlsParameters }, callback) => {
 			this.addLog("SendTransport event: connect", "info");
-			sendMessage({ action: "ConnectProducerTransport", dtlsParameters });
+			sendMessage({
+				type: "connectProducerTransport",
+				data: { dtlsParameters: dtlsParameters },
+			});
 			this.setResponseCallback("connectedProducerTransport", () => {
 				this.addLog("SendTransport connected to server", "success");
 				callback();
@@ -154,10 +154,12 @@ export class MediasoupService {
 			async ({ kind, rtpParameters, appData }, callback) => {
 				this.addLog(`SendTransport event: produce (${kind})`, "info");
 				sendMessage({
-					action: "Produce",
-					kind,
-					rtpParameters,
-					appData: appData as AppData,
+					type: "produce",
+					data: {
+						kind,
+						rtpParameters: convertRtpParameters(rtpParameters),
+						appData: JSON.stringify(appData),
+					},
 				});
 				this.setResponseCallback("produced", (response) => {
 					if (response.type === "produced") {
@@ -190,7 +192,10 @@ export class MediasoupService {
 
 		this.recvTransport.on("connect", ({ dtlsParameters }, callback) => {
 			this.addLog("RecvTransport event: connect", "info");
-			sendMessage({ action: "ConnectConsumerTransport", dtlsParameters });
+			sendMessage({
+				type: "connectConsumerTransport",
+				data: { dtlsParameters },
+			});
 			this.setResponseCallback("connectedConsumerTransport", () => {
 				this.addLog("RecvTransport connected to server", "success");
 				callback();
@@ -284,7 +289,7 @@ export class MediasoupService {
 			consumerId: ConsumerId,
 			producerId: string,
 		) => void,
-		sendMessage: (message: ClientMessage) => void,
+		sendMessage: (message: VoiceRequest) => void,
 	): Promise<Consumer<AppData> | null> {
 		if (consumedMessage.type !== "consumed") {
 			this.addLog(
@@ -347,7 +352,10 @@ export class MediasoupService {
 			await this.applyDecryptionToConsumer(consumer, senderId);
 
 			onTrackAdded(consumer.track, consumer.id, consumer.producerId);
-			sendMessage({ action: "ConsumerResume", id: consumer.id });
+			sendMessage({
+				type: "consumerResume",
+				data: { consumerId: consumer.id },
+			});
 
 			consumer.on("transportclose", () => this.removeConsumer(consumer.id));
 			consumer.on("trackended", () => this.removeConsumer(consumer.id));

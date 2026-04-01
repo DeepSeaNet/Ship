@@ -1,5 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
-import type { VoiceKeysPayload } from "../crypto/groupCryptoManager";
+import { getVoiceKeys, onVoiceEvent } from "@/hooks/generated";
 import type { LoggerFunction } from "../types/mediasoup";
 import {
 	getPayloadTypeMapping,
@@ -9,7 +8,6 @@ import {
 	getEncodedStreamWorker,
 	terminateEncodedStreamWorker,
 } from "../utils/encodedStreamsTransform";
-import { onVoiceEvent } from "@/hooks/generated";
 
 export interface WorkerManagerOptions {
 	sessionId: string;
@@ -73,7 +71,7 @@ export class WorkerManager {
 		if (!this.encodedStreamWorker) return;
 
 		try {
-			const keys: VoiceKeysPayload = await invoke("get_voice_keys");
+			const keys = await getVoiceKeys();
 
 			this.encodedStreamWorker.postMessage({
 				type: "updateKeys",

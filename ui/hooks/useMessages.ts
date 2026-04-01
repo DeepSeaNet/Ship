@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { getGroupMessages, getUserInfo } from "./generated";
 import type { Message } from "./messengerTypes";
 import { useMessengerState } from "./useMessengerState";
-import { getGroupMessages, getUserInfo } from "./generated";
 
 // Helper for media URLs
 const createMediaUrl = (

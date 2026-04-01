@@ -1,19 +1,17 @@
-import { invoke } from "@tauri-apps/api/core";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { types as mediasoupTypes } from "mediasoup-client";
-import type {
-	AppData,
-	ClientMessage,
-	LoggerFunction,
-} from "../types/mediasoup";
-import { minimalCapabilities } from "../utils/rtpCapabilities";
-import type { IceCandidate } from "mediasoup-client/types";
-import type { ProtoFingerprint, ProtoRtpCapabilities } from "../types/proto";
+import type { IceCandidate, RtpParameters } from "mediasoup-client/types";
 import {
+	initWebrtcSignaling,
 	onVoiceEvent,
+	sendWebrtcMessage,
 	type TransportOptions,
+	type VoiceRequest,
 	type VoiceResponse,
 } from "@/hooks/generated";
+import type { AppData, LoggerFunction } from "../types/mediasoup";
+import type { ProtoFingerprint, ProtoRtpCapabilities } from "../types/proto";
+import { minimalCapabilities } from "../utils/rtpCapabilities";
 
 // ─── Adapter options ──────────────────────────────────────────────────────────
 
@@ -107,7 +105,7 @@ export class GrpcSignalingAdapter {
 		try {
 			await this.setupEventListener();
 
-			await invoke("init_webrtc_signaling", {
+			await initWebrtcSignaling({
 				sessionId: this.sessionId,
 				rtpCapabilities: JSON.stringify(minimalCapabilities),
 			});
@@ -129,25 +127,22 @@ export class GrpcSignalingAdapter {
 		this.addLog("gRPC SignalingStream connection closed", "info");
 	}
 
-	public async sendMessage(message: ClientMessage): Promise<void> {
+	public async sendMessage(message: VoiceRequest): Promise<void> {
 		if (!this.isConnected) {
 			this.addLog(
-				`Cannot send gRPC message (${message.action}): not connected`,
+				`Cannot send gRPC message (${message.type}): not connected`,
 				"debug",
 			);
 			return;
 		}
 
 		try {
-			const protoMessage = this.convertToProto(message);
-			this.addLog(`Sending gRPC message: ${message.action}`, "info");
-			console.log(message, JSON.stringify(protoMessage));
-			await invoke("send_webrtc_message", {
-				messageJson: JSON.stringify(protoMessage),
-			});
+			this.addLog(`Sending gRPC message: ${message.type}`, "info");
+			console.log(message);
+			sendWebrtcMessage({ message: message });
 		} catch (error) {
 			this.addLog(
-				`Failed to send gRPC message (${message.action}): ${error}`,
+				`Failed to send gRPC message (${message.type}): ${error}`,
 				"error",
 			);
 		}
@@ -306,7 +301,7 @@ export class GrpcSignalingAdapter {
 	}
 
 	private parseDtlsRole(
-		role: string | undefined,
+		role: string | undefined | null,
 	): "auto" | "client" | "server" {
 		const normalized = role?.toLowerCase();
 		if (
@@ -318,113 +313,83 @@ export class GrpcSignalingAdapter {
 		}
 		return "auto";
 	}
+}
 
-	// ─── mediasoup → Proto conversion ─────────────────────────────────────────
+// твои кастомные типы
+import type {
+	RtpCodecParameters as CustomRtpCodecParameters,
+	RtpEncodingParameters as CustomRtpEncodingParameters,
+	RtpHeaderExtensionParameters as CustomRtpHeaderExtensionParameters,
+	RtpParameters as CustomRtpParameters,
+} from "@/hooks/generated/types";
 
-	public convertToProto(message: ClientMessage): object {
-		switch (message.action) {
-			case "Init":
-				return {
-					voiceRequest: {
-						init: {
-							roomId: this.sessionId,
-							rtpCapabilities: {
-								codecs: [
-									{
-										mimeType: JSON.stringify(message.rtpCapabilities),
-										kind: message.kind || "audio",
-										preferredPayloadType: 0,
-										clockRate: 0,
-										channels: 0,
-										parameters: [],
-										rtcpFeedback: [],
-									},
-								],
-								headerExtensions: [],
-							},
-						},
-					},
-				};
+export function convertRtpParameters(
+	msParams: RtpParameters,
+): CustomRtpParameters {
+	const codecs: CustomRtpCodecParameters[] = msParams.codecs.map((c) => ({
+		mimeType: c.mimeType,
+		payloadType: c.payloadType,
+		clockRate: c.clockRate,
+		channels: c.channels ?? null,
+		parameters: convertParameters(c.parameters),
+		rtcpFeedback:
+			c.rtcpFeedback?.map((f) => ({
+				type: f.type,
+				parameter: f.parameter ?? null,
+			})) ?? [],
+	}));
 
-			case "ConnectProducerTransport":
-				return {
-					voiceRequest: {
-						connectProducerTransport: {
-							dtlsParameters: {
-								fingerprints: message.dtlsParameters?.fingerprints ?? [],
-								role: message.dtlsParameters?.role ?? "auto",
-							},
-						},
-					},
-				};
+	const headerExtensions: CustomRtpHeaderExtensionParameters[] =
+		msParams.headerExtensions?.map((h) => ({
+			uri: h.uri,
+			id: h.id,
+			encrypt: h.encrypt ?? false,
+			parameters: convertParameters(h.parameters),
+		})) ?? [];
 
-			case "ConnectConsumerTransport":
-				return {
-					voiceRequest: {
-						connectConsumerTransport: {
-							dtlsParameters: {
-								fingerprints: message.dtlsParameters?.fingerprints ?? [],
-								role: message.dtlsParameters?.role ?? "auto",
-							},
-						},
-					},
-				};
+	const encodings: CustomRtpEncodingParameters[] =
+		msParams.encodings?.map((e) => ({
+			active: e.active ?? true,
+			ssrc: e.ssrc ?? 0,
+			rid: e.rid ?? "",
+			codecPayloadType: e.codecPayloadType ?? 0,
+			rtx: e.rtx ? { ssrc: e.rtx.ssrc } : null,
+			dtx: e.dtx ?? false,
+			scalabilityMode: e.scalabilityMode ?? "",
+			scaleResolutionDownBy: e.scaleResolutionDownBy ?? 1,
+			maxBitrate: e.maxBitrate ?? 0,
+			maxFramerate: e.maxFramerate ?? 0,
+			adaptivePtime: e.adaptivePtime ?? false,
+			priority: e.priority ?? "medium",
+			networkPriority: e.networkPriority ?? "medium",
+		})) ?? [];
 
-			case "Produce":
-				return {
-					voiceRequest: {
-						produce: {
-							kind: message.kind,
-							rtpParameters: {
-								mid: JSON.stringify(message.rtpParameters),
-								codecs: [],
-								headerExtensions: [],
-								encodings: [],
-								rtcp: { cname: "", reducedSize: false },
-							},
-							appData: JSON.stringify(message.appData ?? {}),
-						},
-					},
-				};
+	return {
+		mid: msParams.mid ?? "",
+		codecs,
+		headerExtensions,
+		encodings,
+		rtcp: msParams.rtcp
+			? {
+					cname: msParams.rtcp.cname ?? "",
+					reducedSize: msParams.rtcp.reducedSize ?? false,
+					mux: msParams.rtcp.mux ?? false,
+				}
+			: null,
+		msid: msParams.msid ?? "",
+	};
+}
 
-			case "Consume":
-				return {
-					voiceRequest: {
-						consume: {
-							producerId: message.producerId,
-							rtpCapabilities: JSON.stringify(message.rtpCapabilities ?? {}),
-						},
-					},
-				};
-
-			case "ConsumerResume":
-				return {
-					voiceRequest: {
-						consumerResume: {
-							consumerId: (message as ClientMessage & { id: string }).id,
-						},
-					},
-				};
-
-			case "CloseProducer":
-				return {
-					voiceRequest: {
-						closeProducer: {
-							producerId: (message as ClientMessage & { producerId: string })
-								.producerId,
-						},
-					},
-				};
-
-			case "Leave":
-				return {
-					voiceRequest: {
-						leave: {},
-					},
-				};
-
-			default:
-				return { action: message.action };
-		}
+/**
+ * Преобразует Record<string, unknown> в Record<string, string>
+ */
+function convertParameters(
+	params?: Record<string, unknown>,
+): Record<string, string> {
+	if (!params) return {};
+	const out: Record<string, string> = {};
+	for (const [key, value] of Object.entries(params)) {
+		out[key] = value == null ? "" : String(value);
 	}
+	return out;
 }

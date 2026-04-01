@@ -19,6 +19,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             ".echolocator.ServerMessage.voice_response",
             "#[serde(tag = \"type\", content = \"data\")]",
         )
+        .type_attribute(
+            ".echolocator.ClientMessage.voice_request",
+            "#[serde(tag = \"type\", content = \"data\")]",
+        )
         .out_dir(out_dir)
         .compile_protos(
             &[format!("{}/service/voice/proto/signaling.proto", sea_path)],

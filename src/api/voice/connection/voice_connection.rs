@@ -5,6 +5,7 @@ use crate::api::voice::connection::echolocator::{
 };
 use crate::commands::events::{emit_voice_server_commit, emit_voice_signaling_message};
 use anyhow::{Result, anyhow};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::AppHandle;
 use tokio::sync::Mutex;
@@ -337,8 +338,8 @@ impl Backend {
                     mime_type: rtp_caps_json,
                     preferred_payload_type: None,
                     clock_rate: 0,
-                    channels: 0,
-                    parameters: vec![],
+                    channels: None,
+                    parameters: HashMap::new(),
                     rtcp_feedback: vec![],
                 }],
                 header_extensions: vec![],
@@ -528,9 +529,9 @@ impl Backend {
                         if let Some(app_handle) = &app_handle
                             && let Err(e) =
                                 emit_voice_signaling_message(app_handle, server_message).await
-                            {
-                                log::error!("Failed to emit server-event: {}", e);
-                            }
+                        {
+                            log::error!("Failed to emit server-event: {}", e);
+                        }
                     }
                     Err(e) => {
                         log::error!("Error in signaling stream: {}", e);

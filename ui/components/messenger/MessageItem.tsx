@@ -1,13 +1,13 @@
 "use client";
 import { Check, CheckDouble, Clock, Folder } from "@gravity-ui/icons";
 import { Avatar, Button, Card, Dropdown, Kbd, Label } from "@heroui/react";
+import Image from "next/image";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { formatChatTime } from "@/hooks/helper";
 import type { Message } from "@/hooks/messengerTypes";
 import { useMessageActions } from "@/hooks/useMessageActions";
 import { useMessengerState } from "@/hooks/useMessengerState";
-import Image from "next/image";
 
 interface MessageItemProps {
 	message: Message;

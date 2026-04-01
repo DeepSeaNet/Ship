@@ -14,5 +14,6 @@ export { useChats } from "./useChats";
 export { useMessages } from "./useMessages";
 export { MessengerProvider, useMessengerState } from "./useMessengerState";
 export { useSendMessage } from "./useSendMessage";
+
 import type { AccountInfo } from "./generated";
 export type Account = AccountInfo & { encrypted?: boolean };

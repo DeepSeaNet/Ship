@@ -1,6 +1,6 @@
 "use client";
-import { Button, Label, Separator, Switch } from "@heroui/react";
 import { TrashBin } from "@gravity-ui/icons";
+import { Button, Label, Separator, Switch } from "@heroui/react";
 
 export function StoragePanel() {
 	return (

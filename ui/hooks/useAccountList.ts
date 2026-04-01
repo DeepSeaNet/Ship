@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-import { getAccountList } from "./generated/commands";
 import type { AccountInfo } from "./generated";
+import { getAccountList } from "./generated/commands";
 
 export const useAccountList = () => {
 	const [accounts, setAccounts] = useState<AccountInfo[]>([]);

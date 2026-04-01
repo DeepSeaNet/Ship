@@ -20,6 +20,7 @@ use tokio::{
 
 use anyhow::Error;
 
+use crate::api::voice::types::ratchet_key::GroupRatchetManager;
 use crate::api::voice::types::ratchet_key::RatchetConfig;
 use crate::api::voice::voice_handler::VoiceHandler;
 use crate::api::voice::{
@@ -27,7 +28,6 @@ use crate::api::voice::{
     types::basic_types::{EXPORT_SECRET_LABEL, EXPORT_SECRET_LENGTH, Voice, VoiceId},
 };
 use crate::api::voice::{connection::voice_connection::Backend, types::basic_types::VoiceUserData};
-use crate::api::voice::types::ratchet_key::GroupRatchetManager;
 use mls_rs_crypto_awslc::AwsLcCryptoProvider;
 use std::path::PathBuf;
 use tauri::AppHandle;

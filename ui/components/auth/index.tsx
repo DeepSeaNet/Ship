@@ -5,11 +5,11 @@ import { useEffect, useState } from "react";
 import { LandscapeBackground } from "@/components/landscape";
 import { MainMenu } from "@/components/messenger";
 import { useAccountList } from "@/hooks";
+import { importAccount, register } from "@/hooks/generated";
 import { AccountSelection } from "./AccountSelection";
 import { LoginForm } from "./LoginForm";
 import { QRCodeModal } from "./QRCodeModal";
 import { RegisterForm } from "./RegisterForm";
-import { importAccount, register } from "@/hooks/generated";
 
 type AuthMode = "login" | "register";
 

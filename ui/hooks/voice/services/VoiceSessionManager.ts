@@ -1,3 +1,16 @@
+import { toast } from "@heroui/react";
+import type { Consumer } from "mediasoup-client/types";
+import {
+	joinSession,
+	leaveSession,
+	type VoiceRequest,
+} from "@/hooks/generated";
+import type {
+	AppData,
+	LogEntry,
+	LogEntryType,
+	MediaTrackInfo,
+} from "../types/mediasoup";
 import {
 	GrpcSignalingAdapter,
 	parseRtpCapabilities,
@@ -5,16 +18,6 @@ import {
 import { MediaManager } from "./MediaManager";
 import { MediasoupService } from "./MediasoupService";
 import { WorkerManager } from "./WorkerManager";
-import type {
-	AppData,
-	ClientMessage,
-	LogEntry,
-	LogEntryType,
-	MediaTrackInfo,
-} from "../types/mediasoup";
-import { invoke } from "@tauri-apps/api/core";
-import { toast } from "@heroui/react";
-import type { Consumer } from "mediasoup-client/types";
 
 export type CallStatus = "idle" | "calling" | "connected" | "error" | "ended";
 
@@ -165,7 +168,7 @@ export class VoiceSessionManager {
 
 			try {
 				await Promise.race([
-					invoke("join_session", { sessionId: newSessionId }),
+					joinSession({ sessionId: newSessionId }),
 					new Promise((_, reject) =>
 						setTimeout(() => reject(new Error("Timeout")), 5000),
 					),
@@ -271,7 +274,7 @@ export class VoiceSessionManager {
 							await this.mediasoupService?.createTransports(
 								producerTransportOptions,
 								consumerTransportOptions,
-								(m: ClientMessage) => this.signaling?.sendMessage(m),
+								(m: VoiceRequest) => this.signaling?.sendMessage(m),
 							);
 							this.updateState({ status: "connected" });
 							this.addLog("Call connected & initialized!", "success");
@@ -317,7 +320,7 @@ export class VoiceSessionManager {
 			this.mediaManager = new MediaManager({
 				mediasoupService: this.mediasoupService,
 				addLog: this.addLog,
-				sendMessage: (message: ClientMessage) => {
+				sendMessage: (message: VoiceRequest) => {
 					if (this.signaling && this.state.status === "connected") {
 						this.signaling.sendMessage(message);
 					}
@@ -338,7 +341,7 @@ export class VoiceSessionManager {
 		if (this.signaling) {
 			//await this.signaling.sendMessage({ action: "Leave" });
 		}
-		await invoke("leave_session");
+		await leaveSession();
 		this.cleanup();
 	};
 
@@ -452,7 +455,7 @@ export class VoiceSessionManager {
 								appData,
 							);
 						},
-						(m: ClientMessage) => this.signaling?.sendMessage(m),
+						(m: VoiceRequest) => this.signaling?.sendMessage(m),
 					);
 
 					if (!consumer) {
@@ -470,11 +473,11 @@ export class VoiceSessionManager {
 			},
 		);
 
-		const rtpCapabilities = this.mediasoupService.getDevice()?.rtpCapabilities;
 		await this.signaling.sendMessage({
-			action: "Consume",
-			producerId: producerId,
-			rtpCapabilities,
+			type: "consume",
+			data: {
+				producerId: producerId,
+			},
 		});
 	};
 }

@@ -2,8 +2,8 @@
 
 import { Button, Modal, Slider, toast } from "@heroui/react";
 import { useCallback, useState } from "react";
+import type { Area, Point } from "react-easy-crop";
 import Cropper from "react-easy-crop";
-import type { Point, Area } from "react-easy-crop";
 
 interface ImageCropModalProps {
 	isOpen: boolean;

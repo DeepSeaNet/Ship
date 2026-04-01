@@ -13,8 +13,8 @@ import type {
 	UIState,
 	User,
 } from "./messengerTypes";
-import { getNotificationSettings } from "./useNotificationSettings";
 import { mapGroupConfig } from "./useGroups";
+import { getNotificationSettings } from "./useNotificationSettings";
 
 interface ListenerProps {
 	currentUser: User | null;

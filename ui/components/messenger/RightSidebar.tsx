@@ -23,9 +23,9 @@ import { useEffect, useState } from "react";
 import type { MediaItem } from "@/hooks/messengerTypes";
 import { useChats } from "@/hooks/useChats";
 import { getStatusColor } from "@/hooks/useContacts";
+import { useGroups } from "@/hooks/useGroups";
 import { useMessengerState } from "@/hooks/useMessengerState";
 import { GroupSettingsModal } from "../settings/GroupSettingsModal";
-import { useGroups } from "@/hooks/useGroups";
 
 interface RightSidebarProps {
 	onClose?: () => void;

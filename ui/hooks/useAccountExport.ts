@@ -1,8 +1,8 @@
 "use client";
 
-import { exportAccount as exportAccountCommand } from "./generated/commands";
 import QRCode from "qrcode";
 import { useCallback, useState } from "react";
+import { exportAccount as exportAccountCommand } from "./generated/commands";
 
 export interface ExportedAccountData {
 	cipherText: string;

@@ -1,6 +1,5 @@
 "use client";
 import { Check, Display, MagicWand, Palette } from "@gravity-ui/icons";
-import { useState } from "react";
 import {
 	Avatar,
 	Button,
@@ -14,6 +13,7 @@ import {
 	Tooltip,
 	toast,
 } from "@heroui/react";
+import { useState } from "react";
 import type { AppearanceSettings } from "@/hooks/useAppearanceSettings";
 
 interface AppearancePanelProps {

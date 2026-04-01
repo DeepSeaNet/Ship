@@ -19,8 +19,8 @@ import type {
 	User,
 } from "./messengerTypes";
 import { useContacts } from "./useContacts";
-import { useListener } from "./useListener";
 import { useGroups } from "./useGroups";
+import { useListener } from "./useListener";
 
 const defaultUIState: UIState = {
 	activeChatId: null,

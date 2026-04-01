@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
+import { useEffect, useState } from "react";
 import "./globals.css";
 import { Toast } from "@heroui/react";
 
