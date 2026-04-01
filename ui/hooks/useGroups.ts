@@ -164,20 +164,20 @@ export function useGroups(currentUser?: User | null) {
 				if (result) {
 					toast("Group created successfully", { variant: "success" });
 					setGroups((prevGroups) => {
-							const groupData = result;
-							const groupId = groupData.group_id;
-							const groupConfig = groupData.group_config;
-							const avatar = groupData.avatar;
-							const group: Group = {
-								id: groupId,
-								name: groupConfig.name,
-								avatar: createMediaUrl(avatar),
-								unreadCount: 0,
-								isGroup: true,
-								group_config: mapGroupConfig(groupConfig),
-							};
-							return [...prevGroups, group];
-						});
+						const groupData = result;
+						const groupId = groupData.group_id;
+						const groupConfig = groupData.group_config;
+						const avatar = groupData.avatar;
+						const group: Group = {
+							id: groupId,
+							name: groupConfig.name,
+							avatar: createMediaUrl(avatar),
+							unreadCount: 0,
+							isGroup: true,
+							group_config: mapGroupConfig(groupConfig),
+						};
+						return [...prevGroups, group];
+					});
 					return true;
 				}
 				return false;

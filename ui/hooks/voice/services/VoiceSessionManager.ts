@@ -1,4 +1,7 @@
-import { GrpcSignalingAdapter } from "./GrpcSignalingAdapter";
+import {
+	GrpcSignalingAdapter,
+	parseRtpCapabilities,
+} from "./GrpcSignalingAdapter";
 import { MediaManager } from "./MediaManager";
 import { MediasoupService } from "./MediasoupService";
 import { WorkerManager } from "./WorkerManager";
@@ -8,8 +11,6 @@ import type {
 	LogEntry,
 	LogEntryType,
 	MediaTrackInfo,
-	ServerConsumed,
-	ServerInit,
 } from "../types/mediasoup";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "@heroui/react";
@@ -222,19 +223,54 @@ export class VoiceSessionManager {
 					}
 				},
 				onMessage: async (msg) => {
-					if (this.mediasoupService?.handleCallback(msg.action, msg)) {
+					if (msg.type === "consumed") {
+						const key = `consumed:${msg.data.producerId}`;
+						this.mediasoupService?.handleCallback(key, msg);
+						return;
+					}
+					if (this.mediasoupService?.handleCallback(msg.type, msg)) {
 						return;
 					}
 
-					if (msg.action === "Init") {
-						const initMsg = msg as ServerInit;
+					if (msg.type === "init") {
 						try {
-							await this.mediasoupService?.initializeDevice(
-								initMsg.routerRtpCapabilities,
+							console.log("Init message received", msg);
+							if (!msg.data.routerRtpCapabilities) {
+								this.addLog("No routerRtpCapabilities received", "error");
+								return;
+							}
+							if (!msg.data.producerTransportOptions) {
+								this.addLog("No producerTransportOptions received", "error");
+								return;
+							}
+							if (!msg.data.consumerTransportOptions) {
+								this.addLog("No consumerTransportOptions received", "error");
+								return;
+							}
+							const rtpCapabilities = parseRtpCapabilities(
+								msg.data.routerRtpCapabilities,
+								this.addLog,
 							);
+							const producerTransportOptions =
+								this.signaling?.parseTransportOptions(
+									msg.data.producerTransportOptions,
+								);
+							const consumerTransportOptions =
+								this.signaling?.parseTransportOptions(
+									msg.data.consumerTransportOptions,
+								);
+							if (
+								!rtpCapabilities ||
+								!producerTransportOptions ||
+								!consumerTransportOptions
+							) {
+								this.addLog("Failed to parse transport options", "error");
+								return;
+							}
+							await this.mediasoupService?.initializeDevice(rtpCapabilities);
 							await this.mediasoupService?.createTransports(
-								initMsg.producerTransportOptions,
-								initMsg.consumerTransportOptions,
+								producerTransportOptions,
+								consumerTransportOptions,
 								(m: ClientMessage) => this.signaling?.sendMessage(m),
 							);
 							this.updateState({ status: "connected" });
@@ -404,8 +440,9 @@ export class VoiceSessionManager {
 						"info",
 					);
 					const consumer = await this.mediasoupService?.createConsumer(
-						data as ServerConsumed,
+						data,
 						userId,
+						appData,
 						(track, consumerId, newProducerId) => {
 							this.handleTrackAdded(
 								track,

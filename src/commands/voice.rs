@@ -102,9 +102,10 @@ pub async fn send_webrtc_message(
     state: State<'_, SafeVoiceUser>,
 ) -> Result<(), String> {
     // Parse JSON to ClientMessage
+    log::info!("send_webrtc_message: message_json={}", message_json);
     let client_message: ClientMessage = serde_json::from_str(&message_json)
         .map_err(|e| format!("Failed to parse message JSON: {}", e))?;
-
+    log::info!("send_webrtc_message: client_message={:?}", client_message);
     let voice_user = state.read().await;
     voice_user
         .send_signaling_message(client_message)

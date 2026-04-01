@@ -9,7 +9,7 @@ import {
 	getEncodedStreamWorker,
 	terminateEncodedStreamWorker,
 } from "../utils/encodedStreamsTransform";
-import { listen } from "@tauri-apps/api/event";
+import { onVoiceEvent } from "@/hooks/generated";
 
 export interface WorkerManagerOptions {
 	sessionId: string;
@@ -91,8 +91,8 @@ export class WorkerManager {
 	}
 
 	private async listenVoiceEvenets(): Promise<void> {
-		const _unlisten = await listen<any>("voice-event", (event) => {
-			if (event.payload.type === "server_commit") {
+		const _unlisten = await onVoiceEvent((event) => {
+			if (event.type === "server_commit") {
 				this.fetchAndSyncKeys();
 			}
 		});

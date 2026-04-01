@@ -5,9 +5,6 @@ import type {
 	ClientMessage,
 	ConsumerId,
 	LoggerFunction,
-	ServerConsumed,
-	ServerMessage,
-	ServerProduced,
 } from "../types/mediasoup";
 
 import {
@@ -15,6 +12,8 @@ import {
 	applyEncryptionToSender,
 } from "../utils/encodedStreamsTransform";
 import type { WorkerManager } from "./WorkerManager";
+import type { VoiceResponse } from "@/hooks/generated";
+import { parseRtpParameters } from "./GrpcSignalingAdapter";
 
 export interface MediasoupServiceOptions {
 	sessionId: string;
@@ -30,7 +29,7 @@ export class MediasoupService {
 	private recvTransport: Transport<AppData> | null = null;
 	private producers: Map<string, Producer<AppData>> = new Map();
 	private consumers: Map<ConsumerId, Consumer<AppData>> = new Map();
-	private responseCallbacks: Map<string, (data: ServerMessage) => void> =
+	private responseCallbacks: Map<string, (data: VoiceResponse) => void> =
 		new Map();
 	private initialized = false;
 
@@ -84,12 +83,12 @@ export class MediasoupService {
 
 	public setResponseCallback(
 		action: string,
-		callback: (data: ServerMessage) => void,
+		callback: (data: VoiceResponse) => void,
 	): void {
 		this.responseCallbacks.set(action, callback);
 	}
 
-	public handleCallback(action: string, data: ServerMessage): boolean {
+	public handleCallback(action: string, data: VoiceResponse): boolean {
 		const callback = this.responseCallbacks.get(action);
 		if (callback) {
 			this.responseCallbacks.delete(action);
@@ -144,7 +143,7 @@ export class MediasoupService {
 		this.sendTransport.on("connect", ({ dtlsParameters }, callback) => {
 			this.addLog("SendTransport event: connect", "info");
 			sendMessage({ action: "ConnectProducerTransport", dtlsParameters });
-			this.setResponseCallback("ConnectedProducerTransport", () => {
+			this.setResponseCallback("connectedProducerTransport", () => {
 				this.addLog("SendTransport connected to server", "success");
 				callback();
 			});
@@ -160,13 +159,14 @@ export class MediasoupService {
 					rtpParameters,
 					appData: appData as AppData,
 				});
-				this.setResponseCallback("Produced", (response) => {
-					const serverRes = response as ServerProduced;
-					this.addLog(
-						`Producer ${serverRes.id} (${kind}) created on server`,
-						"success",
-					);
-					callback(serverRes);
+				this.setResponseCallback("produced", (response) => {
+					if (response.type === "produced") {
+						this.addLog(
+							`Producer ${response.data.producerId} (${kind}) created on server`,
+							"success",
+						);
+						callback({ id: response.data.producerId });
+					}
 				});
 			},
 		);
@@ -191,7 +191,7 @@ export class MediasoupService {
 		this.recvTransport.on("connect", ({ dtlsParameters }, callback) => {
 			this.addLog("RecvTransport event: connect", "info");
 			sendMessage({ action: "ConnectConsumerTransport", dtlsParameters });
-			this.setResponseCallback("ConnectedConsumerTransport", () => {
+			this.setResponseCallback("connectedConsumerTransport", () => {
 				this.addLog("RecvTransport connected to server", "success");
 				callback();
 			});
@@ -276,8 +276,9 @@ export class MediasoupService {
 	}
 
 	public async createConsumer(
-		consumedMessage: ServerConsumed,
+		consumedMessage: VoiceResponse,
 		senderId: string,
+		appData: AppData,
 		onTrackAdded: (
 			track: MediaStreamTrack,
 			consumerId: ConsumerId,
@@ -285,9 +286,17 @@ export class MediasoupService {
 		) => void,
 		sendMessage: (message: ClientMessage) => void,
 	): Promise<Consumer<AppData> | null> {
+		if (consumedMessage.type !== "consumed") {
+			this.addLog(
+				`Cannot create consumer for producer ${consumedMessage.type} ${JSON.stringify(consumedMessage)}: Invalid message type`,
+				"error",
+			);
+			return null;
+		}
+
 		if (!this.recvTransport) {
 			this.addLog(
-				`Cannot create consumer for producer ${consumedMessage.producerId}: RecvTransport not initialized`,
+				`Cannot create consumer for producer ${consumedMessage.data.producerId}: RecvTransport not initialized`,
 				"error",
 			);
 			return null;
@@ -295,15 +304,41 @@ export class MediasoupService {
 
 		try {
 			this.addLog(
-				`Consuming Producer ${consumedMessage.producerId}...`,
+				`Consuming Producer ${consumedMessage.data.producerId}...`,
 				"info",
 			);
+			if (
+				consumedMessage.data.kind !== "audio" &&
+				consumedMessage.data.kind !== "video"
+			) {
+				this.addLog(
+					`Cannot create consumer for producer ${consumedMessage.data.producerId}: Invalid kind`,
+					"error",
+				);
+				return null;
+			}
+			if (!consumedMessage.data.rtpParameters) {
+				this.addLog(
+					`Cannot create consumer for producer ${consumedMessage.data.producerId}: Invalid RTP parameters`,
+					"error",
+				);
+				return null;
+			}
+
+			const rtpParameters = parseRtpParameters(consumedMessage, this.addLog);
+			if (!rtpParameters) {
+				this.addLog(
+					`Cannot create consumer for producer ${consumedMessage.data.producerId}: Invalid RTP parameters`,
+					"error",
+				);
+				return null;
+			}
 			const consumer = await this.recvTransport.consume<AppData>({
-				id: consumedMessage.id,
-				producerId: consumedMessage.producerId,
-				kind: consumedMessage.kind,
-				rtpParameters: consumedMessage.rtpParameters,
-				appData: consumedMessage.appData,
+				id: consumedMessage.data.consumerId,
+				producerId: consumedMessage.data.producerId,
+				kind: consumedMessage.data.kind,
+				rtpParameters: rtpParameters,
+				appData: appData,
 			});
 
 			this.consumers.set(consumer.id, consumer);

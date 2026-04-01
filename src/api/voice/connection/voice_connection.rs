@@ -3,9 +3,10 @@ use crate::api::voice::connection::echolocator::{
     self, ClientMessage, ServerInfoRequest, TryGetRoomRequest,
     signaling_service_client::SignalingServiceClient,
 };
+use crate::commands::events::{emit_voice_server_commit, emit_voice_signaling_message};
 use anyhow::{Result, anyhow};
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
@@ -209,7 +210,7 @@ impl Backend {
 
         if let Some(sender) = sender_guard.as_ref() {
             let commit_message = echolocator::ClientMessage {
-                message: Some(echolocator::client_message::Message::ClientCommit(
+                voice_request: Some(echolocator::client_message::VoiceRequest::ClientCommit(
                     echolocator::ClientCommitRequest {
                         voice_id,
                         commit,
@@ -247,7 +248,7 @@ impl Backend {
 
         if let Some(sender) = sender_guard.as_ref() {
             let ack_message = echolocator::ClientMessage {
-                message: Some(echolocator::client_message::Message::CommitAck(
+                voice_request: Some(echolocator::client_message::VoiceRequest::CommitAck(
                     echolocator::CommitAckRequest {
                         commit_id: commit_id.clone(),
                         success,
@@ -280,7 +281,7 @@ impl Backend {
 
         if let Some(sender) = sender_guard.as_ref() {
             let voice_data_message = ClientMessage {
-                message: Some(echolocator::client_message::Message::VoiceData(
+                voice_request: Some(echolocator::client_message::VoiceRequest::VoiceData(
                     echolocator::VoiceDataRequest {
                         voice_id: voice_id.clone(),
                         data: data.clone(),
@@ -344,7 +345,7 @@ impl Backend {
             };
 
             ClientMessage {
-                message: Some(echolocator::client_message::Message::Init(
+                voice_request: Some(echolocator::client_message::VoiceRequest::Init(
                     echolocator::InitRequest {
                         room_id: room_id.clone(),
                         rtp_capabilities: Some(rtp_caps),
@@ -354,7 +355,7 @@ impl Backend {
         } else {
             // Если RTP capabilities не переданы, используем минимальные
             ClientMessage {
-                message: Some(echolocator::client_message::Message::Init(
+                voice_request: Some(echolocator::client_message::VoiceRequest::Init(
                     echolocator::InitRequest {
                         room_id: room_id.clone(),
                         rtp_capabilities: Some(echolocator::RtpCapabilities {
@@ -408,9 +409,11 @@ impl Backend {
                 match message {
                     Ok(server_message) => {
                         // Check message type and handle accordingly
-                        if let Some(ref msg) = server_message.message {
+                        if let Some(ref msg) = server_message.voice_response {
                             match msg {
-                                echolocator::server_message::Message::VoiceData(voice_data) => {
+                                echolocator::server_message::VoiceResponse::VoiceData(
+                                    voice_data,
+                                ) => {
                                     log::debug!(
                                         "Received voice data: user_id={}, voice_id={}, size={} bytes",
                                         voice_data.user_id,
@@ -430,7 +433,9 @@ impl Backend {
                                     }
                                     continue;
                                 }
-                                echolocator::server_message::Message::AddProposal(add_proposal) => {
+                                echolocator::server_message::VoiceResponse::AddProposal(
+                                    add_proposal,
+                                ) => {
                                     log::info!(
                                         "Received add proposal for voice_id: {}",
                                         add_proposal.voice_id
@@ -448,7 +453,7 @@ impl Backend {
                                     }
                                     continue;
                                 }
-                                echolocator::server_message::Message::ServerCommit(
+                                echolocator::server_message::VoiceResponse::ServerCommit(
                                     server_commit,
                                 ) => {
                                     log::info!(
@@ -467,21 +472,19 @@ impl Backend {
                                     } else {
                                         log::warn!("ServerCommit received but no MLS handler set");
                                     }
-                                    if let Some(app_handle) = &app_handle {
-                                        let event_payload = serde_json::json!({
-                                            "type": "server_commit",
-                                            "data": server_message
-                                        });
-
-                                        if let Err(e) =
-                                            app_handle.emit("voice-event", event_payload)
+                                    if let Some(app_handle) = &app_handle
+                                        && let Err(e) = emit_voice_server_commit(
+                                            app_handle,
+                                            server_commit.voice_id.clone(),
+                                            server_commit.commit_id.clone(),
+                                        )
+                                        .await
                                         {
-                                            log::error!("Failed to emit voice-event: {}", e);
+                                            log::error!("Failed to emit server-event: {}", e);
                                         }
-                                    }
                                     continue;
                                 }
-                                echolocator::server_message::Message::ServerCommitResponse(
+                                echolocator::server_message::VoiceResponse::ServerCommitResponse(
                                     commit_response,
                                 ) => {
                                     log::info!(
@@ -504,18 +507,15 @@ impl Backend {
                                     }
                                     if commit_response.accepted
                                         && let Some(app_handle) = &app_handle
-                                    {
-                                        let event_payload = serde_json::json!({
-                                            "type": "server_commit",
-                                            "data": server_message
-                                        });
-
-                                        if let Err(e) =
-                                            app_handle.emit("voice-event", event_payload)
-                                        {
-                                            log::error!("Failed to emit voice-event: {}", e);
-                                        }
-                                    }
+                                            && let Err(e) = emit_voice_server_commit(
+                                                app_handle,
+                                                commit_response.voice_id.clone(),
+                                                commit_response.commit_id.clone(),
+                                            )
+                                            .await
+                                            {
+                                                log::error!("Failed to emit server-event: {}", e);
+                                            }
                                     continue;
                                 }
                                 _ => {
@@ -525,16 +525,12 @@ impl Backend {
                         }
 
                         // Emit Tauri event for WebRTC signaling messages
-                        if let Some(app_handle) = &app_handle {
-                            let event_payload = serde_json::json!({
-                                "type": "signaling_message",
-                                "data": server_message
-                            });
-
-                            if let Err(e) = app_handle.emit("voice-event", event_payload) {
-                                log::error!("Failed to emit voice-event: {}", e);
+                        if let Some(app_handle) = &app_handle
+                            && let Err(e) =
+                                emit_voice_signaling_message(app_handle, server_message).await
+                            {
+                                log::error!("Failed to emit server-event: {}", e);
                             }
-                        }
                     }
                     Err(e) => {
                         log::error!("Error in signaling stream: {}", e);

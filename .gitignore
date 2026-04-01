@@ -12,3 +12,4 @@ package-lock.json
 .kiro
 .vscode
 .agent
+/src/api/voice/connection/generated

@@ -44,44 +44,6 @@ export interface ClientMessage extends BaseMessage {
 	producerId?: string;
 }
 
-export interface ServerMessage extends BaseMessage {
-	[key: string]: unknown;
-}
-export interface ServerInit extends ServerMessage {
-	action: "Init";
-	routerRtpCapabilities: mediasoupTypes.RtpCapabilities;
-	producerTransportOptions: mediasoupTypes.TransportOptions<AppData>;
-	consumerTransportOptions: mediasoupTypes.TransportOptions<AppData>;
-}
-
-export interface ServerConnectedProducerTransport extends ServerMessage {
-	action: "ConnectedProducerTransport";
-}
-
-export interface ServerProduced extends ServerMessage {
-	action: "Produced";
-	id: string;
-}
-
-export interface ServerConnectedConsumerTransport extends ServerMessage {
-	action: "ConnectedConsumerTransport";
-}
-
-export interface ServerConsumed extends ServerMessage {
-	action: string;
-	id: string;
-	producerId: string;
-	kind: MediaTrackType;
-	rtpParameters: mediasoupTypes.RtpParameters;
-	type?: MediaTrackType;
-	appData: AppData;
-}
-
-export interface ServerError extends ServerMessage {
-	action: "Error";
-	message: string;
-}
-
 export type AppData = {
 	sourceType: MediaSourceType | string;
 	mediaType: MediaTrackType | string;
@@ -89,30 +51,10 @@ export type AppData = {
 	userId?: string;
 };
 
-export interface ServerProducerAdded extends ServerMessage {
-	action: "producerAdded";
-	producerId: string;
-	participantId: string;
-	appData: AppData;
-}
-
-export interface ServerProducerRemoved extends ServerMessage {
-	action: "producerRemoved";
-	producerId: string;
-	participantId: string;
-}
-
 // Типы для инициализации WebRTC
 export interface WebRTCInitOptions {
 	serverUrl: string;
 	onConnectionStateChange: (connected: boolean) => void;
-}
-
-export interface ICECandidate {
-	candidate: string;
-	sdpMid?: string | null;
-	sdpMLineIndex?: number | null;
-	usernameFragment?: string | null;
 }
 
 export interface IceConnectionState {

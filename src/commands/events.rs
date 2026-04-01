@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use base64::{Engine, engine::general_purpose};
 use tauri::{AppHandle, Emitter};
 
@@ -6,25 +7,14 @@ use crate::api::device::types::{
     message::UserGroupMessage,
 };
 use crate::api::status::{DisplayUserStatus, DisplayUserTypingStatus};
+use crate::api::voice::echolocator::ServerMessage;
+use crate::api::voice::echolocator::server_message::VoiceResponse;
 
-#[derive(serde::Serialize, Clone)]
-#[serde(tag = "type", content = "data")]
-pub enum SystemEvent<'a> {
-    #[serde(rename = "join_group")]
-    JoinGroup(JoinGroupData<'a>),
-    #[serde(rename = "new_group_message")]
-    NewGroupMessage(NewGroupMessageData<'a>),
-    #[serde(rename = "message_delivery")]
-    MessageDelivery(MessageDeliveryData),
-    #[serde(rename = "welcome_message")]
-    WelcomeMessage(WelcomeMessageData),
-    #[serde(rename = "group_config_updated")]
-    GroupConfigUpdated(GroupConfigUpdatedData<'a>),
-    #[serde(rename = "user_status_changed")]
-    UserStatusChanged(DisplayUserStatus),
-    #[serde(rename = "user_typing_status_changed")]
-    UserTypingStatusChanged(DisplayUserTypingStatus),
-}
+// =============================================================================
+// Event Payload Structures
+// =============================================================================
+
+// --- Group Data Structures ---
 
 #[derive(serde::Serialize, Clone)]
 pub struct JoinGroupData<'a> {
@@ -67,6 +57,55 @@ pub struct GroupConfigUpdatedData<'a> {
     pub group_config: &'a GroupConfig,
     pub avatar: &'a Option<String>,
 }
+
+// --- Voice Data Structures ---
+
+#[derive(serde::Serialize, Clone)]
+pub struct ServerCommitData {
+    pub voice_id: String,
+    pub commit_id: String,
+}
+
+// =============================================================================
+// System Event Enum
+// =============================================================================
+
+#[derive(serde::Serialize, Clone)]
+#[serde(tag = "type", content = "data")]
+pub enum SystemEvent<'a> {
+    // --- Group Events ---
+    #[serde(rename = "join_group")]
+    JoinGroup(JoinGroupData<'a>),
+    #[serde(rename = "new_group_message")]
+    NewGroupMessage(NewGroupMessageData<'a>),
+    #[serde(rename = "message_delivery")]
+    MessageDelivery(MessageDeliveryData),
+    #[serde(rename = "welcome_message")]
+    WelcomeMessage(WelcomeMessageData),
+    #[serde(rename = "group_config_updated")]
+    GroupConfigUpdated(GroupConfigUpdatedData<'a>),
+
+    // --- Status Events ---
+    #[serde(rename = "user_status_changed")]
+    UserStatusChanged(DisplayUserStatus),
+    #[serde(rename = "user_typing_status_changed")]
+    UserTypingStatusChanged(DisplayUserTypingStatus),
+}
+
+#[derive(serde::Serialize, Clone)]
+#[serde(tag = "type", content = "data")]
+pub enum VoiceEvent {
+    #[serde(rename = "server_commit")]
+    ServerCommit(ServerCommitData),
+    #[serde(rename = "signaling_message")]
+    SignalingMessage(VoiceResponse),
+}
+
+// =============================================================================
+// Event Emission Helpers
+// =============================================================================
+
+// --- Group Event Helpers ---
 
 pub async fn emit_text_message_event(
     app: &AppHandle,
@@ -174,6 +213,8 @@ pub async fn emit_new_group_config(
     Ok(())
 }
 
+// --- Status Event Helpers ---
+
 pub async fn emit_user_status_event(
     app: &AppHandle,
     data: DisplayUserStatus,
@@ -186,4 +227,29 @@ pub async fn emit_user_typing_status_event(
     data: DisplayUserTypingStatus,
 ) -> Result<(), tauri::Error> {
     app.emit("server-event", SystemEvent::UserTypingStatusChanged(data))
+}
+
+// --- Voice Event Helpers ---
+
+pub async fn emit_voice_server_commit(
+    app: &AppHandle,
+    voice_id: String,
+    commit_id: String,
+) -> Result<(), tauri::Error> {
+    let server_commit_data = VoiceEvent::ServerCommit(ServerCommitData {
+        voice_id,
+        commit_id,
+    });
+    app.emit("voice-event", server_commit_data)
+}
+
+pub async fn emit_voice_signaling_message(
+    app: &AppHandle,
+    server_message: ServerMessage,
+) -> Result<(), tauri::Error> {
+    let message: VoiceResponse = server_message
+        .voice_response
+        .ok_or_else(|| anyhow!("No message"))?;
+    let event_payload = VoiceEvent::SignalingMessage(message);
+    app.emit("voice-event", event_payload)
 }

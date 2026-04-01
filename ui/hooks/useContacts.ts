@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { createMediaUrl } from "./helper";
 import type { User } from "./messengerTypes";
-import { getContacts, setUserStatus, subscribeToUsers } from "./generated";
+import {
+	getContacts,
+	setUserStatus,
+	subscribeToUsers,
+	getUserInfo as getUserInfoCommand,
+} from "./generated";
 import { invoke } from "@tauri-apps/api/core";
 
 export interface ContactInfo {
@@ -84,14 +89,14 @@ export function useContacts() {
 
 	const getUserInfo = useCallback(async (userId: string | number) => {
 		try {
-			const result = await getUserInfo(userId);
+			const result = await getUserInfoCommand({ userId: Number(userId) });
 			if (!result) {
 				console.error(`Failed to fetch user info for ${userId}`);
 				return null;
 			}
 			const contact: User = {
-				id: result.id,
-				name: result.name,
+				id: String(result.user_id),
+				name: result.username,
 				avatar: createMediaUrl(result.avatar),
 				status: result.status,
 			};
