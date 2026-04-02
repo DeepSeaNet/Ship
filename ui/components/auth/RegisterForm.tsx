@@ -11,24 +11,31 @@ import {
 	TextField,
 	toast,
 } from "@heroui/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface RegisterFormProps {
 	isLoading: boolean;
 	onSubmit: (
 		username: string,
-		email: string,
 		password: string,
 		confirmPassword: string,
+		serverAddress: string,
 	) => Promise<void>;
 }
 
 export function RegisterForm({ isLoading, onSubmit }: RegisterFormProps) {
 	const [registerShowPassword, setRegisterShowPassword] = useState(false);
 	const [registerUsername, setRegisterUsername] = useState("");
-	const [registerEmail, setRegisterEmail] = useState("");
 	const [registerPassword, setRegisterPassword] = useState("");
 	const [registerConfirmPassword, setRegisterConfirmPassword] = useState("");
+	const [registerServerAddress, setRegisterServerAddress] = useState(
+		"h3://192.168.101.19:8443",
+	);
+
+	useEffect(() => {
+		const saved = localStorage.getItem("selectedServerAddress");
+		if (saved) setRegisterServerAddress(saved);
+	}, []);
 
 	const handleRegisterSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
@@ -38,9 +45,9 @@ export function RegisterForm({ isLoading, onSubmit }: RegisterFormProps) {
 		}
 		await onSubmit(
 			registerUsername,
-			registerEmail,
 			registerPassword,
 			registerConfirmPassword,
+			registerServerAddress,
 		);
 	};
 
@@ -64,13 +71,13 @@ export function RegisterForm({ isLoading, onSubmit }: RegisterFormProps) {
 			<TextField
 				fullWidth
 				isRequired
-				name="email"
-				type="email"
-				value={registerEmail}
-				onChange={setRegisterEmail}
+				name="serverAddress"
+				type="text"
+				value={registerServerAddress}
+				onChange={setRegisterServerAddress}
 			>
-				<Label>Email Address</Label>
-				<Input placeholder="you@example.com" />
+				<Label>Server Address</Label>
+				<Input placeholder="h3://192.168.101.19:8443" />
 			</TextField>
 
 			<TextField

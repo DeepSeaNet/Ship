@@ -117,9 +117,10 @@ pub async fn login(app_handle: AppHandle, username: String) -> Result<LoginRespo
 pub async fn register(
     username: String,
     avatar_url: Option<String>,
+    server_address: String,
     app_handle: AppHandle,
 ) -> Result<String, String> {
-    let account = Account::register(username, avatar_url)
+    let account = Account::register(username, avatar_url, server_address)
         .await
         .map_err(|e| e.to_string())?;
 
