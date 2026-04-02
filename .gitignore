@@ -6,7 +6,6 @@ package-lock.json
 /ui/out
 /ui/.next
 /ui/out
-/ui/hooks/generated/
 /target
 /node_modules
 .kiro
