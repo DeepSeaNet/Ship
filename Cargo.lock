@@ -5615,6 +5615,7 @@ dependencies = [
 [[package]]
 name = "tauri-typegen"
 version = "0.5.0"
+source = "git+https://github.com/ap-apely/tauri-typegen.git?branch=event-dirpath-fix#d25227b2471b7fe216e7ef7a341209e919c4eff6"
 dependencies = [
  "chrono",
  "clap",

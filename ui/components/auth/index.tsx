@@ -62,6 +62,7 @@ export default function AuthPage() {
 		username: string,
 		password: string,
 		confirmPassword: string,
+		serverAddress: string,
 	) => {
 		setIsLoading(true);
 		try {
@@ -69,7 +70,9 @@ export default function AuthPage() {
 				throw new Error("Passwords do not match");
 			}
 			try {
-				await register({ username });
+				await register({ username, serverAddress });
+				// Save active server address
+				localStorage.setItem("selectedServerAddress", serverAddress);
 			} catch (error) {
 				console.error("Registration failed:", error);
 				toast(`Registration failed: ${error}`, { variant: "danger" });

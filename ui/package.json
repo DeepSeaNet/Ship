@@ -11,8 +11,8 @@
 	},
 	"dependencies": {
 		"@gravity-ui/icons": "^2.16.0",
-		"@heroui/react": "3.0.0-rc.1",
-		"@heroui/styles": "3.0.0-rc.1",
+		"@heroui/react": "^3.0.0-rc.1",
+		"@heroui/styles": "^3.0.0-rc.1",
 		"@ricky0123/vad-web": "^0.0.30",
 		"@tauri-apps/api": "^2.6.0",
 		"@tauri-apps/plugin-dialog": "^2.3.0",

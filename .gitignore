@@ -6,9 +6,10 @@ package-lock.json
 /ui/out
 /ui/.next
 /ui/out
+/ui/hooks/generated/
 /target
 /node_modules
 .kiro
 .vscode
 .agent
-/src/api/voice/connection/generated
+/src/api/voice/connection/generated/echolocator.rs

@@ -9,7 +9,7 @@ use crate::api::{
         Account,
         account_service::auth::{RegisterRequest, auth_service_client::AuthServiceClient},
     },
-    connection::{endpoint::create_client_endpoint, get_avaliable_servers},
+    connection::endpoint::create_client_endpoint,
 };
 
 #[allow(clippy::all, clippy::pedantic, clippy::restriction, clippy::nursery)]
@@ -22,14 +22,17 @@ fn generate_nonce() -> i64 {
 }
 
 impl Account {
-    pub async fn register(username: String, avatar_url: Option<String>) -> Result<Account> {
+    pub async fn register(
+        username: String,
+        avatar_url: Option<String>,
+        server_address: String,
+    ) -> Result<Account> {
         use crate::api::device::types::custom_mls::credentials::{AccountCredential, AccountId};
 
         // Генерируем новую пару MLS ключей
         let (signer, public_key) = Account::create_keys()
             .await
             .map_err(|e| anyhow::anyhow!("Failed to generate MLS keys: {:?}", e))?;
-        let server_address = get_avaliable_servers();
         log::debug!("Generated MLS keypair:");
         log::debug!("Public key length: {} bytes", public_key.as_bytes().len());
         log::debug!("Private key length: {} bytes", signer.as_bytes().len());
