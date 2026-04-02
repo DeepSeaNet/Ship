@@ -1,4 +1,4 @@
-name: "publish"
+name: 'publish'
 
 on:
   push:
@@ -14,14 +14,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: "macos-latest"
-            args: "--target aarch64-apple-darwin"
-          - platform: "macos-latest"
-            args: "--target x86_64-apple-darwin"
-          - platform: "ubuntu-22.04"
-            args: ""
-          - platform: "windows-latest"
-            args: ""
+          - platform: 'macos-latest'
+            args: '--target aarch64-apple-darwin'
+          - platform: 'macos-latest'
+            args: '--target x86_64-apple-darwin'
+          - platform: 'ubuntu-22.04'
+            args: ''
+          - platform: 'windows-latest'
+            args: ''
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -188,7 +188,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-          
+
       - name: Setup Java 17 (ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
         uses: actions/setup-java@v3
@@ -244,8 +244,8 @@ jobs:
           
         with:
           tagName: app-v__VERSION__
-          releaseName: "App v__VERSION__"
-          releaseBody: "See the assets to download this version and install."
+          releaseName: 'App v__VERSION__'
+          releaseBody: 'See the assets to download this version and install.'
           mobile: true
           releaseDraft: true
           prerelease: false

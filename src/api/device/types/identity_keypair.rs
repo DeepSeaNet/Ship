@@ -21,7 +21,7 @@ impl IdentityKeypair {
     pub async fn new(device_id: &str, account: &Account) -> Result<IdentityKeypair, GroupError> {
         let (signer, public_key) = cipher_suite()
             .signature_key_generate()
-            .await
+            //.await
             .map_err(|_| GroupError::CryptoError("Key generation failed:".to_string()))?;
 
         let tbs = DeviceCredentialTBS {

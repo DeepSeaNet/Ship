@@ -108,7 +108,9 @@ impl GroupStorage {
             .group_ids()
             .map_err(|e| GroupError::StorageError(format!("Failed to get group ids: {}", e)))?;
         for group_id in group_ids {
-            let group = client.load_group(&group_id).await?;
+            let group = client.load_group(&group_id)
+                //.await
+                ?;
             let group_id = GroupId(group_id);
             self.insert(group_id, group).await
         }

@@ -28,12 +28,15 @@ impl Device {
         let mut group = self
             .client
             .create_group(context_extensions, Default::default(), None)
-            .await
+            //.await
             .map_err(|e| GroupError::MlsError(format!("Group creation failed: {}", e)))?;
 
-        group.write_to_storage().await.map_err(|e| {
-            GroupError::StorageError(format!("Failed to write group to storage: {}", e))
-        })?;
+        group
+            .write_to_storage()
+            //.await
+            .map_err(|e| {
+                GroupError::StorageError(format!("Failed to write group to storage: {}", e))
+            })?;
 
         self.invite_user_devices(&mut group).await?;
 
@@ -100,7 +103,7 @@ impl Device {
                 .custom_proposal(update_config.to_custom_proposal()?)
                 .custom_proposal(remove_user_proposal.to_custom_proposal()?)
                 .build()
-                .await
+                //.await
                 .map_err(|e| {
                     GroupError::MlsError(format!("Failed to build remove commit: {}", e))
                 })?;
@@ -155,15 +158,15 @@ impl Device {
 
         let mut commit_builder = group.commit_builder();
 
-        for device_id in devices {
-            if device_id == self.device_id {
+        for device in devices {
+            if device.device_id == self.device_id {
                 continue;
             }
             let key_package_bytes = self
                 .backend
                 .as_mut()
                 .ok_or(GroupError::BackendError("Client is offline".to_string()))?
-                .get_device_key_package(user_id, device_id.clone())
+                .get_device_key_package(user_id, device.device_id.clone())
                 .await
                 .map_err(|e| {
                     GroupError::BackendError(format!("Failed to fetch device key package: {}", e))
@@ -180,7 +183,7 @@ impl Device {
 
         let commit = commit_builder
             .build()
-            .await
+            //.await
             .map_err(|e| GroupError::MlsError(format!("Failed to build invite commit: {}", e)))?;
         self.send_welcome_message(user_id, &commit).await?;
         self.apply_and_store_commit(group).await
@@ -281,7 +284,7 @@ impl Device {
             .commit_builder()
             .custom_proposal(update_proposal.to_custom_proposal()?)
             .build()
-            .await
+            //.await
             .map_err(|e| {
                 GroupError::MlsError(format!("Failed to build config update commit: {}", e))
             })?;
@@ -302,7 +305,7 @@ impl Device {
         let group = group_arc.read().await;
         let display_key = group
             .export_secret("Display Key".as_bytes(), group_id.as_bytes(), 32)
-            .await
+            //.await
             .map_err(|e| GroupError::CryptoError(format!("Failed to export secret: {}", e)))?;
         let display_key = display_key.to_vec();
         Ok(display_key)
@@ -317,6 +320,7 @@ impl Device {
     pub async fn send_message(
         &self,
         group_id: &GroupId,
+        message_id: u64,
         message: UserGroupMessage,
     ) -> Result<(), GroupError> {
         let group_arc = self.groups.get(group_id).await?;
@@ -329,7 +333,7 @@ impl Device {
         }
         let encrypted_message = group
             .encrypt_application_message(&message.to_bytes(), Default::default())
-            .await
+            //.await
             .map_err(|e| GroupError::MlsError(format!("Message encryption failed: {}", e)))?;
 
         let members = self.extract_group_members(&group)?;
@@ -337,11 +341,13 @@ impl Device {
             GroupError::EncodingError(format!("Failed to encode encrypted message: {}", e))
         })?;
 
-        group.write_to_storage().await.map_err(|e| {
-            GroupError::StorageError(format!("Failed to write group to storage: {}", e))
-        })?;
+        group
+            .write_to_storage()
+            //.await
+            .map_err(|e| {
+                GroupError::StorageError(format!("Failed to write group to storage: {}", e))
+            })?;
 
-        let message_id = Self::generate_message_id();
         log::debug!("Sending message to group {:?}", group_id);
         self.backend
             .as_ref()

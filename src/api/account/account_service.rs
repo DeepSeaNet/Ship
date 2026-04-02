@@ -1,12 +1,15 @@
 use anyhow::Result;
-use tonic::transport::Channel;
+use std::str::FromStr;
+use tauri::http::Uri;
+use tonic_h3::H3Channel;
+use tonic_h3::quinn::H3QuinnConnector;
 
 use crate::api::{
     account::{
         Account,
         account_service::auth::{RegisterRequest, auth_service_client::AuthServiceClient},
     },
-    connection::get_avaliable_servers,
+    connection::endpoint::create_client_endpoint,
 };
 
 #[allow(clippy::all, clippy::pedantic, clippy::restriction, clippy::nursery)]
@@ -19,14 +22,17 @@ fn generate_nonce() -> i64 {
 }
 
 impl Account {
-    pub async fn register(username: String, avatar_url: Option<String>) -> Result<Account> {
+    pub async fn register(
+        username: String,
+        avatar_url: Option<String>,
+        server_address: String,
+    ) -> Result<Account> {
         use crate::api::device::types::custom_mls::credentials::{AccountCredential, AccountId};
 
         // Генерируем новую пару MLS ключей
         let (signer, public_key) = Account::create_keys()
             .await
             .map_err(|e| anyhow::anyhow!("Failed to generate MLS keys: {:?}", e))?;
-        let server_address = get_avaliable_servers();
         log::debug!("Generated MLS keypair:");
         log::debug!("Public key length: {} bytes", public_key.as_bytes().len());
         log::debug!("Private key length: {} bytes", signer.as_bytes().len());
@@ -40,9 +46,13 @@ impl Account {
         };
 
         log::debug!("Sending registration request for user: {}", username);
-        let channel = Channel::from_shared(server_address.clone())?
-            .connect()
-            .await?;
+        let uri = Uri::from_str(&server_address.clone())?;
+
+        let endpoint = create_client_endpoint()
+            .map_err(|e| anyhow::anyhow!("Failed to create client endpoint: {:?}", e))?;
+        let connector = H3QuinnConnector::new(uri.clone(), "sea_auth".to_string(), endpoint);
+
+        let channel = H3Channel::new(connector, uri);
         let mut client = AuthServiceClient::new(channel);
 
         let register_response = client.register(request).await?.into_inner();
@@ -71,16 +81,16 @@ impl Account {
             cert: register_response.certificate,
         };
 
-        let account = Account::new_with_existing_keys(
-            register_response.user_id,
-            register_response.username,
-            register_response.public_address,
+        let account = Account {
+            user_id: register_response.user_id,
+            username: register_response.username,
+            public_address: register_response.public_address,
             server_address,
-            Some(register_response.server_public_key),
+            server_public_key: Some(register_response.server_public_key),
             avatar_url,
             credential,
             signer,
-        );
+        };
 
         account.save_to_db().await?;
 

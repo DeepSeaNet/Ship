@@ -23,33 +23,11 @@ pub struct Account {
 }
 
 impl Account {
-    /// Creates Account with existing MLS keys and credential
-    pub fn new_with_existing_keys(
-        user_id: u64,
-        username: String,
-        public_address: String,
-        server_address: String,
-        server_public_key: Option<Vec<u8>>,
-        avatar_url: Option<String>,
-        credential: AccountCredential,
-        signer: SignatureSecretKey,
-    ) -> Self {
-        Account {
-            user_id,
-            username,
-            public_address,
-            server_address,
-            server_public_key,
-            avatar_url,
-            credential,
-            signer,
-        }
-    }
     /// Generates a new MLS key pair and returns them
     pub async fn create_keys() -> Result<(SignatureSecretKey, SignaturePublicKey), GroupError> {
         cipher_suite()
             .signature_key_generate()
-            .await
+            //.await
             .map_err(|_| GroupError::MlsError("Error generating signature keys".to_string()))
     }
 
@@ -57,7 +35,7 @@ impl Account {
     pub async fn sign_message(&self, message: &[u8]) -> Result<Vec<u8>, GroupError> {
         cipher_suite()
             .sign(&self.signer, message)
-            .await
+            //.await
             .map_err(|_| GroupError::CryptoError("Message signature failed".to_string()))
     }
 
@@ -70,7 +48,7 @@ impl Account {
     ) -> Result<(), GroupError> {
         cipher_suite()
             .verify(public_key, message, signature)
-            .await
+            //.await
             .map_err(|_| GroupError::CryptoError("Message verification failed".to_string()))
     }
 
@@ -107,5 +85,12 @@ impl Account {
     pub async fn list_accounts() -> Result<Vec<Account>> {
         let account_manager = AccountManager::new(get_default_db_path()).await?;
         account_manager.list_accounts().await
+    }
+
+    pub async fn update_avatar(&self, avatar_url: String) -> Result<()> {
+        let account_manager = AccountManager::new(get_default_db_path()).await?;
+        account_manager
+            .update_avatar_url(&self.username, Some(avatar_url))
+            .await
     }
 }

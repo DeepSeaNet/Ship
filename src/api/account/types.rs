@@ -1,6 +1,6 @@
 use aes_gcm::aead::rand_core::OsRng;
 use aes_gcm::{
-    Aes256Gcm, Key, Nonce,
+    Aes256Gcm, Nonce,
     aead::{Aead, AeadCore, KeyInit},
 };
 use base64::{Engine as _, engine::general_purpose};
@@ -14,8 +14,8 @@ pub struct ExportedAccount {
 
 #[derive(Serialize, Deserialize, MlsSize, MlsEncode, MlsDecode)]
 pub struct EncryptedData {
-    ciphertext: String,
-    nonce: String,
+    ciphertext: Vec<u8>,
+    nonce: Vec<u8>,
 }
 
 impl ExportedAccount {
@@ -40,11 +40,11 @@ impl ExportedAccount {
 
         // Create the encrypted data structure
         let encrypted_data = EncryptedData {
-            ciphertext: general_purpose::STANDARD.encode(&ciphertext),
-            nonce: general_purpose::STANDARD.encode(nonce),
+            ciphertext,
+            nonce: nonce.to_vec(),
         };
 
-        // Serialize encrypted data to JSON and encode as base64
+        // Serialize encrypted data to bytes and encode as base64
         let encrypted_bytes = encrypted_data
             .mls_encode_to_vec()
             .map_err(|e| e.to_string())?;
@@ -64,8 +64,8 @@ impl ExportedAccount {
             .decode(key_base64)
             .map_err(|e| format!("Failed to decode key: {}", e))?;
 
-        let key = Key::<Aes256Gcm>::from_slice(&key_bytes);
-        let cipher = Aes256Gcm::new(key);
+        let cipher = Aes256Gcm::new_from_slice(&key_bytes)
+            .map_err(|e| format!("Failed to create cipher: {}", e))?;
 
         // Decode the encrypted data from base64
         let encrypted_bytes = general_purpose::STANDARD
@@ -75,20 +75,11 @@ impl ExportedAccount {
         let encrypted_data =
             EncryptedData::mls_decode(&mut &*encrypted_bytes).map_err(|e| e.to_string())?;
 
-        // Decode ciphertext and nonce from base64
-        let ciphertext = general_purpose::STANDARD
-            .decode(&encrypted_data.ciphertext)
-            .map_err(|e| format!("Failed to decode ciphertext: {}", e))?;
-
-        let nonce_bytes = general_purpose::STANDARD
-            .decode(&encrypted_data.nonce)
-            .map_err(|e| format!("Failed to decode nonce: {}", e))?;
-
-        let nonce = Nonce::from_slice(&nonce_bytes);
+        let nonce = Nonce::from_slice(&encrypted_data.nonce);
 
         // Decrypt the data
         let decrypted_data = cipher
-            .decrypt(nonce, ciphertext.as_ref())
+            .decrypt(nonce, encrypted_data.ciphertext.as_ref())
             .map_err(|e| format!("Decryption failed: {}", e))?;
 
         Ok(Self {

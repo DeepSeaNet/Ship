@@ -1,37 +1,63 @@
-'use client'
+"use client";
+import { Geist, Geist_Mono } from "next/font/google";
+import { useEffect, useState } from "react";
+import "./globals.css";
+import { Toast } from "@heroui/react";
 
-import { Inter } from 'next/font/google'
-import './globals.css'
-import { ThemeProvider } from '@/components/ThemeProvider'
-import { HeroUIProvider } from '@heroui/react'
-import { ToastProvider } from '@heroui/react'
+const geistSans = Geist({
+	variable: "--font-geist-sans",
+	subsets: ["latin"],
+});
 
-const inter = Inter({ subsets: ['latin'] })
-/*
-export const metadata: Metadata = {
-  title: 'SHIP - Secure Hidden Internet Protocol',
-  description: 'Безопасный мессенджер с шифрованием на основе SHIP протокола',
-  viewport: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no',
-}
-*/
+const geistMono = Geist_Mono({
+	variable: "--font-geist-mono",
+	subsets: ["latin"],
+});
 
 export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${inter.className} overflow-hidden fixed inset-0 overscroll-none`}
-      >
-        <HeroUIProvider>
-          <ThemeProvider>
-            <ToastProvider placement={'top-right'} />
-            {children}
-          </ThemeProvider>
-        </HeroUIProvider>
-      </body>
-    </html>
-  )
+	children,
+}: Readonly<{
+	children: React.ReactNode;
+}>) {
+	const [theme, setTheme] = useState("default");
+
+	useEffect(() => {
+		const savedTheme = localStorage.getItem("theme");
+		if (savedTheme) {
+			setTheme(savedTheme);
+			// Apply 'dark' class if the theme is dark or terminal-green-dark
+			if (savedTheme === "dark" || savedTheme === "terminal-green-dark") {
+				document.documentElement.classList.add("dark");
+			} else {
+				document.documentElement.classList.remove("dark");
+			}
+		}
+
+		// Optional: Listen for storage events to update theme across tabs/windows
+		const handleStorage = (e: StorageEvent) => {
+			if (e.key === "theme" && e.newValue) {
+				setTheme(e.newValue);
+				if (e.newValue === "dark" || e.newValue === "terminal-green-dark") {
+					document.documentElement.classList.add("dark");
+				} else {
+					document.documentElement.classList.remove("dark");
+				}
+			}
+		};
+		window.addEventListener("storage", handleStorage);
+		return () => window.removeEventListener("storage", handleStorage);
+	}, []);
+
+	return (
+		<html lang="en" data-theme={theme}>
+			<body
+				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+			>
+				<div>
+					<Toast.Provider />
+					{children}
+				</div>
+			</body>
+		</html>
+	);
 }

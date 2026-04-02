@@ -1,8 +1,10 @@
 use crate::api::{
     account::Account,
-    status::{Avatar, UserManager, get_default_db_path, user_status::UserStatusClient},
+    status::{
+        Avatar, DisplayUserInfo, DisplayUserStatus, UpdateUserAvatarResponse, UserManager,
+        get_default_db_path, user_status::UserStatusClient,
+    },
 };
-use serde_json::json;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -13,7 +15,7 @@ type SafeAccount = Arc<Account>;
 pub async fn get_user_status(
     user_status: tauri::State<'_, SafeUserStatus>,
     user_id: i64,
-) -> Result<serde_json::Value, String> {
+) -> Result<DisplayUserStatus, String> {
     log::debug!("Get user status called");
 
     let mut user_status = user_status.write().await;
@@ -24,7 +26,7 @@ pub async fn get_user_status(
             .await
             .map_err(|e| e.to_string())?;
 
-        Ok(json!(status))
+        Ok(status)
     } else {
         Err("User status not initialized".to_string())
     }
@@ -34,7 +36,7 @@ pub async fn get_user_status(
 pub async fn get_user_info(
     user_status: tauri::State<'_, SafeUserStatus>,
     user_id: i64,
-) -> Result<serde_json::Value, String> {
+) -> Result<DisplayUserInfo, String> {
     log::debug!("Get user info called");
 
     let mut user_status = user_status.write().await;
@@ -45,7 +47,7 @@ pub async fn get_user_info(
             .await
             .map_err(|e| e.to_string())?;
 
-        Ok(json!(user_info))
+        Ok(user_info)
     } else {
         Err("User status not initialized".to_string())
     }
@@ -75,17 +77,17 @@ pub async fn update_username(
 #[tauri::command]
 pub async fn update_avatar(
     user_status: tauri::State<'_, SafeUserStatus>,
-    avatar: String,
+    avatar: Vec<u8>,
     avatar_hash: String,
     file_size: i32,
     mime_type: String,
     width: i32,
     height: i32,
-) -> Result<bool, String> {
+) -> Result<UpdateUserAvatarResponse, String> {
     log::debug!("Update avatar called");
 
     let avatar = Avatar {
-        avatar_url: avatar,
+        avatar_data: avatar,
         avatar_hash,
         file_size,
         mime_type,
@@ -101,7 +103,7 @@ pub async fn update_avatar(
             .await
             .map_err(|e| e.to_string())?;
 
-        Ok(response.success)
+        Ok(response)
     } else {
         Err("User status not initialized".to_string())
     }
@@ -154,10 +156,14 @@ pub async fn send_typing_status(
 #[tauri::command]
 pub async fn subscribe_to_users(
     user_status: tauri::State<'_, SafeUserStatus>,
+    account: tauri::State<'_, SafeAccount>,
     user_ids: Vec<i64>,
 ) -> Result<(), String> {
     log::debug!("Subscribe to users called");
-
+    let user_ids = user_ids
+        .into_iter()
+        .filter(|&id| id != account.user_id as i64)
+        .collect();
     let mut user_status = user_status.write().await;
 
     if let Some(user_status) = user_status.as_mut() {
@@ -195,7 +201,7 @@ pub async fn unsubscribe_from_users(
 pub async fn get_contacts(
     user_status: tauri::State<'_, SafeUserStatus>,
     account: tauri::State<'_, SafeAccount>,
-) -> Result<Vec<serde_json::Value>, String> {
+) -> Result<Vec<DisplayUserInfo>, String> {
     log::debug!("Get contacts called");
     let mut user_status = user_status.write().await;
     if let Some(user_status) = user_status.as_mut() {
@@ -203,10 +209,8 @@ pub async fn get_contacts(
             .get_contacts()
             .await
             .map_err(|e| e.to_string())?;
-        let contacts_json: Vec<serde_json::Value> =
-            contacts.into_iter().map(|contact| json!(contact)).collect();
 
-        Ok(contacts_json)
+        Ok(contacts)
     } else {
         let user_manager = UserManager::new(get_default_db_path(account.user_id))
             .await
@@ -215,9 +219,7 @@ pub async fn get_contacts(
             .get_contacts()
             .await
             .map_err(|e| e.to_string())?;
-        let contacts_json: Vec<serde_json::Value> =
-            contacts.into_iter().map(|contact| json!(contact)).collect();
 
-        Ok(contacts_json)
+        Ok(contacts)
     }
 }

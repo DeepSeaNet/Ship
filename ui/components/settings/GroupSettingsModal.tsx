@@ -1,1189 +1,935 @@
-import React, { useState, useEffect, Fragment, useCallback } from 'react'
-import {
-  Dialog,
-  Transition,
-  TransitionChild,
-  DialogPanel,
-  DialogTitle,
-} from '@headlessui/react'
-import {
-  FiX,
-  FiUpload,
-  FiSettings,
-  FiEdit,
-  FiInfo,
-  FiShield,
-  FiUsers,
-  FiLock,
-  FiGlobe,
-  FiLink,
-  FiMessageSquare,
-  FiImage,
-  FiSmile,
-  FiMic,
-  FiVideo,
-  FiCheck,
-  FiTrash2,
-  FiClock,
-  FiUserPlus,
-  FiArrowLeft,
-  FiFile,
-  FiDownload,
-} from 'react-icons/fi'
-import { addToast, Button, Input, Textarea, Switch } from '@heroui/react'
-import { open } from '@tauri-apps/plugin-dialog'
-import { readFile } from '@tauri-apps/plugin-fs'
-import PermissionsModal from '../dialog/PermissionsModal'
-import { Image } from '@heroui/react'
-import {
-  Permissions,
-  removeUserFromGroup,
-  updateGroupConfig,
-} from '@/hooks/Group'
-import { Group } from '@/hooks/Group'
-import { getUserFromId, User } from '@/hooks/Contacts'
-import { Message } from '@/hooks/Message'
+"use client";
 
-// Добавляем тип для медиа-элементов
-type MediaItem = {
-  media_id: string
-  filename: string
-  timestamp: number
-  size?: number
-  url?: string // Ссылка на файл из message.media
-}
+import {
+	Bell,
+	Gear,
+	PersonPlus,
+	Shield,
+	TrashBin,
+	Xmark,
+} from "@gravity-ui/icons";
+import {
+	Avatar,
+	Button,
+	Description,
+	Input,
+	Label,
+	ListBox,
+	Modal,
+	type Selection,
+	Separator,
+	Surface,
+	Switch,
+	Tabs,
+	TextArea,
+	TextField,
+	toast,
+} from "@heroui/react";
+import { open } from "@tauri-apps/plugin-dialog";
+import { readFile } from "@tauri-apps/plugin-fs";
+import { type ChangeEvent, useEffect, useState } from "react";
+import type { Permissions } from "@/hooks/generated";
+import type { Chat, GroupPermissions } from "@/hooks/messengerTypes";
+import { useGroups } from "@/hooks/useGroups";
+import { useMessengerState } from "@/hooks/useMessengerState";
+import { useNotificationSettings } from "@/hooks/useNotificationSettings";
+import { ImageCropModal } from "./ImageCropModal";
+import { InviteMemberModal } from "./InviteMemberModal";
 
 interface GroupSettingsModalProps {
-  isOpen: boolean
-  onClose: () => void
-  group: Group
-  isMobile?: boolean
-  contacts: Record<number, User>
-  messages?: Record<string, Message[]> // Добавляем messages в пропсы
+	isOpen: boolean;
+	onOpenChange: (isOpen: boolean) => void;
+	group: Chat;
 }
 
-export interface GroupSettings {
-  visibility: string
-  join_mode: string
-  description: string
-  max_members: number
-  slow_mode_delay: number
-  allow_stickers: boolean
-  allow_gifs: boolean
-  allow_voice_messages: boolean
-  allow_video_messages: boolean
-  allow_links: boolean
-  allow_messages: boolean
-}
+const ROLE_DEFAULTS: Record<string, Permissions> = {
+	Admin: {
+		send_messages: true,
+		manage_members: true,
+		pin_messages: true,
+		delete_messages: true,
+		rename_group: true,
+		manage_permissions: true,
+		manage_admins: true,
+	},
+	Moderator: {
+		send_messages: true,
+		manage_members: true,
+		pin_messages: true,
+		delete_messages: true,
+		rename_group: false,
+		manage_permissions: false,
+		manage_admins: false,
+	},
+	Member: {
+		send_messages: true,
+		manage_members: false,
+		pin_messages: false,
+		delete_messages: false,
+		rename_group: false,
+		manage_permissions: false,
+		manage_admins: false,
+	},
+	Reader: {
+		send_messages: false,
+		manage_members: false,
+		pin_messages: false,
+		delete_messages: false,
+		rename_group: false,
+		manage_permissions: false,
+		manage_admins: false,
+	},
+};
 
-const defaultSettings: GroupSettings = {
-  visibility: 'private',
-  join_mode: 'invite_only',
-  description: '',
-  max_members: 100,
-  slow_mode_delay: 0,
-  allow_stickers: true,
-  allow_gifs: true,
-  allow_voice_messages: true,
-  allow_video_messages: true,
-  allow_links: true,
-  allow_messages: true,
-}
+export const GroupSettingsModal = ({
+	isOpen,
+	onOpenChange,
+	group,
+}: GroupSettingsModalProps) => {
+	const {
+		updateGroupConfig,
+		removeUserFromGroup,
+		checkPermission,
+		updateMemberPermissions,
+	} = useGroups();
+	const { contacts } = useMessengerState();
+	const { settings: globalNotifs, updateChatSetting } =
+		useNotificationSettings();
 
-const GroupSettingsModal: React.FC<GroupSettingsModalProps> = ({
-  isOpen,
-  onClose,
-  group,
-  isMobile = false,
-  contacts,
-  messages = {}, // Добавляем значение по умолчанию
-}) => {
-  const [settings, setSettings] = useState<GroupSettings>(defaultSettings)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [activeTab, setActiveTab] = useState('general')
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(
-    group.avatar || null,
-  )
-  const [tempDescription, setTempDescription] = useState(group.description)
-  const [tempName, setTempName] = useState(group.name)
-  const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false)
-  const [selectedUser, setSelectedUser] = useState<{
-    id: number
-    name: string
-    permissions?: Permissions
-  } | null>(null)
-  const [avatarFilePath, setAvatarFilePath] = useState<string | null>(null)
-  const [showMenu, setShowMenu] = useState(true)
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
-  const [isLoadingMedia, setIsLoadingMedia] = useState(false)
-  // Fetch group settings when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setTempDescription(group.description)
-      setTempName(group.name)
-      setAvatarPreview(group.avatar || null)
-      fetchGroupSettings()
+	const chatSettings = globalNotifs.chatOverrides[group.id] || {
+		muted: false,
+		mentionsOnly: false,
+	};
 
-      // Сбросить показ меню при каждом открытии модального окна
-      if (isMobile) {
-        setShowMenu(true)
-      }
-    }
-  }, [isOpen, group, isMobile])
+	// State for general settings
+	const [name, setName] = useState(group.name);
+	const [description, setDescription] = useState(
+		group.group_config?.description || "",
+	);
+	const [visibility, setVisibility] = useState(
+		group.group_config?.visibility?.toLowerCase() || "private",
+	);
+	const [joinMode, setJoinMode] = useState(
+		group.group_config?.join_mode?.toLowerCase() || "invite_only",
+	);
+	const [isLoading, setIsLoading] = useState(false);
 
-  const fetchGroupSettings = async () => {
-    setIsLoading(true)
-    try {
-      // In a real app, you would fetch the current settings from the backend
-      // For now, we'll just use the default settings and add the description
-      setSettings({
-        ...defaultSettings,
-        description: group.description || '',
-      })
-    } catch (error) {
-      console.error('Ошибка при загрузке настроек группы:', error)
-      addToast({
-        title: 'Ошибка',
-        description: `Не удалось загрузить настройки группы: ${error}`,
-        color: 'danger',
-        variant: 'flat',
-      })
-    } finally {
-      setIsLoading(false)
-    }
-  }
+	// State for default permissions
+	const [defaultPerms, setDefaultPerms] = useState<GroupPermissions>(() => ({
+		...(group.group_config?.default_permissions || {
+			manage_members: false,
+			send_messages: true,
+			delete_messages: false,
+			rename_group: false,
+			manage_permissions: false,
+			pin_messages: false,
+			manage_admins: false,
+		}),
+		// Add group config flags to this state object for the UI form
+		allow_stickers: group.group_config?.allow_stickers ?? true,
+		allow_gifs: group.group_config?.allow_gifs ?? true,
+		allow_voice_messages: group.group_config?.allow_voice_messages ?? true,
+		allow_video_messages: group.group_config?.allow_video_messages ?? true,
+		allow_links: group.group_config?.allow_links ?? true,
+	}));
 
-  const userPermissions = group.user_permissions || group.default_permissions
-  const handleUploadAvatar = async () => {
-    try {
-      const selected = await open({
-        multiple: false,
-        filters: [
-          {
-            name: 'Image',
-            extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'],
-          },
-        ],
-      })
+	// State for member management
+	const [memberToEdit, setMemberToEdit] = useState<string | null>(null);
+	const [memberPermissions, setMemberPermissions] =
+		useState<Permissions | null>(null);
+	const [memberRole, setMemberRole] = useState<string>("Member");
+	const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+	const [isCropOpen, setIsCropOpen] = useState(false);
+	const [selectedImageSrc, setSelectedImageSrc] = useState("");
+	const [mimeType, setMimeType] = useState("image/jpeg");
 
-      if (selected === null) {
-        return
-      }
+	// Sync state if group changes
+	useEffect(() => {
+		setName(group.name);
+		setDescription(group.group_config?.description || "");
+		setVisibility(group.group_config?.visibility?.toLowerCase() || "private");
+		setJoinMode(group.group_config?.join_mode?.toLowerCase() || "invite_only");
+		setDefaultPerms((prev) => ({
+			...prev,
+			...(group.group_config?.permissions || {}),
+			allow_stickers: group.group_config?.allow_stickers ?? prev.allow_stickers,
+			allow_gifs: group.group_config?.allow_gifs ?? prev.allow_gifs,
+			allow_voice_messages:
+				group.group_config?.allow_voice_messages ?? prev.allow_voice_messages,
+			allow_video_messages:
+				group.group_config?.allow_video_messages ?? prev.allow_video_messages,
+			allow_links: group.group_config?.allow_links ?? prev.allow_links,
+		}));
+	}, [group]);
 
-      if (typeof selected === 'string') {
-        const fileData = await readFile(selected)
+	const handleSaveGeneral = async () => {
+		setIsLoading(true);
+		const success = await updateGroupConfig(group.id, {
+			name,
+			description,
+			visibility: visibility as "private" | "public",
+			joinMode: joinMode as "invite_only" | "request_to_join" | "open",
+			// Also save default permissions if we are on the permissions tab or just in general
+			allowMessages: defaultPerms.send_messages,
+		});
+		if (!success) {
+			toast("Failed to update group settings", { variant: "danger" });
+		}
+		setIsLoading(false);
+	};
 
-        // Check file size (limit to 5MB)
-        if (fileData.length > 5 * 1024 * 1024) {
-          addToast({
-            title: 'Ошибка',
-            description: 'Размер файла не должен превышать 5MB',
-            color: 'danger',
-            variant: 'flat',
-          })
-          return
-        }
+	const handleSavePermissions = async () => {
+		setIsLoading(true);
+		const _success = await updateGroupConfig(group.id, {
+			allowMessages: defaultPerms.send_messages,
+			allowLinks: defaultPerms.allow_links,
+			allowStickers: defaultPerms.allow_stickers,
+			allowGifs: defaultPerms.allow_gifs,
+			allowVoiceMessages: defaultPerms.allow_voice_messages,
+			allowVideoMessages: defaultPerms.allow_video_messages,
+		});
+		setIsLoading(false);
+	};
 
-        // Create blob URL for preview
-        const blob = new Blob([fileData], { type: 'image/jpeg' })
-        const url = URL.createObjectURL(blob)
-        setAvatarPreview(url)
+	const handleUpdateGroupAvatar = async () => {
+		try {
+			const selected = await open({
+				filters: [{ name: "Image", extensions: ["png", "jpg", "jpeg", "gif"] }],
+				multiple: false,
+			});
 
-        // Save the file path for later use when saving settings
-        setAvatarFilePath(selected)
+			if (!selected) return;
+			const path = Array.isArray(selected) ? selected[0] : selected;
 
-        addToast({
-          title: 'Успешно',
-          description: 'Аватар будет обновлен после сохранения настроек',
-          color: 'success',
-        })
-      }
-    } catch (error) {
-      console.error('Ошибка при загрузке аватара:', error)
-      addToast({
-        title: 'Ошибка',
-        description: `Не удалось загрузить аватар: ${error}`,
-        color: 'danger',
-        variant: 'flat',
-      })
-    }
-  }
+			// Detect mime type from file path
+			let detectedMime = "image/jpeg";
+			const ext = path.split(".").pop()?.toLowerCase();
+			if (ext === "png") detectedMime = "image/png";
+			else if (ext === "jpg" || ext === "jpeg") detectedMime = "image/jpeg";
+			else if (ext === "gif") detectedMime = "image/gif";
+			else if (ext === "webp") detectedMime = "image/webp";
 
-  const handleSaveSettings = async () => {
-    setIsSaving(true)
-    await updateGroupConfig(
-      group,
-      settings,
-      tempName,
-      tempDescription,
-      avatarFilePath,
-    )
-    setIsSaving(false)
-  }
+			setMimeType(detectedMime);
 
-  const handleUserClick = (userId: number, userName: string) => {
-    const permissions = group.users_permissions?.[Number(userId)]
-    console.log(group)
-    console.log(permissions)
-    setSelectedUser({
-      id: userId,
-      name: userName,
-      permissions,
-    })
-    setIsPermissionsModalOpen(true)
-  }
+			// Read file to data URL for cropping
+			const bytes = await readFile(path);
+			const blob = new Blob([bytes]);
+			const dataUrl = URL.createObjectURL(blob);
 
-  const handleRemoveUser = async (userId: number) => {
-    await removeUserFromGroup(group.chat_id, userId)
-  }
+			setSelectedImageSrc(dataUrl);
+			setIsCropOpen(true);
+		} catch (error) {
+			console.error("Failed to pick group image:", error);
+		}
+	};
 
-  const canChangeDescription = userPermissions?.rename_group
-  const canChangeName = userPermissions?.rename_group
+	const onCropComplete = async (croppedBlob: Blob) => {
+		setIsLoading(true);
+		try {
+			const arrayBuffer = await croppedBlob.arrayBuffer();
+			const uint8Array = new Uint8Array(arrayBuffer);
 
-  // Функция для переключения на контент с сокрытием меню категорий
-  const handleTabClick = (tab: string) => {
-    setActiveTab(tab)
-    if (isMobile) {
-      setShowMenu(false)
-    }
-  }
+			// Get dimensions for the final upload
+			const dimensions = await new Promise<{ width: number; height: number }>(
+				(resolve) => {
+					const img = new Image();
+					img.src = URL.createObjectURL(croppedBlob);
+					img.onload = () => {
+						resolve({ width: img.width, height: img.height });
+						URL.revokeObjectURL(img.src);
+					};
+				},
+			);
 
-  // Функция для возврата к меню категорий
-  const handleBackToMenu = () => {
-    setShowMenu(true)
-  }
-  const participants = group.participants.map((participant_id) => {
-    const participant = getUserFromId(participant_id, contacts)
-    return participant
-  })
+			await updateGroupConfig(group.id, {
+				avatarBytes: uint8Array,
+				avatarWidth: dimensions.width,
+				avatarHeight: dimensions.height,
+				avatarMimeType: croppedBlob.type || "image/jpeg",
+			});
+		} catch (error) {
+			console.error("Failed to save cropped group image:", error);
+		} finally {
+			setIsLoading(false);
+			URL.revokeObjectURL(selectedImageSrc);
+		}
+	};
 
-  // Добавляем функцию для загрузки медиа-файлов
-  const loadMediaItems = useCallback(async () => {
-    if (!group) return
+	const isOwner =
+		group.group_config?.creator_id?.toString() ===
+		localStorage.getItem("userId");
+	const canManageMembers = checkPermission(group, "manage_members");
+	const canRename = checkPermission(group, "rename_group");
+	const canManagePermissions = checkPermission(group, "manage_permissions");
 
-    setIsLoadingMedia(true)
-    try {
-      // Получаем сообщения для текущего чата
-      const chatId = group.chat_id || group.name
-      const chatMessages = messages[chatId] || []
+	const openMemberPermissionEdit = (memberId: string) => {
+		setMemberToEdit(memberId);
+		const currentPerms =
+			group.group_config?.permissions?.[memberId] ||
+			group.group_config?.default_permissions ||
+			defaultPerms;
+		setMemberPermissions(currentPerms);
 
-      // Фильтруем сообщения с медиафайлами
-      const mediaMessages = chatMessages.filter(
-        (msg) => msg.media || msg.media_name,
-      )
+		const isAdmin = group.group_config?.admins?.includes(memberId);
+		const isOwnerOfGroup = group.group_config?.creator_id === memberId;
 
-      // Преобразуем сообщения в MediaItem
-      const items: MediaItem[] = mediaMessages.map((msg) => ({
-        media_id: msg.message_id,
-        filename: msg.media_name || 'Безымянный файл',
-        timestamp: parseInt(msg.timestamp) || Date.now() / 1000,
-        url: msg.media, // Сохраняем ссылку на файл из message.media
-        size: undefined,
-      }))
+		if (isOwnerOfGroup) {
+			setMemberRole("Owner");
+		} else if (isAdmin) {
+			setMemberRole("Admin");
+		} else {
+			const isModerator =
+				JSON.stringify(currentPerms) ===
+				JSON.stringify(ROLE_DEFAULTS.Moderator);
+			const isReader =
+				JSON.stringify(currentPerms) === JSON.stringify(ROLE_DEFAULTS.Reader);
+			const isStandardMember =
+				JSON.stringify(currentPerms) === JSON.stringify(ROLE_DEFAULTS.Member);
 
-      setMediaItems(items)
-    } catch (error) {
-      console.error('Ошибка при загрузке медиафайлов:', error)
-    } finally {
-      setIsLoadingMedia(false)
-    }
-  }, [group, messages])
+			if (isModerator) setMemberRole("Moderator");
+			else if (isReader) setMemberRole("Reader");
+			else if (isStandardMember) setMemberRole("Member");
+			else setMemberRole("Custom");
+		}
+	};
 
-  // Добавляем функцию для форматирования размера файла
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return 'Неизвестный размер'
+	const handleRoleChange = (role: string) => {
+		setMemberRole(role);
+		if (role !== "Custom" && role !== "Owner" && ROLE_DEFAULTS[role]) {
+			setMemberPermissions({ ...ROLE_DEFAULTS[role] });
+		}
+	};
 
-    if (bytes < 1024) return bytes + ' B'
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-    if (bytes < 1024 * 1024 * 1024)
-      return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
-    return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB'
-  }
+	const handleSaveMemberPermissions = async () => {
+		if (memberToEdit === null || !memberPermissions) return;
+		setIsLoading(true);
+		// If role is set to Admin or Member, we pass it.
+		// Note: Owner cannot be changed via this UI normally.
+		const success = await updateMemberPermissions(
+			group.id,
+			parseInt(memberToEdit, 10),
+			memberPermissions,
+			memberRole !== "Custom" && memberRole !== "Owner"
+				? memberRole.toLowerCase()
+				: undefined,
+		);
+		setIsLoading(false);
+		if (success) {
+			setMemberToEdit(null);
+			setMemberPermissions(null);
+		}
+	};
 
-  // Добавляем функцию для форматирования временной метки
-  const formatTimestamp = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleString()
-  }
+	return (
+		<Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+			<Modal.Backdrop>
+				<Modal.Container>
+					<Modal.Dialog className="p-0 overflow-hidden !bg-transparent shadow-none border-none max-w-4xl w-full">
+						<Modal.CloseTrigger />
+						<Modal.Body className="h-[600px] w-full bg-background flex-row items-stretch rounded-xl border border-border overflow-hidden shadow-xl">
+							<Tabs
+								className="w-full h-full flex flex-row"
+								orientation="vertical"
+								variant="secondary"
+								defaultSelectedKey="general"
+							>
+								<Tabs.ListContainer className="w-64 border-r border-border h-full bg-surface/50 p-4 shrink-0">
+									<h2 className="text-xl font-bold px-2 mb-6 ml-1 truncate">
+										{group.name}
+									</h2>
+									<Tabs.List
+										aria-label="Group settings categories"
+										className="flex flex-col gap-2 w-full"
+									>
+										<Tabs.Tab
+											id="general"
+											className="justify-start px-3 py-2 text-sm font-medium"
+										>
+											<Gear className="w-4 h-4 mr-2" />
+											General
+											<Tabs.Indicator />
+										</Tabs.Tab>
+										<Tabs.Tab
+											id="members"
+											className="justify-start px-3 py-2 text-sm font-medium"
+										>
+											<PersonPlus className="w-4 h-4 mr-2" />
+											Members
+											<Tabs.Indicator />
+										</Tabs.Tab>
+										<Tabs.Tab
+											id="permissions"
+											className="justify-start px-3 py-2 text-sm font-medium"
+										>
+											<Shield className="w-4 h-4 mr-2" />
+											Permissions
+											<Tabs.Indicator />
+										</Tabs.Tab>
+										<Tabs.Tab
+											id="notifications"
+											className="justify-start px-3 py-2 text-sm font-medium"
+										>
+											<Bell className="w-4 h-4 mr-2" />
+											Notifications
+											<Tabs.Indicator />
+										</Tabs.Tab>
+									</Tabs.List>
+								</Tabs.ListContainer>
 
-  // Загружаем медиа-файлы при открытии вкладки "Медиа"
-  useEffect(() => {
-    if (isOpen && activeTab === 'media') {
-      loadMediaItems()
-    }
-  }, [isOpen, activeTab, loadMediaItems])
+								<div className="flex-1 h-full overflow-y-auto bg-background p-8 relative">
+									<Button
+										isIconOnly
+										size="sm"
+										variant="ghost"
+										className="absolute top-4 right-4 z-10"
+										onPress={() => onOpenChange(false)}
+									>
+										<Xmark className="w-5 h-5" />
+									</Button>
 
-  // Обновляем раздел "Media"
-  const renderMediaContent = () => {
-    // Считаем медиа по типам
-    const fileCount = mediaItems.filter(
-      (item) =>
-        item.filename &&
-        !item.filename.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i),
-    ).length
+									<Tabs.Panel
+										id="general"
+										className="space-y-6 max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-300"
+									>
+										<div>
+											<h3 className="text-2xl font-bold mb-1">
+												General Settings
+											</h3>
+											<p className="text-muted text-sm">
+												Configure basic group information and appearance.
+											</p>
+										</div>
 
-    const imageCount = mediaItems.filter((item) =>
-      item.filename?.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i),
-    ).length
+										<div className="flex items-center gap-6 py-2">
+											<Avatar
+												size="lg"
+												className="w-24 h-24 text-3xl font-bold bg-accent/20 text-accent"
+											>
+												{group.avatar && <Avatar.Image src={group.avatar} />}
+												<Avatar.Fallback>
+													{group.name.slice(0, 1).toUpperCase()}
+												</Avatar.Fallback>
+											</Avatar>
+											<div className="space-y-3">
+												<div className="flex gap-2">
+													<Button
+														variant="secondary"
+														size="sm"
+														isDisabled={!canRename}
+														onPress={handleUpdateGroupAvatar}
+														isPending={isLoading}
+													>
+														Change Avatar
+													</Button>
+													<Button
+														variant="ghost"
+														size="sm"
+														className="text-danger"
+														isDisabled={!canRename}
+													>
+														Remove
+													</Button>
+												</div>
+												<p className="text-xs text-muted">
+													JPG, GIF or PNG. 1MB max.
+												</p>
+											</div>
+										</div>
 
-    // Получаем файлы (не-изображения)
-    const files = mediaItems
-      .filter(
-        (item) =>
-          item.filename &&
-          !item.filename.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i),
-      )
-      .slice(0, 5)
+										<Separator className="opacity-50" />
 
-    // Получаем изображения
-    const images = mediaItems
-      .filter((item) => item.filename?.match(/\.(jpg|jpeg|png|gif|bmp|webp)$/i))
-      .slice(0, 6)
+										<div className="grid gap-4">
+											<TextField isDisabled={!canRename}>
+												<Label>Group Name</Label>
+												<Input
+													value={name}
+													onChange={(e: ChangeEvent<HTMLInputElement>) =>
+														setName(e.target.value)
+													}
+													placeholder="Enter group name"
+												/>
+											</TextField>
 
-    return (
-      <div className="space-y-6">
-        <h3 className="text-lg font-medium text-slate-900 dark:text-white">
-          Управление медиа
-        </h3>
+											<TextField isDisabled={!canRename}>
+												<Label>Description</Label>
+												<TextArea
+													value={description}
+													onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+														setDescription(e.target.value)
+													}
+													placeholder="Short description of the group"
+													rows={3}
+												/>
+											</TextField>
+										</div>
 
-        <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
-          {isLoadingMedia ? (
-            <div className="flex items-center justify-center p-8">
-              <div className="animate-spin h-8 w-8 border-b-2 border-[rgb(var(--primary-rgb))] rounded-full"></div>
-            </div>
-          ) : (
-            <>
-              <div className="mb-6">
-                <h4 className="text-md font-medium text-slate-900 dark:text-white mb-3">
-                  Файлы ({fileCount})
-                </h4>
-                <div className="space-y-2">
-                  {files.length > 0 ? (
-                    files.map((file) => (
-                      <div
-                        key={file.media_id}
-                        className="flex items-center p-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors"
-                      >
-                        <div className="h-10 w-10 bg-slate-100 dark:bg-slate-700 rounded-lg flex items-center justify-center mr-3">
-                          <FiFile className="text-primary" />
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                          <div className="font-medium truncate">
-                            {file.filename}
-                          </div>
-                          <div className="text-xs text-slate-600 dark:text-slate-400">
-                            {file.size
-                              ? formatFileSize(file.size)
-                              : 'Неизвестный размер'}{' '}
-                            • {formatTimestamp(file.timestamp)}
-                          </div>
-                        </div>
-                        {file.url && (
-                          <a
-                            href={file.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            download={file.filename}
-                            className="ml-2 p-2 text-slate-600 hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
-                          >
-                            <FiDownload size={18} />
-                          </a>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-4 text-slate-500 dark:text-slate-400">
-                      Нет доступных файлов
-                    </div>
-                  )}
-                </div>
-              </div>
+										<div className="flex justify-end pt-4">
+											<Button
+												variant="primary"
+												onPress={handleSaveGeneral}
+												isPending={isLoading}
+												isDisabled={
+													!canRename ||
+													(name === group.name &&
+														description === group.group_config?.description)
+												}
+											>
+												Save Changes
+											</Button>
+										</div>
+									</Tabs.Panel>
 
-              <div className="mb-6">
-                <h4 className="text-md font-medium text-slate-900 dark:text-white mb-3">
-                  Изображения ({imageCount})
-                </h4>
-                <div className="grid grid-cols-3 gap-2">
-                  {images.length > 0 ? (
-                    images.map((image) => (
-                      <div
-                        key={image.media_id}
-                        className="aspect-square bg-slate-100 dark:bg-slate-700 rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity relative"
-                      >
-                        {image.url ? (
-                          <>
-                            <img
-                              src={image.url}
-                              alt={image.filename}
-                              className="h-full w-full object-cover"
-                              onError={(e) => {
-                                // В случае ошибки загрузки показываем иконку изображения
-                                ;(e.target as HTMLImageElement).style.display =
-                                  'none'
-                                const parent = (e.target as HTMLImageElement)
-                                  .parentNode
-                                if (parent) {
-                                  const icon = document.createElement('div')
-                                  icon.className =
-                                    'h-full w-full flex items-center justify-center'
-                                  icon.innerHTML =
-                                    '<svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="24" width="24" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>'
-                                  parent.appendChild(icon)
-                                }
-                              }}
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 hover:opacity-100 transition-opacity">
-                              <a
-                                href={image.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                download={image.filename}
-                                className="text-white h-6 w-6"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <FiDownload className="h-6 w-6" />
-                              </a>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center">
-                            <FiImage className="text-primary h-6 w-6" />
-                          </div>
-                        )}
-                        <div className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-1 rounded">
-                          {image.size ? formatFileSize(image.size) : ''}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="col-span-3 text-center py-4 text-slate-500 dark:text-slate-400">
-                      Нет доступных изображений
-                    </div>
-                  )}
-                </div>
-              </div>
+									<Tabs.Panel
+										id="members"
+										className="space-y-6 max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-300"
+									>
+										<div className="flex items-center justify-between">
+											<div>
+												<h3 className="text-2xl font-bold mb-1">Members</h3>
+												<p className="text-muted text-sm">
+													Manage group participants and roles.
+												</p>
+											</div>
+											<Button
+												variant="primary"
+												size="sm"
+												onPress={() => setIsInviteModalOpen(true)}
+												isDisabled={!canManageMembers}
+											>
+												<PersonPlus className="w-4 h-4 mr-2" />
+												Invite Members
+											</Button>
+										</div>
 
-              <div className="mt-4 border-t border-slate-200 dark:border-slate-700 pt-4">
-                <div className="flex justify-between items-center">
-                  <div className="text-sm text-slate-500 dark:text-slate-400">
-                    Очистить кэш медиафайлов
-                  </div>
-                  <Button
-                    size="sm"
-                    color="danger"
-                    variant="light"
-                    startContent={<FiTrash2 />}
-                  >
-                    Очистить
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    )
-  }
+										<div className="space-y-3">
+											{group.group_config?.members?.map((memberId) => {
+												const member = contacts[memberId.toString()];
+												const isSelf =
+													memberId.toString() ===
+													localStorage.getItem("userId");
+												const isOwnerOfGroup =
+													group.group_config?.creator_id === memberId;
 
-  return (
-    <>
-      <Transition show={isOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={onClose}>
-          <TransitionChild
-            as={Fragment}
-            enter="ease-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-200"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
-          </TransitionChild>
+												return (
+													<div
+														key={memberId}
+														className="flex items-center justify-between p-3 border border-border rounded-xl bg-surface/30"
+													>
+														<div className="flex items-center gap-3">
+															<Avatar size="sm">
+																{member?.avatar && (
+																	<Avatar.Image src={member.avatar} />
+																)}
+																<Avatar.Fallback>
+																	{(member?.name || "U")
+																		.slice(0, 1)
+																		.toUpperCase()}
+																</Avatar.Fallback>
+															</Avatar>
+															<div className="flex flex-col">
+																<span className="text-sm font-medium">
+																	{member?.name || memberId} {isSelf && "(You)"}
+																</span>
+																<span className="text-xs text-muted">
+																	{(() => {
+																		if (
+																			group.group_config?.creator_id ===
+																			memberId
+																		)
+																			return "Owner";
+																		if (
+																			group.group_config?.admins?.includes(
+																				memberId,
+																			)
+																		)
+																			return "Admin";
 
-          <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4">
-              <TransitionChild
-                as={Fragment}
-                enter="ease-out duration-300"
-                enterFrom="opacity-0 scale-95"
-                enterTo="opacity-100 scale-100"
-                leave="ease-in duration-200"
-                leaveFrom="opacity-100 scale-100"
-                leaveTo="opacity-0 scale-95"
-              >
-                <DialogPanel className="w-full max-w-3xl transform overflow-hidden rounded-xl bg-white dark:bg-slate-800 shadow-xl transition-all">
-                  <div className="flex flex-col h-[600px]">
-                    {/* Header */}
-                    <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                      <DialogTitle
-                        as="h3"
-                        className="text-lg font-medium leading-6 text-slate-900 dark:text-white flex items-center"
-                      >
-                        {isMobile && !showMenu ? (
-                          <button
-                            className="mr-2 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                            onClick={handleBackToMenu}
-                          >
-                            <FiArrowLeft className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-                          </button>
-                        ) : (
-                          <FiSettings className="mr-2 text-[rgb(var(--primary-rgb))]" />
-                        )}
-                        {isMobile && !showMenu ? (
-                          <span>
-                            {activeTab === 'general' && 'Общие настройки'}
-                            {activeTab === 'members' && 'Участники'}
-                            {activeTab === 'permissions' && 'Права доступа'}
-                            {activeTab === 'media' && 'Медиа'}
-                          </span>
-                        ) : (
-                          'Настройки группы'
-                        )}
-                      </DialogTitle>
-                      <button
-                        type="button"
-                        className="rounded-full p-1 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                        onClick={onClose}
-                      >
-                        <FiX className="h-5 w-5 text-slate-500 dark:text-slate-400" />
-                      </button>
-                    </div>
+																		const perms =
+																			group.group_config?.permissions?.[
+																				memberId
+																			] ||
+																			group.group_config?.default_permissions ||
+																			defaultPerms;
+																		if (
+																			JSON.stringify(perms) ===
+																			JSON.stringify(ROLE_DEFAULTS.Moderator)
+																		)
+																			return "Moderator";
+																		if (
+																			JSON.stringify(perms) ===
+																			JSON.stringify(ROLE_DEFAULTS.Reader)
+																		)
+																			return "Reader";
+																		if (
+																			JSON.stringify(perms) ===
+																			JSON.stringify(ROLE_DEFAULTS.Member)
+																		)
+																			return "Member";
+																		return "Custom";
+																	})()}
+																</span>
+															</div>
+														</div>
+														<div className="flex items-center gap-2">
+															{canManagePermissions && !isOwnerOfGroup && (
+																<Button
+																	variant="ghost"
+																	isIconOnly
+																	size="sm"
+																	className="text-muted hover:bg-surface"
+																	onPress={() =>
+																		openMemberPermissionEdit(memberId)
+																	}
+																>
+																	<Shield className="w-4 h-4" />
+																</Button>
+															)}
+															{!isOwnerOfGroup &&
+																!isSelf &&
+																canManageMembers && (
+																	<Button
+																		variant="ghost"
+																		isIconOnly
+																		size="sm"
+																		className="text-danger hover:bg-danger/10"
+																		onPress={() =>
+																			removeUserFromGroup(
+																				group.id,
+																				parseInt(memberId, 10),
+																			)
+																		}
+																	>
+																		<TrashBin className="w-4 h-4" />
+																	</Button>
+																)}
+														</div>
+													</div>
+												);
+											})}
+										</div>
+									</Tabs.Panel>
 
-                    {/* Body with tabs - специальная логика для мобильного режима */}
-                    <div className="flex flex-1 overflow-hidden">
-                      {/* Tab navigation - отображается всегда для desktop и только когда showMenu=true для mobile */}
-                      {(!isMobile || (isMobile && showMenu)) && (
-                        <div
-                          className={`${isMobile ? 'w-full' : 'w-48'} ${!isMobile && 'border-r border-slate-200 dark:border-slate-700'} p-4 overflow-y-auto`}
-                        >
-                          <nav className="space-y-1">
-                            <button
-                              onClick={() => handleTabClick('general')}
-                              className={`w-full text-left px-3 py-2 rounded-lg flex items-center text-sm font-medium ${
-                                activeTab === 'general'
-                                  ? 'bg-[rgb(var(--primary-rgb))]/10 text-[rgb(var(--primary-rgb))]'
-                                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-                              } transition-colors`}
-                            >
-                              <FiInfo className="mr-2 h-5 w-5" />
-                              Общие
-                            </button>
-                            <button
-                              onClick={() => handleTabClick('members')}
-                              className={`w-full text-left px-3 py-2 rounded-lg flex items-center text-sm font-medium ${
-                                activeTab === 'members'
-                                  ? 'bg-[rgb(var(--primary-rgb))]/10 text-[rgb(var(--primary-rgb))]'
-                                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-                              } transition-colors`}
-                            >
-                              <FiUsers className="mr-2 h-5 w-5" />
-                              Участники
-                            </button>
-                            <button
-                              onClick={() => handleTabClick('permissions')}
-                              className={`w-full text-left px-3 py-2 rounded-lg flex items-center text-sm font-medium ${
-                                activeTab === 'permissions'
-                                  ? 'bg-[rgb(var(--primary-rgb))]/10 text-[rgb(var(--primary-rgb))]'
-                                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-                              } transition-colors`}
-                            >
-                              <FiShield className="mr-2 h-5 w-5" />
-                              Права доступа
-                            </button>
-                            <button
-                              onClick={() => handleTabClick('media')}
-                              className={`w-full text-left px-3 py-2 rounded-lg flex items-center text-sm font-medium ${
-                                activeTab === 'media'
-                                  ? 'bg-[rgb(var(--primary-rgb))]/10 text-[rgb(var(--primary-rgb))]'
-                                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-                              } transition-colors`}
-                            >
-                              <FiImage className="mr-2 h-5 w-5" />
-                              Медиа
-                            </button>
-                          </nav>
-                        </div>
-                      )}
+									<Tabs.Panel
+										id="permissions"
+										className="space-y-6 max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-300"
+									>
+										<div>
+											<h3 className="text-2xl font-bold mb-1">
+												Default Permissions
+											</h3>
+											<p className="text-muted text-sm">
+												Set what new members can do by default.
+											</p>
+										</div>
 
-                      {/* Tab content - отображается всегда для desktop и только когда showMenu=false для mobile */}
-                      {(!isMobile || (isMobile && !showMenu)) && (
-                        <div className="flex-1 p-6 overflow-y-auto">
-                          {isLoading ? (
-                            <div className="flex items-center justify-center h-full">
-                              <div className="animate-spin h-8 w-8 border-b-2 border-[rgb(var(--primary-rgb))] rounded-full"></div>
-                            </div>
-                          ) : (
-                            <>
-                              {/* General Settings */}
-                              {activeTab === 'general' && (
-                                <div className="space-y-6">
-                                  <div className="flex items-start gap-6">
-                                    <div className="flex-shrink-0">
-                                      <div
-                                        className="relative h-24 w-24 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-700 flex items-center justify-center group cursor-pointer border-2 border-slate-300 dark:border-slate-600 hover:border-[rgb(var(--primary-rgb))]"
-                                        onClick={handleUploadAvatar}
-                                      >
-                                        {avatarPreview ? (
-                                          <Image
-                                            src={avatarPreview}
-                                            alt="Group avatar"
-                                            className="h-full w-full object-cover"
-                                          />
-                                        ) : (
-                                          <span className="text-4xl font-semibold text-slate-400 dark:text-slate-500">
-                                            {tempName.charAt(0).toUpperCase()}
-                                          </span>
-                                        )}
-                                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                          <FiUpload className="h-8 w-8 text-white" />
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className="flex-1 space-y-4">
-                                      <div>
-                                        <Input
-                                          label="Название группы"
-                                          color="primary"
-                                          type="group_name"
-                                          variant="flat"
-                                          value={tempName}
-                                          onChange={(e) =>
-                                            setTempName(e.target.value)
-                                          }
-                                          fullWidth
-                                          placeholder="Введите название группы"
-                                          isDisabled={!canChangeName}
-                                          startContent={
-                                            <FiEdit className="text-slate-400" />
-                                          }
-                                        />
-                                      </div>
+										<div className="space-y-4">
+											{(
+												[
+													{
+														key: "send_messages",
+														label: "Send Messages",
+														desc: "Allow members to send text messages.",
+													},
+													{
+														key: "manage_members",
+														label: "Invite Users",
+														desc: "Allow members to invite new participants.",
+													},
+													{
+														key: "pin_messages",
+														label: "Pin Messages",
+														desc: "Allow members to pin important messages.",
+													},
+													{
+														key: "delete_messages",
+														label: "Delete Messages",
+														desc: "Allow members to delete any message.",
+													},
+													{
+														key: "rename_group",
+														label: "Rename Group",
+														desc: "Allow members to change group name and avatar.",
+													},
+													{
+														key: "manage_permissions",
+														label: "Manage Permissions",
+														desc: "Allow members to change group permissions.",
+													},
+													{
+														key: "manage_admins",
+														label: "Manage Admins",
+														desc: "Allow members to promote/demote admins.",
+													},
+													{
+														key: "allow_stickers",
+														label: "Stickers",
+														desc: "Allow sending stickers.",
+													},
+													{
+														key: "allow_gifs",
+														label: "GIFs",
+														desc: "Allow sending GIFs.",
+													},
+												] as {
+													key: keyof GroupPermissions;
+													label: string;
+													desc: string;
+												}[]
+											).map(({ key, label, desc }) => (
+												<div
+													key={key}
+													className="flex items-center justify-between"
+												>
+													<div className="space-y-0.5">
+														<Label className="font-medium">{label}</Label>
+														<p className="text-xs text-muted">{desc}</p>
+													</div>
+													<Switch
+														isSelected={defaultPerms[key]}
+														onChange={(val: boolean) =>
+															setDefaultPerms((prev) => ({
+																...prev,
+																[key]: val,
+															}))
+														}
+														isDisabled={!isOwner}
+													>
+														<Switch.Control>
+															<Switch.Thumb />
+														</Switch.Control>
+													</Switch>
+												</div>
+											))}
+										</div>
 
-                                      <div>
-                                        <Textarea
-                                          label="Описание группы"
-                                          color="primary"
-                                          type="group_description"
-                                          variant="flat"
-                                          value={tempDescription || ''}
-                                          onChange={(e) =>
-                                            setTempDescription(e.target.value)
-                                          }
-                                          placeholder="Введите описание группы"
-                                          minRows={3}
-                                          maxRows={5}
-                                          isDisabled={!canChangeDescription}
-                                          fullWidth
-                                        />
-                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                          Описание группы будет видно всем
-                                          участникам
-                                        </p>
-                                      </div>
-                                    </div>
-                                  </div>
+										<div className="flex justify-end pt-4">
+											<Button
+												variant="primary"
+												onPress={handleSavePermissions}
+												isPending={isLoading}
+												isDisabled={!isOwner}
+											>
+												Save Permissions
+											</Button>
+										</div>
+									</Tabs.Panel>
 
-                                  <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-                                    <div>
-                                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                        Видимость группы
-                                      </label>
-                                      <div className="flex space-x-3">
-                                        <Button
-                                          onPress={() =>
-                                            setSettings({
-                                              ...settings,
-                                              visibility: 'private',
-                                            })
-                                          }
-                                          variant={
-                                            settings.visibility === 'private'
-                                              ? 'solid'
-                                              : 'light'
-                                          }
-                                          color={
-                                            settings.visibility === 'private'
-                                              ? 'primary'
-                                              : 'default'
-                                          }
-                                          startContent={<FiLock />}
-                                        >
-                                          Приватная
-                                        </Button>
-                                        <Button
-                                          onPress={() =>
-                                            setSettings({
-                                              ...settings,
-                                              visibility: 'public',
-                                            })
-                                          }
-                                          variant={
-                                            settings.visibility === 'public'
-                                              ? 'solid'
-                                              : 'light'
-                                          }
-                                          color={
-                                            settings.visibility === 'public'
-                                              ? 'primary'
-                                              : 'default'
-                                          }
-                                          startContent={<FiGlobe />}
-                                        >
-                                          Публичная
-                                        </Button>
-                                      </div>
-                                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                        {settings.visibility === 'private'
-                                          ? 'Приватная группа видна только участникам'
-                                          : 'Публичная группа может быть найдена в поиске'}
-                                      </p>
-                                    </div>
+									<Tabs.Panel
+										id="notifications"
+										className="space-y-6 max-w-2xl animate-in fade-in slide-in-from-bottom-4 duration-300"
+									>
+										<div>
+											<h3 className="text-2xl font-bold mb-1">
+												Group Notifications
+											</h3>
+											<p className="text-muted text-sm">
+												Manage how you receive alerts for this group.
+											</p>
+										</div>
 
-                                    <div>
-                                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                        Режим присоединения
-                                      </label>
-                                      <div className="flex flex-wrap gap-2">
-                                        <Button
-                                          onPress={() =>
-                                            setSettings({
-                                              ...settings,
-                                              join_mode: 'invite_only',
-                                            })
-                                          }
-                                          variant={
-                                            settings.join_mode === 'invite_only'
-                                              ? 'solid'
-                                              : 'light'
-                                          }
-                                          color={
-                                            settings.join_mode === 'invite_only'
-                                              ? 'primary'
-                                              : 'default'
-                                          }
-                                          size="sm"
-                                          startContent={<FiUserPlus />}
-                                        >
-                                          Только по приглашению
-                                        </Button>
-                                        <Button
-                                          onPress={() =>
-                                            setSettings({
-                                              ...settings,
-                                              join_mode: 'link_only',
-                                            })
-                                          }
-                                          variant={
-                                            settings.join_mode === 'link_only'
-                                              ? 'solid'
-                                              : 'light'
-                                          }
-                                          color={
-                                            settings.join_mode === 'link_only'
-                                              ? 'primary'
-                                              : 'default'
-                                          }
-                                          size="sm"
-                                          startContent={<FiLink />}
-                                        >
-                                          По ссылке
-                                        </Button>
-                                        <Button
-                                          onPress={() =>
-                                            setSettings({
-                                              ...settings,
-                                              join_mode: 'open',
-                                            })
-                                          }
-                                          variant={
-                                            settings.join_mode === 'open'
-                                              ? 'solid'
-                                              : 'light'
-                                          }
-                                          color={
-                                            settings.join_mode === 'open'
-                                              ? 'primary'
-                                              : 'default'
-                                          }
-                                          size="sm"
-                                          startContent={<FiGlobe />}
-                                        >
-                                          Открытая
-                                        </Button>
-                                      </div>
-                                    </div>
+										<div className="space-y-4">
+											<div className="flex items-center justify-between p-4 border border-border rounded-xl bg-surface/30">
+												<div className="space-y-0.5">
+													<Label className="text-sm font-medium">
+														Mute Notifications
+													</Label>
+													<p className="text-xs text-muted">
+														Stop receiving all alerts from this group.
+													</p>
+												</div>
+												<Switch
+													isSelected={chatSettings.muted}
+													onChange={(val: boolean) =>
+														updateChatSetting(group.id, "muted", val)
+													}
+												>
+													<Switch.Control>
+														<Switch.Thumb />
+													</Switch.Control>
+												</Switch>
+											</div>
 
-                                    <div>
-                                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                        Максимальное количество участников
-                                      </label>
-                                      <Input
-                                        type="number"
-                                        value={settings.max_members.toString()}
-                                        color="primary"
-                                        variant="flat"
-                                        onChange={(e) =>
-                                          setSettings({
-                                            ...settings,
-                                            max_members:
-                                              parseInt(e.target.value) || 100,
-                                          })
-                                        }
-                                        min="1"
-                                        max="500"
-                                        startContent={
-                                          <FiUsers className="text-slate-400" />
-                                        }
-                                        className="w-full max-w-xs"
-                                      />
-                                    </div>
+											<div
+												className={`flex items-center justify-between p-4 border border-border rounded-xl bg-surface/30 transition-opacity ${chatSettings.muted ? "opacity-40 pointer-events-none" : ""}`}
+											>
+												<div className="space-y-0.5">
+													<Label className="text-sm font-medium">
+														Mentions Only
+													</Label>
+													<p className="text-xs text-muted">
+														Only notify when someone @mentions you.
+													</p>
+												</div>
+												<Switch
+													isSelected={chatSettings.mentionsOnly}
+													onChange={(val: boolean) =>
+														updateChatSetting(group.id, "mentionsOnly", val)
+													}
+												>
+													<Switch.Control>
+														<Switch.Thumb />
+													</Switch.Control>
+												</Switch>
+											</div>
+										</div>
+									</Tabs.Panel>
+								</div>
+							</Tabs>
+						</Modal.Body>
+					</Modal.Dialog>
+				</Modal.Container>
+			</Modal.Backdrop>
 
-                                    <div>
-                                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                                        Режим медленных сообщений (секунды)
-                                      </label>
-                                      <Input
-                                        type="number"
-                                        value={settings.slow_mode_delay.toString()}
-                                        onChange={(e) =>
-                                          setSettings({
-                                            ...settings,
-                                            slow_mode_delay:
-                                              parseInt(e.target.value) || 0,
-                                          })
-                                        }
-                                        min="0"
-                                        max="3600"
-                                        color="primary"
-                                        variant="flat"
-                                        startContent={
-                                          <FiClock className="text-slate-400" />
-                                        }
-                                        className="w-full max-w-xs"
-                                      />
-                                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                        0 = режим медленных сообщений отключен
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
+			{isCropOpen && (
+				<ImageCropModal
+					isOpen={isCropOpen}
+					onOpenChange={setIsCropOpen}
+					imageSrc={selectedImageSrc}
+					onCropComplete={onCropComplete}
+					mimeType={mimeType}
+				/>
+			)}
 
-                              {/* Members */}
-                              {activeTab === 'members' && (
-                                <div className="space-y-4">
-                                  <div className="flex justify-between items-center">
-                                    <h3 className="text-lg font-medium text-slate-900 dark:text-white">
-                                      Участники группы (
-                                      {group.participants.length})
-                                    </h3>
-                                    <Button
-                                      color="primary"
-                                      size="sm"
-                                      startContent={<FiUserPlus />}
-                                    >
-                                      Пригласить
-                                    </Button>
-                                  </div>
+			{/* Individual Member Permissions Modal */}
+			<Modal
+				isOpen={memberToEdit !== null}
+				onOpenChange={() => setMemberToEdit(null)}
+			>
+				<Modal.Backdrop>
+					<Modal.Container>
+						<Modal.Dialog className="sm:max-w-[400px]">
+							<Modal.CloseTrigger />
+							<Modal.Header>
+								<Modal.Heading>Member Permissions</Modal.Heading>
+							</Modal.Header>
+							<Modal.Body className="space-y-4">
+								<div className="space-y-4 pt-2">
+									<div className="flex flex-col gap-2">
+										<Label className="text-sm font-medium">Role Preset</Label>
+										<Surface className="overflow-hidden border border-border rounded-xl">
+											<ListBox
+												aria-label="Member Role"
+												selectedKeys={new Set([memberRole])}
+												selectionMode="single"
+												onSelectionChange={(keys: Selection) => {
+													const selected = Array.from(keys)[0] as string;
+													if (selected) handleRoleChange(selected);
+												}}
+												className="w-full"
+											>
+												<ListBox.Item id="Member" textValue="Member">
+													<div className="flex flex-col">
+														<Label>Member</Label>
+														<Description>
+															Standard participant with basic permissions
+														</Description>
+													</div>
+												</ListBox.Item>
+												<ListBox.Item id="Moderator" textValue="Moderator">
+													<div className="flex flex-col">
+														<Label>Moderator</Label>
+														<Description>
+															Can delete messages and manage members
+														</Description>
+													</div>
+												</ListBox.Item>
+												<ListBox.Item id="Admin" textValue="Admin">
+													<div className="flex flex-col">
+														<Label>Admin</Label>
+														<Description>
+															Full control over group settings and users
+														</Description>
+													</div>
+												</ListBox.Item>
+												<ListBox.Item id="Reader" textValue="Reader">
+													<div className="flex flex-col">
+														<Label>Reader</Label>
+														<Description>
+															Can only read messages, cannot send anything
+														</Description>
+													</div>
+												</ListBox.Item>
+												<ListBox.Item id="Custom" textValue="Custom">
+													<div className="flex flex-col">
+														<Label>Custom</Label>
+														<Description>
+															Individually tailored permissions
+														</Description>
+													</div>
+												</ListBox.Item>
+											</ListBox>
+										</Surface>
+									</div>
 
-                                  <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
-                                    <div className="max-h-96 overflow-y-auto">
-                                      <div className="divide-y divide-slate-200 dark:divide-slate-700">
-                                        {participants.length > 0 ? (
-                                          participants.map(
-                                            (participant, index) => (
-                                              <div
-                                                key={index}
-                                                className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
-                                              >
-                                                <div className="flex items-center">
-                                                  <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center mr-3">
-                                                    <span className="text-lg font-medium text-slate-600 dark:text-slate-300">
-                                                      {participant.username
-                                                        ? participant.username
-                                                            .charAt(0)
-                                                            .toUpperCase()
-                                                        : '?'}
-                                                    </span>
-                                                  </div>
-                                                  <div>
-                                                    <div className="font-medium text-slate-900 dark:text-white">
-                                                      {participant.username}
-                                                    </div>
-                                                    <div className="text-xs text-slate-500 dark:text-slate-400">
-                                                      ID: {participant.user_id}
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                                <div className="flex space-x-2">
-                                                  <Button
-                                                    size="sm"
-                                                    variant="light"
-                                                    color="primary"
-                                                    isIconOnly
-                                                    onPress={() =>
-                                                      handleUserClick(
-                                                        participant.user_id,
-                                                        participant.username,
-                                                      )
-                                                    }
-                                                  >
-                                                    <FiShield className="h-4 w-4" />
-                                                  </Button>
-                                                  <Button
-                                                    size="sm"
-                                                    variant="light"
-                                                    color="danger"
-                                                    isIconOnly
-                                                    onPress={() =>
-                                                      handleRemoveUser(
-                                                        participant.user_id,
-                                                      )
-                                                    }
-                                                  >
-                                                    <FiTrash2 className="h-4 w-4" />
-                                                  </Button>
-                                                </div>
-                                              </div>
-                                            ),
-                                          )
-                                        ) : (
-                                          <div className="flex flex-col items-center justify-center py-8 px-4 text-center">
-                                            <FiUsers className="h-12 w-12 text-slate-400 mb-2" />
-                                            <p className="text-slate-500 dark:text-slate-400">
-                                              В этой группе пока нет участников
-                                            </p>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
+									<Separator className="my-4 opacity-50" />
 
-                              {/* Permissions */}
-                              {activeTab === 'permissions' && (
-                                <div className="space-y-6">
-                                  <h3 className="text-lg font-medium text-slate-900 dark:text-white">
-                                    Разрешения по умолчанию
-                                  </h3>
+									<p className="text-xs font-semibold text-muted uppercase tracking-wider mb-2">
+										Detailed Permissions
+									</p>
 
-                                  <div className="space-y-4">
-                                    <div className="flex items-center justify-between py-2">
-                                      <div className="flex items-center">
-                                        {!isMobile && (
-                                          <FiMessageSquare className="h-5 w-5 text-blue-500 mr-3" />
-                                        )}
-                                        <div>
-                                          <div className="font-medium text-slate-900 dark:text-white">
-                                            Отправка сообщений
-                                          </div>
-                                          <div className="text-sm text-slate-500 dark:text-slate-400">
-                                            Разрешить участникам отправлять
-                                            сообщения
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <Switch
-                                        isSelected={settings.allow_messages}
-                                        onValueChange={(value) =>
-                                          setSettings({
-                                            ...settings,
-                                            allow_messages: value,
-                                          })
-                                        }
-                                        color="primary"
-                                      />
-                                    </div>
+									{memberPermissions &&
+										(
+											[
+												{ key: "send_messages", label: "Send Messages" },
+												{ key: "manage_members", label: "Invite Users" },
+												{ key: "pin_messages", label: "Pin Messages" },
+												{ key: "delete_messages", label: "Delete Messages" },
+												{ key: "rename_group", label: "Rename Group" },
+												{
+													key: "manage_permissions",
+													label: "Manage Permissions",
+												},
+												{ key: "manage_admins", label: "Manage Admins" },
+											] as { key: keyof Permissions; label: string }[]
+										).map(({ key, label }) => (
+											<div
+												key={key}
+												className="flex items-center justify-between"
+											>
+												<Label className="text-sm">{label}</Label>
+												<Switch
+													isSelected={memberPermissions[key]}
+													onChange={(val: boolean) => {
+														setMemberPermissions((prev) =>
+															prev ? { ...prev, [key]: val } : null,
+														);
+														if (memberRole !== "Custom")
+															setMemberRole("Custom");
+													}}
+												>
+													<Switch.Control>
+														<Switch.Thumb />
+													</Switch.Control>
+												</Switch>
+											</div>
+										))}
+								</div>
+							</Modal.Body>
+							<Modal.Footer>
+								<Button
+									variant="secondary"
+									onPress={() => setMemberToEdit(null)}
+								>
+									Cancel
+								</Button>
+								<Button
+									variant="primary"
+									isPending={isLoading}
+									onPress={handleSaveMemberPermissions}
+								>
+									Save
+								</Button>
+							</Modal.Footer>
+						</Modal.Dialog>
+					</Modal.Container>
+				</Modal.Backdrop>
+			</Modal>
 
-                                    <div className="flex items-center justify-between py-2">
-                                      <div className="flex items-center">
-                                        {!isMobile && (
-                                          <FiSmile className="h-5 w-5 text-yellow-500 mr-3" />
-                                        )}
-                                        <div>
-                                          <div className="font-medium text-slate-900 dark:text-white">
-                                            Стикеры
-                                          </div>
-                                          <div className="text-sm text-slate-500 dark:text-slate-400">
-                                            Разрешить использование стикеров
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <Switch
-                                        isSelected={settings.allow_stickers}
-                                        onValueChange={(value) =>
-                                          setSettings({
-                                            ...settings,
-                                            allow_stickers: value,
-                                          })
-                                        }
-                                        color="primary"
-                                      />
-                                    </div>
-
-                                    <div className="flex items-center justify-between py-2">
-                                      <div className="flex items-center">
-                                        {!isMobile && (
-                                          <FiImage className="h-5 w-5 text-green-500 mr-3" />
-                                        )}
-                                        <div>
-                                          <div className="font-medium text-slate-900 dark:text-white">
-                                            GIF-анимации
-                                          </div>
-                                          <div className="text-sm text-slate-500 dark:text-slate-400">
-                                            Разрешить использование GIF-анимаций
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <Switch
-                                        isSelected={settings.allow_gifs}
-                                        onValueChange={(value) =>
-                                          setSettings({
-                                            ...settings,
-                                            allow_gifs: value,
-                                          })
-                                        }
-                                        color="primary"
-                                      />
-                                    </div>
-
-                                    <div className="flex items-center justify-between py-2">
-                                      <div className="flex items-center">
-                                        {!isMobile && (
-                                          <FiMic className="h-5 w-5 text-indigo-500 mr-3" />
-                                        )}
-                                        <div>
-                                          <div className="font-medium text-slate-900 dark:text-white">
-                                            Голосовые сообщения
-                                          </div>
-                                          <div className="text-sm text-slate-500 dark:text-slate-400">
-                                            Разрешить отправку голосовых
-                                            сообщений
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <Switch
-                                        isSelected={
-                                          settings.allow_voice_messages
-                                        }
-                                        onValueChange={(value) =>
-                                          setSettings({
-                                            ...settings,
-                                            allow_voice_messages: value,
-                                          })
-                                        }
-                                        color="primary"
-                                      />
-                                    </div>
-
-                                    <div className="flex items-center justify-between py-2">
-                                      <div className="flex items-center">
-                                        {!isMobile && (
-                                          <FiVideo className="h-5 w-5 text-red-500 mr-3" />
-                                        )}
-                                        <div>
-                                          <div className="font-medium text-slate-900 dark:text-white">
-                                            Видео сообщения
-                                          </div>
-                                          <div className="text-sm text-slate-500 dark:text-slate-400">
-                                            Разрешить отправку видеосообщений
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <Switch
-                                        isSelected={
-                                          settings.allow_video_messages
-                                        }
-                                        onValueChange={(value) =>
-                                          setSettings({
-                                            ...settings,
-                                            allow_video_messages: value,
-                                          })
-                                        }
-                                        color="primary"
-                                      />
-                                    </div>
-
-                                    <div className="flex items-center justify-between py-2">
-                                      <div className="flex items-center">
-                                        {!isMobile && (
-                                          <FiLink className="h-5 w-5 text-purple-500 mr-3" />
-                                        )}
-                                        <div>
-                                          <div className="font-medium text-slate-900 dark:text-white">
-                                            Ссылки
-                                          </div>
-                                          <div className="text-sm text-slate-500 dark:text-slate-400">
-                                            Разрешить отправку ссылок
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <Switch
-                                        isSelected={settings.allow_links}
-                                        onValueChange={(value) =>
-                                          setSettings({
-                                            ...settings,
-                                            allow_links: value,
-                                          })
-                                        }
-                                        color="primary"
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
-                              {/* Media */}
-                              {activeTab === 'media' && renderMediaContent()}
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Footer with actions */}
-                    <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end">
-                      <Button
-                        variant="light"
-                        onClick={onClose}
-                        className="mr-2"
-                      >
-                        Отмена
-                      </Button>
-                      {/* Кнопка сохранения только если не на меню выбора категорий в мобильном режиме */}
-                      {(!isMobile || (isMobile && !showMenu)) && (
-                        <Button
-                          color="primary"
-                          onPress={handleSaveSettings}
-                          isLoading={isSaving}
-                          startContent={!isSaving && <FiCheck />}
-                        >
-                          {isSaving ? 'Сохранение...' : 'Сохранить настройки'}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </DialogPanel>
-              </TransitionChild>
-            </div>
-          </div>
-        </Dialog>
-      </Transition>
-
-      {selectedUser && (
-        <PermissionsModal
-          isOpen={isPermissionsModalOpen}
-          onClose={() => setIsPermissionsModalOpen(false)}
-          userId={selectedUser.id}
-          userName={selectedUser.name}
-          groupId={group.chat_id}
-          currentPermissions={selectedUser.permissions}
-        />
-      )}
-    </>
-  )
-}
-
-export default GroupSettingsModal
+			<InviteMemberModal
+				isOpen={isInviteModalOpen}
+				onOpenChange={setIsInviteModalOpen}
+				group={group}
+			/>
+		</Modal>
+	);
+};

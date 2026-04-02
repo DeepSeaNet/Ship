@@ -267,7 +267,7 @@ impl GroupManager {
         let mut hasher = sha2::Sha256::new();
         hasher.update(media_data);
         let hash = hasher.finalize();
-        let media_id = format!("{:x}", hash);
+        let media_id = hex::encode(hash);
 
         // Check existence cache first
         if let Some(exists) = self.media_exists_cache.get(&media_id).await {
@@ -323,7 +323,7 @@ impl GroupManager {
                     let mut hasher = sha2::Sha256::new();
                     hasher.update(media_data);
                     let hash = hasher.finalize();
-                    media_id = Some(format!("{:x}", hash));
+                    media_id = Some(hex::encode(hash));
                 }
 
                 // Start transaction
@@ -434,7 +434,7 @@ impl GroupManager {
                 .await
                 .unwrap_or_default();
 
-                let max_inline_size = 1024 * 1024;
+                let max_inline_size = 1024 * 1024 * 100;
                 let mut result_messages = Vec::with_capacity(rows.len());
 
                 for row in rows {
@@ -691,10 +691,9 @@ impl GroupManager {
         let rows = sqlx::query(
             "SELECT DISTINCT group_id
              FROM group_messages
-             WHERE sender_id = ? OR receiver_id = ?
+             WHERE sender_id = ?
              ORDER BY MAX(timestamp) DESC",
         )
-        .bind(user_id)
         .bind(user_id)
         .fetch_all(&self.pool)
         .await?;
@@ -745,16 +744,16 @@ pub fn get_default_db_path(account_id: u64) -> std::path::PathBuf {
     #[cfg(not(target_os = "ios"))]
     {
         let mut path = dirs::home_dir().expect("Could not find home directory");
-        path.push(".anongram");
-        std::fs::create_dir_all(&path).expect("Could not create .anongram directory");
+        path.push(".ship");
+        std::fs::create_dir_all(&path).expect("Could not create .ship directory");
         path.push(format!("group_{}.db", account_id));
         path
     }
     #[cfg(target_os = "ios")]
     {
         let mut path = dirs::document_dir().expect("Could not find home directory");
-        path.push(".anongram");
-        std::fs::create_dir_all(&path).expect("Could not create .anongram directory");
+        path.push("ship");
+        std::fs::create_dir_all(&path).expect("Could not create .ship directory");
         path.push(format!("group_{}.db", account_id));
         path
     }

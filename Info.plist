@@ -19,5 +19,14 @@
   <!-- Уведомления -->
   <key>NSUserNotificationUsageDescription</key>
   <string>Request permission to send you notifications</string>
+
+  <key>NSCameraUseContinuityCameraDeviceType</key>
+  <true/>
+
+  <key>UIFileSharingEnabled</key>
+  <true/>
+
+  <key>LSSupportsOpeningDocumentsInPlace</key>
+  <true/>
 </dict>
 </plist>

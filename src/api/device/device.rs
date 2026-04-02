@@ -10,16 +10,15 @@ use mls_rs_provider_sqlite::{
     SqLiteDataStorageEngine, connection_strategy::FileConnectionStrategy,
 };
 use moka::future::{Cache, CacheBuilder};
-use rand::Rng;
+use rand::RngExt;
 use std::time::Duration;
 use std::{sync::Arc, time::SystemTime};
 use tauri::AppHandle;
 
 use crate::api::{
     account::Account,
-    connection::get_group_servers,
     device::{
-        connection::Backend,
+        connection::{Backend, group_microservice::Device as SDevice},
         db::{self},
         handler::GroupHandler,
         mls_client::MlsClient,
@@ -54,7 +53,6 @@ pub struct Device {
     pub backend: Option<Backend>,
     pub app_handle: Option<AppHandle>,
     pub(super) contacts_parsed_cache: Cache<u64, AccountCredential>,
-    pub(super) display_key_cache: Cache<Vec<u8>, Vec<u8>>,
 }
 
 impl Device {
@@ -72,12 +70,9 @@ impl Device {
         let client = Self::create_client(&identity)?;
         let db_path = db::get_default_db_path(account.credential.account_id.user_id);
         let groups = GroupStorage::new(db_path).await?;
-        let backend = Backend::new(get_group_servers()).await.ok();
+        let backend = Backend::new(account.server_address.clone()).await.ok();
         let contacts_parsed_cache = CacheBuilder::new(10_000)
             .time_to_live(Duration::from_secs(60 * 30))
-            .build();
-        let display_key_cache = CacheBuilder::new(2_000)
-            .time_to_live(Duration::from_secs(60 * 10))
             .build();
         Ok(Self {
             identity,
@@ -88,7 +83,6 @@ impl Device {
             backend,
             app_handle,
             contacts_parsed_cache,
-            display_key_cache,
         })
     }
 
@@ -97,7 +91,7 @@ impl Device {
     /// Establishes the stream and installs the group message handler.
     pub async fn init_backend(&mut self) -> Result<(), GroupError> {
         if self.backend.is_none() {
-            let backend = Backend::new(get_group_servers()).await.ok();
+            let backend = Backend::new(self.account.server_address.clone()).await.ok();
             self.init_stream().await?;
             self.backend = backend;
         }
@@ -114,13 +108,10 @@ impl Device {
     ) -> Result<Self, GroupError> {
         let identity = IdentityKeypair::from_bytes(identity)?;
         let client = Self::create_client(&identity)?;
-        let backend = Backend::new(get_group_servers()).await.ok();
+        let backend = Backend::new(account.server_address.clone()).await.ok();
         groups.load_groups(&client).await?;
         let contacts_parsed_cache = CacheBuilder::new(10_000)
             .time_to_live(Duration::from_secs(60 * 30))
-            .build();
-        let display_key_cache = CacheBuilder::new(2_000)
-            .time_to_live(Duration::from_secs(60 * 10))
             .build();
         Ok(Self {
             identity,
@@ -131,7 +122,6 @@ impl Device {
             backend,
             app_handle,
             contacts_parsed_cache,
-            display_key_cache,
         })
     }
 
@@ -233,6 +223,16 @@ impl Device {
             )
             .await
             .map_err(|e| GroupError::BackendError(format!("Device registration failed: {}", e)))
+    }
+
+    pub async fn get_account_devices(&mut self) -> Result<Vec<SDevice>, GroupError> {
+        let user_id = self.user_id();
+        self.backend
+            .as_mut()
+            .ok_or(GroupError::BackendError("Client is offline".to_string()))?
+            .get_users_devices(user_id)
+            .await
+            .map_err(|e| GroupError::BackendError(format!("Failed to fetch user devices: {}", e)))
     }
 
     /// Upload key packages to backend
@@ -367,7 +367,7 @@ impl Device {
     pub async fn create_key_package(&self) -> Result<MlsMessage, GroupError> {
         self.client
             .generate_key_package_message(Default::default(), Default::default(), None)
-            .await
+            //.await
             .map_err(|e| GroupError::MlsError(format!("Key package generation failed: {}", e)))
     }
 
@@ -378,7 +378,7 @@ impl Device {
 
         self.client
             .generate_key_package_message(extensions, Default::default(), None)
-            .await
+            //.await
             .map_err(|e| GroupError::MlsError(format!("Key package generation failed: {}", e)))
     }
 
@@ -427,7 +427,7 @@ impl Device {
     /// Generate a random message identifier
     pub fn generate_message_id() -> u64 {
         let mut rng = rand::rng();
-        rng.random_range(0..u64::MAX)
+        rng.random_range(0..i64::MAX as u64)
     }
 }
 
@@ -436,16 +436,16 @@ pub fn get_default_db_path(account_id: u64, device_id: &str) -> std::path::PathB
     #[cfg(not(target_os = "ios"))]
     {
         let mut path = dirs::home_dir().expect("Could not find home directory");
-        path.push(".anongram/group");
-        std::fs::create_dir_all(&path).expect("Could not create .anongram directory");
+        path.push(".ship/group");
+        std::fs::create_dir_all(&path).expect("Could not create .ship directory");
         path.push(format!("group_{}_{}.db", account_id, device_id));
         path
     }
     #[cfg(target_os = "ios")]
     {
         let mut path = dirs::document_dir().expect("Could not find home directory");
-        path.push(".anongram/group");
-        std::fs::create_dir_all(&path).expect("Could not create .anongram directory");
+        path.push(".ship/group");
+        std::fs::create_dir_all(&path).expect("Could not create .ship directory");
         path.push(format!("group_{}_{}.db", account_id, device_id));
         path
     }

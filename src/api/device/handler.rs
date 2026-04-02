@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use super::types::group::MlsGroup;
-use crate::api::device::types::custom_mls::credentials::DeviceCredential;
-use crate::api::device::types::extensions::group_config::group_config::GroupConfig;
-use crate::api::device::types::extensions::group_config::group_extension::{
+use super::types::custom_mls::credentials::DeviceCredential;
+use super::types::extensions::group_config::group_config::GroupConfig;
+use super::types::extensions::group_config::group_extension::{
     GroupConfigExtension, UPDATE_GROUP_CONFIG_PROPOSAL_V1, UpdateGroupConfigProposal,
 };
-use crate::api::device::types::signature_bytes::UploadKeyPackagesTBS;
+use super::types::group::MlsGroup;
+use super::types::signature_bytes::UploadKeyPackagesTBS;
 use mls_rs::group::CommitEffect;
 use mls_rs::group::proposal::{MlsCustomProposal, Proposal};
 use mls_rs::{MlsMessage, group::ReceivedMessage};
@@ -15,7 +15,6 @@ use mls_rs_codec::MlsEncode;
 use moka::future::{Cache, CacheBuilder};
 use std::time::Duration;
 use tauri::AppHandle;
-use tauri::Emitter;
 
 use super::connection::Backend;
 use super::connection::group_microservice;
@@ -25,6 +24,10 @@ use super::mls_client::MlsClient;
 use super::types::errors::GroupError;
 use super::types::group::{GroupId, GroupStorage};
 use crate::api::account::Account;
+use crate::commands::events::{
+    emit_join_group_event, emit_message_delivery_event, emit_new_group_config,
+    emit_text_message_event, emit_welcome_message_event,
+};
 
 pub struct GroupHandler {
     pub user_id: u64,
@@ -84,7 +87,7 @@ impl GroupHandler {
         let key_package = self
             .client
             .generate_key_package_message(Default::default(), Default::default(), None)
-            .await
+            //.await
             .map_err(|e| GroupError::MlsError(format!("Key package generation failed: {}", e)))?;
         let key_package_bytes = key_package.mls_encode_to_vec().map_err(|e| {
             GroupError::EncodingError(format!("Failed to encode key package: {}", e))
@@ -109,14 +112,20 @@ impl GroupHandler {
     }
 
     async fn join(&mut self, welcome_message: &MlsMessage) -> Result<GroupId, GroupError> {
-        let (mut group, _) = self.client.join_group(None, welcome_message, None).await?;
+        let (mut group, _) = self.client.join_group(None, welcome_message, None)
+            //.await
+            ?;
 
-        group.write_to_storage().await?;
+        group.write_to_storage()
+            //.await
+            ?;
         let group_config = self.extract_group_config(&group)?;
 
         let group_id = GroupId::new(group.group_id().to_vec());
         self.groups.insert(group_id.clone(), group).await;
-        self.emit_join_group_event(&group_config, &group_id).await?;
+        if let Some(app_handle) = &self.app_handle {
+            emit_join_group_event(app_handle, &group_config, &group_id).await?;
+        }
         // Upload a fresh key package after consuming one for the welcome join
         self.upload_key_packages().await?;
         self.backend
@@ -139,10 +148,13 @@ impl GroupHandler {
 
         let group_arc = self.groups.get(&group_id).await?;
         let mut group = group_arc.write().await;
-        let received_message = group.process_incoming_message(message).await.map_err(|e| {
-            log::error!("Failed to process incoming message: {:#}", e);
-            GroupError::MessageProcessingError(e.to_string())
-        })?;
+        let received_message = group
+            .process_incoming_message(message)
+            //.await
+            .map_err(|e| {
+                log::error!("Failed to process incoming message: {:#}", e);
+                GroupError::MessageProcessingError(e.to_string())
+            })?;
 
         self.process_received_message(received_message, &group)
             .await
@@ -151,115 +163,10 @@ impl GroupHandler {
                 GroupError::MessageProcessingError(e.to_string())
             })?;
 
-        group.write_to_storage().await?;
+        group.write_to_storage()
+            //.await
+            ?;
 
-        Ok(())
-    }
-
-    async fn emit_text_message_event(
-        &self,
-        text_msg: &UserGroupMessage,
-        group_id: &GroupId,
-        group_config: &GroupConfig,
-    ) -> Result<(), GroupError> {
-        match text_msg {
-            UserGroupMessage::TextMessage(text_msg) => {
-                let event_payload = serde_json::json!({
-                        "type": "new_group_message",
-                            "data": {
-                            "group_id": group_id.to_string(),
-                            "group_name": group_config.name,
-                            "sender_id": text_msg.sender_id.to_string(),
-                            "text": text_msg.text,
-                            "timestamp": text_msg.date,
-                            "media": text_msg.media,
-                            "media_name": text_msg.media_name,
-                            "message_id": text_msg.message_id.to_string(),
-                            "reply_message_id": text_msg.reply_message_id.map(|id| id.to_string()),
-                            "edit_date": text_msg.edit_date.map(|date| date.to_string()),
-                            "is_edit": text_msg.edit_date.is_some(),
-                            "expires": text_msg.expires.map(|date| date.to_string())
-                    }
-                });
-
-                if let Some(app_handle) = &self.app_handle {
-                    app_handle
-                        .emit("server-event", event_payload)
-                        .map_err(|e| GroupError::EventError(e.to_string()))?;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    async fn emit_join_group_event(
-        &self,
-        group_config: &GroupConfig,
-        group_id: &GroupId,
-    ) -> Result<(), GroupError> {
-        let users_permisions = &group_config.permissions;
-        let default_permissions = &group_config.default_permissions;
-        let user_permissions = users_permisions
-            .get(&self.user_id)
-            .unwrap_or(default_permissions);
-        let event_payload = serde_json::json!({
-            "type": "join_group",
-            "data": {
-                "group_name": group_config.name,
-                "group_id": group_id.to_string(),
-                "description": group_config.description,
-                "avatar": group_config.avatar,
-                "member_count": group_config.members.len(),
-                "members": group_config.members,
-                "user_permissions": user_permissions,
-                "users_permisions": users_permisions,
-                "owner_id": group_config.creator_id,
-                "admins": group_config.admins,
-                "date": group_config.created_at.timestamp,
-                "default_permissions": default_permissions
-            }
-        });
-
-        if let Some(app_handle) = &self.app_handle {
-            app_handle
-                .emit("server-event", event_payload)
-                .map_err(|e| GroupError::EventError(e.to_string()))?;
-        }
-        Ok(())
-    }
-
-    async fn emit_new_group_config(
-        &self,
-        group_id: &GroupId,
-        group_config: &GroupConfig,
-    ) -> Result<(), GroupError> {
-        let users_permisions = &group_config.permissions;
-        let default_permissions = &group_config.default_permissions;
-        let user_permissions = users_permisions
-            .get(&self.user_id)
-            .unwrap_or(default_permissions);
-        let event_payload = serde_json::json!({
-            "type": "group_config_updated",
-            "data": {
-                "group_id": group_id.to_string(),
-                "group_name": group_config.name,
-                "description": group_config.description,
-                "avatar": group_config.avatar,
-                "owner_id": group_config.creator_id,
-                "admins": group_config.admins,
-                "members": group_config.members,
-                "created_at": group_config.created_at.timestamp,
-                "user_permissions": user_permissions,
-                "users_permisions": users_permisions,
-                "default_permissions": default_permissions,
-            }
-        });
-
-        if let Some(app_handle) = &self.app_handle {
-            app_handle
-                .emit("server-event", event_payload)
-                .map_err(|e| GroupError::EventError(e.to_string()))?;
-        }
         Ok(())
     }
 
@@ -308,8 +215,9 @@ impl GroupHandler {
                     .await
                     .map_err(|e| GroupError::StorageError(e.to_string()))?;
                 let group_id = GroupId::new(group.group_id().to_vec());
-                self.emit_text_message_event(&message, &group_id, &group_config)
-                    .await?;
+                if let Some(app_handle) = &self.app_handle {
+                    emit_text_message_event(app_handle, &message, &group_id, &group_config).await?;
+                }
 
                 Ok(())
             }
@@ -326,11 +234,14 @@ impl GroupHandler {
                                     let update_group_config =
                                         UpdateGroupConfigProposal::from_custom_proposal(custom)?;
                                     let group_id = GroupId::new(group.group_id().to_vec());
-                                    self.emit_new_group_config(
-                                        &group_id,
-                                        &update_group_config.new_config,
-                                    )
-                                    .await?;
+                                    if let Some(app_handle) = &self.app_handle {
+                                        emit_new_group_config(
+                                            app_handle,
+                                            &group_id,
+                                            &update_group_config.new_config,
+                                        )
+                                        .await?;
+                                    }
                                 }
                             }
                             _ => {
@@ -433,6 +344,10 @@ impl GroupHandler {
                                     msg.message_id,
                                     msg.success
                                 );
+                                if let Some(app_handle) = &self.app_handle {
+                                    emit_message_delivery_event(app_handle, msg.message_id, msg.success)
+                                        .await?;
+                                }
                             }
                             group_microservice::stream_response::Response::SendWelcomeMessage(
                                 msg,
@@ -442,15 +357,25 @@ impl GroupHandler {
                                     msg.message_id,
                                     msg.success
                                 );
+                                if let Some(app_handle) = &self.app_handle {
+                                    emit_welcome_message_event(app_handle, msg.message_id, msg.success)
+                                        .await?;
+                                }
                             }
                             group_microservice::stream_response::Response::WelcomeMessage(msg) => {
-                                log::info!("Received welcome message for user {}", self.user_id);
+                                log::info!("Received welcome message {} for user {}", msg.message_id, self.user_id);
                                 if let Err(e) = async {
                                     let message = MlsMessage::from_bytes(&msg.welcome_message)
                                         .map_err(|e| {
                                             GroupError::MessageDecodingError(e.to_string())
                                         })?;
-                                    self.join(&message).await
+                                    self.join(&message).await?;
+                                    self.backend
+                                        .ack_delivery(msg.message_id, self.user_id, self.device_id.clone(), Vec::new())
+                                        .await
+                                        .map_err(|e| {
+                                            GroupError::BackendError(format!("Failed to ack delivery: {}", e))
+                                        })
                                 }
                                 .await
                                 {

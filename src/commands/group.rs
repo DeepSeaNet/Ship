@@ -1,14 +1,85 @@
 use base64::{Engine as _, engine::general_purpose};
-use rand::Rng;
-use std::str::FromStr;
+use rand::RngExt;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::AppHandle;
 use tauri::Emitter;
-use tauri_plugin_fs::FilePath;
-use tauri_plugin_fs::FsExt;
 use tokio::sync::RwLock;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupActionResponse {
+    pub success: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupMessageResponse {
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chat_id: Option<String>,
+    pub sender_id: i64,
+    pub content: String,
+    pub timestamp: i64,
+    pub media: bool,
+    pub media_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub media_data: Option<String>,
+    pub reply_to: Option<String>,
+    pub edit_date: Option<String>,
+    pub is_edit: bool,
+    pub expires: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateGroupResponse {
+    pub group_id: String,
+    pub group_config: GroupConfig,
+    pub avatar: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupResponse {
+    pub group_id: String,
+    pub group_config: GroupConfig,
+    pub avatar: Option<String>,
+    pub last_message: Option<GroupMessageResponse>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessagesListResponse {
+    pub messages: Vec<GroupMessageResponse>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MediaResponse {
+    pub media_id: String,
+    pub filename: String,
+    pub timestamp: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MediaListResponse {
+    pub media: Vec<MediaResponse>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CacheSizeResponse {
+    pub size: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdatePermissions {
+    pub manage_members: Option<bool>,
+    pub send_messages: Option<bool>,
+    pub delete_messages: Option<bool>,
+    pub rename_group: Option<bool>,
+    pub manage_permissions: Option<bool>,
+    pub pin_messages: Option<bool>,
+    pub manage_admins: Option<bool>,
+}
+
 use crate::api::device::Device;
+use crate::api::device::types::extensions::group_config::group_config::GroupConfig;
 use crate::api::device::types::{
     extensions::group_config::{group_config, group_config_builder},
     group::GroupId,
@@ -18,10 +89,44 @@ use crate::api::device::types::{
 
 type SafeGroupUser = Arc<RwLock<Option<Device>>>;
 
+pub fn format_group_config(
+    group_config: &GroupConfig,
+    group_id: GroupId,
+    user_id: u64,
+) -> serde_json::Value {
+    let avatar = group_config
+        .avatar
+        .clone()
+        .map(|avatar| general_purpose::STANDARD.encode(avatar));
+
+    let users_permisions = &group_config.permissions;
+    let default_permissions = &group_config.default_permissions;
+    let user_permissions = users_permisions
+        .get(&user_id)
+        .unwrap_or(default_permissions);
+
+    serde_json::json!({
+        "type": "group_config_updated",
+        "data": {
+            "group_id": group_id.to_string(),
+            "group_name": group_config.name,
+            "description": group_config.description,
+            "avatar": avatar,
+            "owner_id": group_config.creator_id,
+            "admins": group_config.admins,
+            "members": group_config.members,
+            "created_at": group_config.created_at.timestamp,
+            "user_permissions": user_permissions,
+            "users_permisions": users_permisions,
+            "default_permissions": default_permissions,
+        }
+    })
+}
+
 #[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub async fn create_group(
-    app_handle: AppHandle,
+    _app_handle: AppHandle,
     group_name: String,
     group_user_state: tauri::State<'_, SafeGroupUser>,
     visibility: Option<String>,
@@ -34,7 +139,7 @@ pub async fn create_group(
     allow_voice_messages: Option<bool>,
     allow_video_messages: Option<bool>,
     allow_links: Option<bool>,
-) -> Result<serde_json::Value, String> {
+) -> Result<CreateGroupResponse, String> {
     let mut group_user = group_user_state.write().await;
     log::info!("Creating group: {}", group_name);
     if let Some(user) = group_user.as_mut() {
@@ -103,32 +208,16 @@ pub async fn create_group(
             .await
             .map_err(|e| e.to_string())?;
 
-        let event_payload = serde_json::json!(
-            {
-                "type": "create_group",
-                "data": {
-                    "group_name": group_config.name,
-                    "group_id": group_id.to_string(),
-                    "group_config": group_config,
-                    "members_count": group_config.members.len(),
-                    "members": group_config.members,
-                    "user_permission": group_config.permissions.get(&user.user_id()).unwrap(),
-                    "users_permisions": group_config.permissions,
-                    "description": group_config.description,
-                    "owner_id": group_config.creator_id,
-                    "admins": group_config.admins,
-                    "date": std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs() as i64
-                }
-            }
-        );
-        app_handle.emit("server-event", event_payload).unwrap();
-        Ok(serde_json::json!({
-            "success": true,
-            "message": "Group created successfully"
-        }))
+        let avatar = group_config
+            .avatar
+            .clone()
+            .map(|avatar| general_purpose::STANDARD.encode(avatar));
+
+        Ok(CreateGroupResponse {
+            group_id: group_id.to_string(),
+            group_config,
+            avatar,
+        })
     } else {
         Err("Group user not initialized. Call init_group_user first.".to_string())
     }
@@ -136,49 +225,45 @@ pub async fn create_group(
 
 #[tauri::command]
 pub async fn leave_group(
+    app_handle: AppHandle,
     group_name: String,
     group_user_state: tauri::State<'_, SafeGroupUser>,
-) -> Result<serde_json::Value, String> {
+) -> Result<GroupActionResponse, String> {
     let mut group_user = group_user_state.write().await;
     let group_id = GroupId::from_string(&group_name).map_err(|e| e.to_string())?;
     if let Some(user) = group_user.as_mut() {
         user.leave_group(&group_id)
             .await
             .map_err(|e| e.to_string())?;
+
+        let event_payload = serde_json::json!({
+            "type": "leave_group",
+            "data": {
+                "group_id": group_id.to_string()
+            }
+        });
+        app_handle.emit("server-event", event_payload).unwrap();
     }
-    Ok(serde_json::json!({
-        "success": true,
-        "message": "Group left successfully"
-    }))
+    Ok(GroupActionResponse {
+        success: true,
+        message: "Group left successfully".to_string(),
+    })
 }
 
 #[tauri::command]
 pub async fn get_groups(
     group_user_state: tauri::State<'_, SafeGroupUser>,
-) -> Result<Vec<serde_json::Value>, String> {
+) -> Result<Vec<GroupResponse>, String> {
     let group_user = group_user_state.read().await;
     if let Some(user) = group_user.as_ref() {
         let groups = user.groups.list_groups().await;
         let mut groups_list = Vec::new();
 
         for group_id in groups.iter() {
-            let members = user
-                .get_group_members(group_id)
-                .await
-                .map_err(|e| e.to_string())?;
-
             let group_config = user
                 .get_group_config(group_id)
                 .await
                 .map_err(|e| e.to_string())?;
-            let users_permisions = group_config.permissions;
-            let default_permissions = group_config.default_permissions;
-            let user_permissions = users_permisions
-                .get(&user.user_id())
-                .unwrap_or(&default_permissions);
-            let avatar = group_config
-                .avatar
-                .map(|avatar| general_purpose::STANDARD.encode(avatar));
             let last_message = user
                 .groups
                 .messages
@@ -186,37 +271,40 @@ pub async fn get_groups(
                 .await
                 .map_err(|e| e.to_string())?;
 
-            let last_message: Option<serde_json::Value> = if let Some(message) = last_message {
-                Some(serde_json::json!({
-                    "message_id": message.message_id,
-                    "text": message.text,
-                    "timestamp": message.date,
-                    "sender_id": message.sender_id,
-                    "media_name": message.media_name,
-                    "media": message.media,
-                    "reply_to": message.reply_message_id,
-                    "edited": message.edit_date,
-                    "expires": message.expires,
-                }))
+            let last_message: Option<GroupMessageResponse> = if let Some(message) = last_message {
+                let media_data = message
+                    .media
+                    .as_ref()
+                    .map(|data| general_purpose::STANDARD.encode(data));
+                Some(GroupMessageResponse {
+                    id: message.message_id.to_string(),
+                    chat_id: None,
+                    content: message.text,
+                    timestamp: message.date,
+                    sender_id: message.sender_id,
+                    media: message.media.is_some(),
+                    media_name: message.media_name,
+                    media_data,
+                    reply_to: message.reply_message_id.map(|id| id.to_string()),
+                    edit_date: message.edit_date.map(|date| date.to_string()),
+                    is_edit: message.edit_date.is_some(),
+                    expires: message.expires.map(|date| date.to_string()),
+                })
             } else {
                 None
             };
 
-            groups_list.push(serde_json::json!({
-                "group_name": group_config.name,
-                "group_id": group_id.to_string(),
-                "description": group_config.description,
-                "avatar": avatar,
-                "member_count": members.len(),
-                "members": members,
-                "user_permissions": user_permissions,
-                "users_permisions": users_permisions,
-                "owner_id": group_config.creator_id,
-                "admins": group_config.admins,
-                "date": group_config.created_at.timestamp,
-                "default_permissions": default_permissions,
-                "last_message": last_message
-            }));
+            let avatar = group_config
+                .avatar
+                .clone()
+                .map(|avatar| general_purpose::STANDARD.encode(avatar));
+
+            groups_list.push(GroupResponse {
+                group_id: group_id.to_string(),
+                group_config,
+                avatar,
+                last_message,
+            });
         }
 
         Ok(groups_list)
@@ -227,22 +315,35 @@ pub async fn get_groups(
 
 #[tauri::command]
 pub async fn invite_to_group(
-    client_id: u64,
-    group_name: String,
+    app_handle: AppHandle,
+    user_id: u64,
+    group_id: String,
     group_user_state: tauri::State<'_, SafeGroupUser>,
-) -> Result<serde_json::Value, String> {
+) -> Result<GroupActionResponse, String> {
     let mut group_user = group_user_state.write().await;
-    let group_id = GroupId::from_string(&group_name).map_err(|e| e.to_string())?;
+    let group_id = GroupId::from_string(&group_id).map_err(|e| e.to_string())?;
     if let Some(user) = group_user.as_mut() {
-        match user.invite(&group_id, client_id).await {
-            Ok(_) => Ok(serde_json::json!({
-                "success": true,
-                "message": format!("User {} invited to group {}", client_id, group_name)
-            })),
-            Err(e) => Ok(serde_json::json!({
-                "success": false,
-                "message": format!("Failed to invite user: {}", e)
-            })),
+        match user.invite(&group_id, user_id).await {
+            Ok(_) => {
+                // Emit updated config
+                if let Ok(group_config) = user.get_group_config(&group_id).await {
+                    app_handle
+                        .emit(
+                            "server-event",
+                            format_group_config(&group_config, group_id, user.user_id()),
+                        )
+                        .unwrap();
+                }
+
+                Ok(GroupActionResponse {
+                    success: true,
+                    message: format!("User {} invited to group", user_id),
+                })
+            }
+            Err(e) => Ok(GroupActionResponse {
+                success: false,
+                message: format!("Failed to invite user: {}", e),
+            }),
         }
     } else {
         Err("Group user not initialized. Call init_group_user first.".to_string())
@@ -251,36 +352,58 @@ pub async fn invite_to_group(
 
 #[tauri::command]
 pub async fn remove_from_group(
+    app_handle: AppHandle,
     user_id: u64,
     group_id: String,
     group_user_state: tauri::State<'_, SafeGroupUser>,
-) -> Result<serde_json::Value, String> {
+) -> Result<GroupActionResponse, String> {
     log::info!("Removing user from group: {}", user_id);
     let mut group_user = group_user_state.write().await;
+    let group_id_str = group_id.clone();
     let group_id = GroupId::from_string(&group_id).map_err(|e| e.to_string())?;
+
     if let Some(user) = group_user.as_mut() {
         if user.user_id() == user_id {
             user.leave_group(&group_id)
                 .await
                 .map_err(|e| e.to_string())?;
-            // TODO: add emit updating group config
 
-            Ok(serde_json::json!({
-                "success": true,
-                "message": format!("User {} left group {}", user_id, group_id)
-            }))
+            let event_payload = serde_json::json!({
+                "type": "leave_group",
+                "data": {
+                    "group_id": group_id_str.clone()
+                }
+            });
+            app_handle.emit("server-event", event_payload).unwrap();
+
+            Ok(GroupActionResponse {
+                success: true,
+                message: format!("User {} left group {}", user_id, group_id_str),
+            })
         } else {
             match user.remove_user(&group_id, user_id).await {
-                Ok(_) => Ok(serde_json::json!({
-                    "success": true,
-                    "message": format!("User {} removed from group {}", user_id, group_id)
-                })),
+                Ok(_) => {
+                    // Emit updated config
+                    if let Ok(group_config) = user.get_group_config(&group_id).await {
+                        app_handle
+                            .emit(
+                                "server-event",
+                                format_group_config(&group_config, group_id, user_id),
+                            )
+                            .unwrap();
+                    }
+
+                    Ok(GroupActionResponse {
+                        success: true,
+                        message: format!("User {} removed from group {}", user_id, group_id_str),
+                    })
+                }
                 Err(e) => {
                     log::error!("Failed to remove user: {}", e);
-                    Ok(serde_json::json!({
-                        "success": false,
-                        "message": format!("Failed to remove user: {}", e)
-                    }))
+                    Ok(GroupActionResponse {
+                        success: false,
+                        message: format!("Failed to remove user: {}", e),
+                    })
                 }
             }
         }
@@ -294,6 +417,7 @@ pub async fn remove_from_group(
 pub async fn send_group_message(
     app_handle: AppHandle,
     group_id: String,
+    message_id: u64,
     text: String,
     file: Option<String>,
     reply_message_id: Option<String>,
@@ -302,7 +426,6 @@ pub async fn send_group_message(
     group_user_state: tauri::State<'_, SafeGroupUser>,
 ) -> Result<String, String> {
     let group_user = group_user_state.inner().clone();
-    let message_id = Device::generate_message_id(); // replace with actual generation of message_Id
     tauri::async_runtime::spawn(async move {
         if let Some(user) = group_user.read().await.as_ref() {
             let mut builder = MessageBuilder::new(group_id.clone(), text);
@@ -329,13 +452,17 @@ pub async fn send_group_message(
                 .build(message_id as i64, &app_handle, user.user_id() as i64)
                 .unwrap();
 
-            user.send_message(&group_id, UserGroupMessage::TextMessage(message.clone()))
-                .await
-                .map_err(|e| {
-                    log::error!("Failed to send message: {}", e);
-                    e.to_string()
-                })
-                .ok();
+            user.send_message(
+                &group_id,
+                message_id,
+                UserGroupMessage::TextMessage(message.clone()),
+            )
+            .await
+            .map_err(|e| {
+                log::error!("Failed to send message: {}", e);
+                e.to_string()
+            })
+            .ok();
 
             let success_payload = {
                 serde_json::json!({
@@ -359,14 +486,14 @@ pub async fn send_group_message(
         }
     });
 
-    Ok(message_id.to_string())
+    Ok((message_id as i64).to_string())
 }
 
 #[tauri::command]
 pub async fn get_group_messages(
     group_id: String,
     group_user_state: tauri::State<'_, SafeGroupUser>,
-) -> Result<serde_json::Value, String> {
+) -> Result<MessagesListResponse, String> {
     log::debug!("Get group messages called");
     let group_user = group_user_state.read().await;
     let group_id = GroupId::from_string(&group_id).map_err(|e| e.to_string())?;
@@ -379,61 +506,35 @@ pub async fn get_group_messages(
             .await
         {
             Ok(messages) => {
-                let msg_json: Vec<serde_json::Value> = messages
+                let msg_json: Vec<GroupMessageResponse> = messages
                     .into_iter()
-                    .map(|message| {
-                        match message {
-                            UserGroupMessage::TextMessage(text_message) => {
-                                // Determine if this is a displayable media type or a file
-                                let is_displayable_media = if let Some(name) = &text_message.media_name {
-                                    let lower_name = name.to_lowercase();
-                                    lower_name.ends_with(".jpg") || 
-                                    lower_name.ends_with(".jpeg") || 
-                                    lower_name.ends_with(".png") || 
-                                    lower_name.ends_with(".gif") || 
-                                    lower_name.ends_with(".webp") || 
-                                    lower_name.ends_with(".svg")
-                                } else {
-                                    false
-                                };
-
-                                let mut json = serde_json::json!({
-                                    "sender_id": text_message.sender_id,
-                                    "text": text_message.text,
-                                    "timestamp": text_message.date,
-                                    "media": text_message.media.is_some(),
-                                    "media_name": text_message.media_name,
-                                    "message_id": text_message.message_id.to_string(),
-                                    "reply_message_id": text_message.reply_message_id.map(|id| id.to_string()),
-                                    "edit_date": text_message.edit_date.map(|date| date.to_string()),
-                                    "is_edit": text_message.edit_date.is_some(),
-                                    "expires": text_message.expires.map(|date| date.to_string()),
-                                    "chat_id": group_id.to_string(),
-                                    "is_file": !is_displayable_media,
-                                });
-
-                                if let Some(data) = text_message.media {
-                                    let base64_data = general_purpose::STANDARD.encode(&data);
-                                    json.as_object_mut().unwrap().insert(
-                                        "media_data".to_string(),
-                                        serde_json::Value::String(base64_data),
-                                    );
-                                }
-
-                                json
+                    .map(|message| match message {
+                        UserGroupMessage::TextMessage(text_message) => {
+                            let media_data = text_message
+                                .media
+                                .as_ref()
+                                .map(|data| general_purpose::STANDARD.encode(data));
+                            GroupMessageResponse {
+                                id: text_message.message_id.to_string(),
+                                chat_id: Some(group_id.to_string()),
+                                sender_id: text_message.sender_id,
+                                content: text_message.text,
+                                timestamp: text_message.date,
+                                media: text_message.media.is_some(),
+                                media_name: text_message.media_name,
+                                media_data,
+                                reply_to: text_message.reply_message_id.map(|id| id.to_string()),
+                                edit_date: text_message.edit_date.map(|date| date.to_string()),
+                                is_edit: text_message.edit_date.is_some(),
+                                expires: text_message.expires.map(|date| date.to_string()),
                             }
                         }
                     })
                     .collect();
 
-                Ok(serde_json::json!({
-                    "messages": msg_json
-                }))
+                Ok(MessagesListResponse { messages: msg_json })
             }
-            Err(e) => Ok(serde_json::json!({
-                "success": false,
-                "message": format!("Failed to read messages from database: {}", e)
-            })),
+            Err(e) => Err(format!("Failed to read messages from database: {}", e)),
         }
     } else {
         Err("Group user not initialized. Call init_group_user first.".to_string())
@@ -445,7 +546,7 @@ pub async fn delete_group_message(
     group_name: String,
     message_id: i64,
     group_user_state: tauri::State<'_, SafeGroupUser>,
-) -> Result<serde_json::Value, String> {
+) -> Result<GroupActionResponse, String> {
     let group_user = group_user_state.read().await;
 
     if let Some(user) = group_user.as_ref() {
@@ -455,14 +556,14 @@ pub async fn delete_group_message(
             .delete_message(message_id, group_name.as_bytes())
             .await
         {
-            Ok(_) => Ok(serde_json::json!({
-                "success": true,
-                "message": "Message deleted successfully"
-            })),
-            Err(e) => Ok(serde_json::json!({
-                "success": false,
-                "message": format!("Failed to delete message: {}", e)
-            })),
+            Ok(_) => Ok(GroupActionResponse {
+                success: true,
+                message: "Message deleted successfully".to_string(),
+            }),
+            Err(e) => Ok(GroupActionResponse {
+                success: false,
+                message: format!("Failed to delete message: {}", e),
+            }),
         }
     } else {
         Err("Group user not initialized. Call init_group_user first.".to_string())
@@ -510,7 +611,7 @@ pub async fn get_group_media(
 pub async fn get_all_group_media(
     group_name: String,
     group_user_state: tauri::State<'_, SafeGroupUser>,
-) -> Result<serde_json::Value, String> {
+) -> Result<MediaListResponse, String> {
     let group_user = group_user_state.read().await;
 
     if let Some(user) = group_user.as_ref() {
@@ -521,25 +622,18 @@ pub async fn get_all_group_media(
             .await
         {
             Ok(media_list) => {
-                let media_json: Vec<serde_json::Value> = media_list
+                let media_json: Vec<MediaResponse> = media_list
                     .into_iter()
-                    .map(|(media_id, filename, timestamp)| {
-                        serde_json::json!({
-                            "media_id": media_id,
-                            "filename": filename,
-                            "timestamp": timestamp,
-                        })
+                    .map(|(media_id, filename, timestamp)| MediaResponse {
+                        media_id,
+                        filename,
+                        timestamp,
                     })
                     .collect();
 
-                Ok(serde_json::json!({
-                    "media": media_json
-                }))
+                Ok(MediaListResponse { media: media_json })
             }
-            Err(e) => Ok(serde_json::json!({
-                "success": false,
-                "message": format!("Failed to get group media: {}", e)
-            })),
+            Err(e) => Err(format!("Failed to get group media: {}", e)),
         }
     } else {
         Err("Group user not initialized. Call init_group_user first.".to_string())
@@ -549,19 +643,19 @@ pub async fn get_all_group_media(
 #[tauri::command]
 pub async fn clear_group_media_cache(
     group_user_state: tauri::State<'_, SafeGroupUser>,
-) -> Result<serde_json::Value, String> {
+) -> Result<GroupActionResponse, String> {
     let group_user = group_user_state.read().await;
 
     if let Some(user) = group_user.as_ref() {
         match user.groups.messages.clear_media_cache().await {
-            Ok(_) => Ok(serde_json::json!({
-                "success": true,
-                "message": "Media cache cleared successfully"
-            })),
-            Err(e) => Ok(serde_json::json!({
-                "success": false,
-                "message": format!("Failed to clear media cache: {}", e)
-            })),
+            Ok(_) => Ok(GroupActionResponse {
+                success: true,
+                message: "Media cache cleared successfully".to_string(),
+            }),
+            Err(e) => Ok(GroupActionResponse {
+                success: false,
+                message: format!("Failed to clear media cache: {}", e),
+            }),
         }
     } else {
         Err("Group user not initialized. Call init_group_user first.".to_string())
@@ -571,18 +665,13 @@ pub async fn clear_group_media_cache(
 #[tauri::command]
 pub async fn get_group_media_cache_size(
     group_user_state: tauri::State<'_, SafeGroupUser>,
-) -> Result<serde_json::Value, String> {
+) -> Result<CacheSizeResponse, String> {
     let group_user = group_user_state.read().await;
 
     if let Some(user) = group_user.as_ref() {
         match user.groups.messages.get_media_cache_size().await {
-            Ok(size) => Ok(serde_json::json!({
-                "size": size
-            })),
-            Err(e) => Ok(serde_json::json!({
-                "success": false,
-                "message": format!("Failed to get media cache size: {}", e)
-            })),
+            Ok(size) => Ok(CacheSizeResponse { size }),
+            Err(e) => Err(format!("Failed to get media cache size: {}", e)),
         }
     } else {
         Err("Group user not initialized. Call init_group_user first.".to_string())
@@ -595,10 +684,10 @@ pub async fn update_member_permissions(
     app_handle: AppHandle,
     group_id: String,
     member_id: u64,
-    permissions: serde_json::Value,
+    permissions: UpdatePermissions,
     role: Option<String>,
     group_user_state: tauri::State<'_, SafeGroupUser>,
-) -> Result<serde_json::Value, String> {
+) -> Result<GroupActionResponse, String> {
     let group_user = group_user_state.read().await;
     let group_id = GroupId::from_string(&group_id).map_err(|e| e.to_string())?;
     if let Some(user) = group_user.as_ref() {
@@ -631,45 +720,31 @@ pub async fn update_member_permissions(
                 .unwrap_or_else(group_config::Permissions::default);
 
             // Обновляем каждое право, если оно указано в переданном JSON
-            if let Some(value) = permissions.get("manage_members")
-                && let Some(val) = value.as_bool()
-            {
+            if let Some(val) = permissions.manage_members {
                 member_permissions = member_permissions.with_manage_members(val);
             }
 
-            if let Some(value) = permissions.get("send_messages")
-                && let Some(val) = value.as_bool()
-            {
+            if let Some(val) = permissions.send_messages {
                 member_permissions = member_permissions.with_send_messages(val);
             }
 
-            if let Some(value) = permissions.get("delete_messages")
-                && let Some(val) = value.as_bool()
-            {
+            if let Some(val) = permissions.delete_messages {
                 member_permissions = member_permissions.with_delete_messages(val);
             }
 
-            if let Some(value) = permissions.get("rename_group")
-                && let Some(val) = value.as_bool()
-            {
+            if let Some(val) = permissions.rename_group {
                 member_permissions = member_permissions.with_rename_group(val);
             }
 
-            if let Some(value) = permissions.get("manage_permissions")
-                && let Some(val) = value.as_bool()
-            {
+            if let Some(val) = permissions.manage_permissions {
                 member_permissions = member_permissions.with_manage_permissions(val);
             }
 
-            if let Some(value) = permissions.get("pin_messages")
-                && let Some(val) = value.as_bool()
-            {
+            if let Some(val) = permissions.pin_messages {
                 member_permissions = member_permissions.with_pin_messages(val);
             }
 
-            if let Some(value) = permissions.get("manage_admins")
-                && let Some(val) = value.as_bool()
-            {
+            if let Some(val) = permissions.manage_admins {
                 member_permissions = member_permissions.with_manage_admins(val);
             }
 
@@ -683,34 +758,13 @@ pub async fn update_member_permissions(
             .await
             .map_err(|e| e.to_string())?;
 
-        let users_permisions = &group_config.permissions;
-        let default_permissions = &group_config.default_permissions;
-        let user_permissions = users_permisions
-            .get(&user_id)
-            .unwrap_or(default_permissions);
-
-        let event_payload = serde_json::json!({
-            "type": "group_config_updated",
-            "data": {
-                "group_id": group_id.to_string(),
-                "group_name": group_config.name,
-                "description": group_config.description,
-                "avatar": group_config.avatar,
-                "owner_id": group_config.creator_id,
-                "admins": group_config.admins,
-                "members": group_config.members,
-                "created_at": group_config.created_at.timestamp,
-                "user_permissions": user_permissions,
-                "users_permisions": users_permisions,
-                "default_permissions": default_permissions,
-            }
-        });
+        let event_payload = format_group_config(&group_config, group_id, user_id);
         app_handle.emit("server-event", event_payload).unwrap();
 
-        Ok(serde_json::json!({
-            "success": true,
-            "message": format!("User permissions updated successfully")
-        }))
+        Ok(GroupActionResponse {
+            success: true,
+            message: "User permissions updated successfully".to_string(),
+        })
     } else {
         Err("Group has no configuration".to_string())
     }
@@ -726,7 +780,7 @@ pub async fn update_group_config(
     visibility: Option<String>,
     join_mode: Option<String>,
     description: Option<String>,
-    avatar: Option<String>,
+    avatar: Option<Vec<u8>>,
     max_members: Option<u32>,
     slow_mode_delay: Option<u32>,
     allow_stickers: Option<bool>,
@@ -735,7 +789,7 @@ pub async fn update_group_config(
     allow_video_messages: Option<bool>,
     allow_links: Option<bool>,
     allow_messages: Option<bool>,
-) -> Result<serde_json::Value, String> {
+) -> Result<GroupActionResponse, String> {
     let group_user = group_user_state.read().await;
     let group_id = GroupId::from_string(&group_id).map_err(|e| e.to_string())?;
     if let Some(user) = group_user.as_ref() {
@@ -811,15 +865,8 @@ pub async fn update_group_config(
         if let Some(allow_messages) = allow_messages {
             new_config.set_allow_messages(allow_messages);
         }
-
-        if let Some(avatar_path) = avatar {
-            let avatar_data = {
-                let file_path = FilePath::from_str(&avatar_path).unwrap();
-                let media = app_handle.fs().read(file_path).unwrap();
-                log::info!("Media size: {}", media.len());
-                media
-            };
-
+        log::info!("Allow messages: {:?}", allow_messages);
+        if let Some(avatar_data) = avatar {
             if avatar_data.len() > 5 * 1024 * 1024 {
                 return Err("Avatar size must be less than 5MB".to_string());
             }
@@ -852,24 +899,22 @@ pub async fn update_group_config(
             .clone()
             .map(|avatar| general_purpose::STANDARD.encode(avatar));
 
-        let users_permisions = &group_config.permissions;
-        let default_permissions = &group_config.default_permissions;
+        let users_permisions = &new_config.permissions;
+        let default_permissions = &new_config.default_permissions;
         let user_permissions = users_permisions
             .get(&user_id)
             .unwrap_or(default_permissions);
-
         let event_payload = serde_json::json!({
             "type": "group_config_updated",
             "data": {
                 "group_id": group_id.to_string(),
-                "group_name": group_config.name,
+                "group_name": new_config.name,
+                "description": new_config.description,
                 "avatar": avatar,
-                "description": group_config.description,
-                "avatar": group_config.avatar,
-                "owner_id": group_config.creator_id,
-                "admins": group_config.admins,
-                "members": group_config.members,
-                "created_at": group_config.created_at.timestamp,
+                "owner_id": new_config.creator_id,
+                "admins": new_config.admins,
+                "members": new_config.members,
+                "created_at": new_config.created_at.timestamp,
                 "user_permissions": user_permissions,
                 "users_permisions": users_permisions,
                 "default_permissions": default_permissions,
@@ -877,10 +922,10 @@ pub async fn update_group_config(
         });
         app_handle.emit("server-event", event_payload).unwrap();
 
-        Ok(serde_json::json!({
-            "success": true,
-            "message": "Group configuration updated successfully"
-        }))
+        Ok(GroupActionResponse {
+            success: true,
+            message: "Group configuration updated successfully".to_string(),
+        })
     } else {
         Err("Group user not initialized. Call init_group_user first.".to_string())
     }

@@ -125,12 +125,15 @@ impl Device {
     ) -> Result<(), GroupError> {
         group
             .apply_pending_commit()
-            .await
+            //.await
             .map_err(|e| GroupError::MlsError(format!("Failed to apply commit: {}", e)))?;
 
-        group.write_to_storage().await.map_err(|e| {
-            GroupError::StorageError(format!("Failed to write group to storage: {}", e))
-        })?;
+        group
+            .write_to_storage()
+            //.await
+            .map_err(|e| {
+                GroupError::StorageError(format!("Failed to write group to storage: {}", e))
+            })?;
 
         Ok(())
     }
@@ -179,7 +182,7 @@ impl Device {
 
         commit_builder
             .build()
-            .await
+            //.await
             .map_err(|e| GroupError::MlsError(format!("Failed to build invite commit: {}", e)))
     }
 
@@ -226,7 +229,7 @@ impl Device {
             .custom_proposal(update_config.to_custom_proposal()?)
             .custom_proposal(remove_user_proposal.to_custom_proposal()?)
             .build()
-            .await
+            //.await
             .map_err(|e| GroupError::MlsError(format!("Failed to build remove commit: {}", e)))
     }
 }
