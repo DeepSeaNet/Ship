@@ -165,24 +165,22 @@ export function AccountSelection({
 					</Button>
 
 					{/* Add New Account Card */}
-					<button
-						onClick={onAddNewAccount}
-						className="w-full p-6 border border-border rounded-lg bg-surface hover:bg-on-surface hover:shadow-surface transition-all hover:border-border-hover"
+					<Button
+						type="button"
+						onPress={onAddNewAccount}
+						variant="ghost"
+						className="w-full h-auto p-6 border border-border rounded-lg bg-surface hover:bg-on-surface hover:shadow-surface transition-all hover:border-border-hover flex flex-col items-center justify-center gap-3"
 					>
-						<div className="flex flex-col items-center justify-center gap-3">
-							<div className="w-10 h-10 rounded-full border-2 border-dashed border-border flex items-center justify-center">
-								<Plus className="w-5 h-5 text-muted" />
-							</div>
-							<div className="text-center">
-								<p className="font-medium text-sm text-foreground">
-									Add Account
-								</p>
-								<p className="text-xs text-muted">
-									Sign in with a different account
-								</p>
-							</div>
+						<div className="w-10 h-10 rounded-full border-2 border-dashed border-border flex items-center justify-center">
+							<Plus className="w-5 h-5 text-muted" />
 						</div>
-					</button>
+						<div className="text-center">
+							<p className="font-medium text-sm text-foreground">Add Account</p>
+							<p className="text-xs text-muted">
+								Sign in with a different account
+							</p>
+						</div>
+					</Button>
 				</div>
 			) : (
 				<div className="w-full max-w-md space-y-4 animate-in slide-in-from-right-8 fade-in duration-300">
@@ -212,7 +210,6 @@ export function AccountSelection({
 								value={password}
 								onChange={setPassword}
 								variant="secondary"
-								autoFocus
 								onComplete={() => handleLogin()}
 							>
 								<InputOTP.Group>

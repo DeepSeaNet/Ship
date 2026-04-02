@@ -1,26 +1,17 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { types as mediasoupTypes } from "mediasoup-client";
-import type {
-	ClientMessage,
-	LoggerFunction,
-	ServerConsumed,
-	ServerError,
-	ServerInit,
-	ServerMessage,
-	ServerProducerAdded,
-	ServerProducerRemoved,
-} from "../types/mediasoup";
+import type { IceCandidate, RtpParameters } from "mediasoup-client/types";
+import {
+	initWebrtcSignaling,
+	onVoiceEvent,
+	sendWebrtcMessage,
+	type TransportOptions,
+	type VoiceRequest,
+	type VoiceResponse,
+} from "@/hooks/generated";
+import type { AppData, LoggerFunction } from "../types/mediasoup";
+import type { ProtoFingerprint, ProtoRtpCapabilities } from "../types/proto";
 import { minimalCapabilities } from "../utils/rtpCapabilities";
-import type { AppData, IceCandidate } from "mediasoup-client/types";
-import type {
-	ProtoFingerprint,
-	ProtoRtpCapabilities,
-	ProtoRtpParameters,
-	ProtoServerMessage,
-	ProtoTransportOptions,
-	VoiceEventPayload,
-} from "../types/proto";
 
 // ─── Adapter options ──────────────────────────────────────────────────────────
 
@@ -34,10 +25,49 @@ export interface GrpcSignalingAdapterOptions {
 	) => void;
 	onProducerRemoved: (producerId: string, participantId: string) => void;
 	onConnectionStateChange: (connected: boolean) => void;
-	onMessage?: (message: ServerMessage) => void;
+	onMessage?: (message: VoiceResponse) => void;
 }
 
-// ─── Adapter ──────────────────────────────────────────────────────────────────
+export function parseRtpCapabilities(
+	proto: ProtoRtpCapabilities | undefined,
+	addLog: LoggerFunction,
+): mediasoupTypes.RtpCapabilities {
+	const raw = proto?.codecs?.[0]?.mimeType ?? proto?.codecs?.[0]?.mime_type;
+	if (!raw) return { codecs: [], headerExtensions: [] };
+
+	try {
+		return JSON.parse(raw) as mediasoupTypes.RtpCapabilities;
+	} catch (error) {
+		addLog(`Failed to parse RtpCapabilities: ${error}`, "error");
+		return { codecs: [], headerExtensions: [] };
+	}
+}
+
+// ─── Adapter
+export function parseRtpParameters(
+	proto: VoiceResponse | undefined,
+	addLog: LoggerFunction,
+): mediasoupTypes.RtpParameters {
+	if (proto?.type !== "consumed") {
+		addLog("Cannot parse RtpParameters: Invalid message type", "error");
+		return {} as mediasoupTypes.RtpParameters;
+	}
+	if (!proto?.data?.rtpParameters) {
+		addLog("Cannot parse RtpParameters: Invalid RTP parameters", "error");
+		return {} as mediasoupTypes.RtpParameters;
+	}
+	if (!proto?.data?.rtpParameters.mid)
+		return {} as mediasoupTypes.RtpParameters;
+
+	try {
+		return JSON.parse(
+			proto.data.rtpParameters.mid,
+		) as mediasoupTypes.RtpParameters;
+	} catch (error) {
+		addLog(`Failed to parse RtpParameters: ${error}`, "error");
+		return {} as mediasoupTypes.RtpParameters;
+	}
+}
 
 export class GrpcSignalingAdapter {
 	private readonly sessionId: string;
@@ -45,7 +75,7 @@ export class GrpcSignalingAdapter {
 	private readonly onProducerAdded: GrpcSignalingAdapterOptions["onProducerAdded"];
 	private readonly onProducerRemoved: GrpcSignalingAdapterOptions["onProducerRemoved"];
 	private readonly onConnectionStateChange: GrpcSignalingAdapterOptions["onConnectionStateChange"];
-	private readonly onMessage?: (message: ServerMessage) => void;
+	private readonly onMessage?: (message: VoiceResponse) => void;
 
 	private unlistenFn: UnlistenFn | null = null;
 	private isConnected = false;
@@ -75,7 +105,7 @@ export class GrpcSignalingAdapter {
 		try {
 			await this.setupEventListener();
 
-			await invoke("init_webrtc_signaling", {
+			await initWebrtcSignaling({
 				sessionId: this.sessionId,
 				rtpCapabilities: JSON.stringify(minimalCapabilities),
 			});
@@ -97,24 +127,21 @@ export class GrpcSignalingAdapter {
 		this.addLog("gRPC SignalingStream connection closed", "info");
 	}
 
-	public async sendMessage(message: ClientMessage): Promise<void> {
+	public async sendMessage(message: VoiceRequest): Promise<void> {
 		if (!this.isConnected) {
 			this.addLog(
-				`Cannot send gRPC message (${message.action}): not connected`,
+				`Cannot send gRPC message (${message.type}): not connected`,
 				"debug",
 			);
 			return;
 		}
 
 		try {
-			const protoMessage = this.convertToProto(message);
-			this.addLog(`Sending gRPC message: ${message.action}`, "info");
-			await invoke("send_webrtc_message", {
-				messageJson: JSON.stringify(protoMessage),
-			});
+			this.addLog(`Sending gRPC message: ${message.type}`, "info");
+			await sendWebrtcMessage({ message });
 		} catch (error) {
 			this.addLog(
-				`Failed to send gRPC message (${message.action}): ${error}`,
+				`Failed to send gRPC message (${message.type}): ${error}`,
 				"error",
 			);
 		}
@@ -123,182 +150,63 @@ export class GrpcSignalingAdapter {
 	// ─── Event listener ───────────────────────────────────────────────────────
 
 	private async setupEventListener(): Promise<void> {
-		this.unlistenFn = await listen<VoiceEventPayload>(
-			"voice-event",
-			(event) => {
-				const { type, data } = event.payload;
-				if (type === "signaling_message") {
-					this.handleMessage(data);
-				}
-			},
-		);
+		this.unlistenFn = await onVoiceEvent((event) => {
+			console.log("Received voice event:", event);
+			const { type, data } = event;
+			if (type === "signaling_message") {
+				this.handleMessage(data);
+			}
+		});
 	}
 
 	// ─── Message handling ─────────────────────────────────────────────────────
 
-	private handleMessage(raw: ProtoServerMessage): void {
-		const message = this.convertProtoToMediasoup(raw);
-
-		if (!message) {
-			const keys = raw.message ? Object.keys(raw.message).join(", ") : "none";
-			this.addLog(`Failed to convert proto message: ${keys}`, "error");
-			return;
-		}
-
+	private handleMessage(message: VoiceResponse): void {
 		this.onMessage?.(message);
-
-		switch (message.action) {
-			case "Init":
+		console.log("Received voice message:", message, message.type, message.data);
+		switch (message.type) {
+			case "init":
 				this.addLog("Received Init message from server", "success");
 				// Initialization is handled by WebRTCConnectionManager
 				break;
 
 			case "producerAdded": {
-				const msg = message as ServerProducerAdded;
 				this.addLog(
-					`New producer [${msg.producerId}] from participant ${msg.participantId}`,
+					`New producer [${message.data.producerId}] from participant ${message.data.participantId}`,
 					"info",
 				);
-				this.onProducerAdded(msg.producerId, msg.participantId, msg.appData);
+				const appData: AppData = JSON.parse(message.data.appData);
+				this.onProducerAdded(
+					message.data.producerId,
+					message.data.participantId,
+					appData,
+				);
 				break;
 			}
 
 			case "producerRemoved": {
-				const msg = message as ServerProducerRemoved;
 				this.addLog(
-					`Producer [${msg.producerId}] removed from participant ${msg.participantId}`,
+					`Producer [${message.data.producerId}] removed from participant ${message.data.participantId}`,
 					"info",
 				);
-				this.onProducerRemoved(msg.producerId, msg.participantId);
+				this.onProducerRemoved(
+					message.data.producerId,
+					message.data.participantId,
+				);
 				break;
 			}
 
-			case "Error":
-				this.addLog(
-					`Server error: ${(message as ServerError).message}`,
-					"error",
-				);
-				break;
-
 			default:
-				if (!message.action.startsWith("consumed:")) {
-					this.addLog(`Unhandled gRPC message: ${message.action}`, "info");
-				}
+				this.addLog(
+					`Unhandled gRPC message: ${message.type} ${JSON.stringify(message.data)}`,
+					"info",
+				);
 		}
-	}
-
-	// ─── Proto → mediasoup conversion ─────────────────────────────────────────
-
-	private convertProtoToMediasoup(
-		proto: ProtoServerMessage,
-	): ServerMessage | null {
-		const msg = proto.message;
-		if (!msg) {
-			this.addLog("Proto message has no 'message' field", "error");
-			return null;
-		}
-
-		if (msg.init) {
-			return {
-				action: "Init",
-				routerRtpCapabilities: this.parseRtpCapabilities(
-					msg.init.routerRtpCapabilities ?? msg.init.router_rtp_capabilities,
-				),
-				producerTransportOptions: this.parseTransportOptions(
-					msg.init.producerTransportOptions ??
-						msg.init.producer_transport_options,
-				),
-				consumerTransportOptions: this.parseTransportOptions(
-					msg.init.consumerTransportOptions ??
-						msg.init.consumer_transport_options,
-				),
-			} as ServerInit;
-		}
-
-		const producerAdded = msg.producerAdded ?? msg.producer_added;
-		if (producerAdded) {
-			return {
-				action: "producerAdded",
-				producerId: producerAdded.producerId ?? producerAdded.producer_id ?? "",
-				participantId:
-					producerAdded.participantId ?? producerAdded.participant_id ?? "",
-				appData: JSON.parse(
-					producerAdded.appData ?? producerAdded.app_data ?? "{}",
-				),
-			} as ServerProducerAdded;
-		}
-
-		const producerRemoved = msg.producerRemoved ?? msg.producer_removed;
-		if (producerRemoved) {
-			return {
-				action: "producerRemoved",
-				producerId:
-					producerRemoved.producerId ?? producerRemoved.producer_id ?? "",
-				participantId:
-					producerRemoved.participantId ?? producerRemoved.participant_id ?? "",
-			} as ServerProducerRemoved;
-		}
-
-		if (msg.consumed) {
-			const c = msg.consumed;
-			const producerId = c.producerId ?? c.producer_id ?? "";
-			return {
-				action: `consumed:${producerId}`,
-				id: c.consumerId ?? c.consumer_id ?? "",
-				producerId,
-				kind: c.kind === 2 ? "video" : "audio",
-				rtpParameters: this.parseRtpParameters(
-					c.rtpParameters ?? c.rtp_parameters,
-				),
-			} as ServerConsumed;
-		}
-
-		if (msg.connectedProducerTransport ?? msg.connected_producer_transport) {
-			return { action: "ConnectedProducerTransport", success: true };
-		}
-
-		if (msg.connectedConsumerTransport ?? msg.connected_consumer_transport) {
-			return { action: "ConnectedConsumerTransport", success: true };
-		}
-
-		if (msg.produced) {
-			return {
-				action: "Produced",
-				id: msg.produced.producerId ?? msg.produced.producer_id ?? "",
-			};
-		}
-
-		if (msg.error) {
-			return {
-				action: "Error",
-				message: msg.error.errorMessage ?? msg.error.error_message ?? "",
-			} as ServerError;
-		}
-
-		this.addLog(
-			`Unknown proto message type: ${Object.keys(msg).join(", ")}`,
-			"error",
-		);
-		return null;
 	}
 
 	// ─── Proto field parsers ──────────────────────────────────────────────────
 
-	private parseRtpCapabilities(
-		proto: ProtoRtpCapabilities | undefined,
-	): mediasoupTypes.RtpCapabilities {
-		const raw = proto?.codecs?.[0]?.mimeType ?? proto?.codecs?.[0]?.mime_type;
-		if (!raw) return { codecs: [], headerExtensions: [] };
-
-		try {
-			return JSON.parse(raw) as mediasoupTypes.RtpCapabilities;
-		} catch (error) {
-			this.addLog(`Failed to parse RtpCapabilities: ${error}`, "error");
-			return { codecs: [], headerExtensions: [] };
-		}
-	}
-
-	private parseCandidateType(
+	static parseCandidateType(
 		raw?: string,
 	): "host" | "srflx" | "prflx" | "relay" {
 		if (!raw) return "host";
@@ -318,22 +226,21 @@ export class GrpcSignalingAdapter {
 		return "host";
 	}
 
-	private parseTransportOptions(
-		proto: ProtoTransportOptions | undefined,
-	): mediasoupTypes.TransportOptions {
-		if (!proto) return {} as mediasoupTypes.TransportOptions;
-
-		const iceParams = proto.iceParameters ?? proto.ice_parameters;
-		const iceCandidates = proto.iceCandidates ?? proto.ice_candidates ?? [];
-		const dtlsParams = proto.dtlsParameters ?? proto.dtls_parameters;
+	public parseTransportOptions(
+		transportOptions: TransportOptions | undefined,
+	): mediasoupTypes.TransportOptions<AppData> {
+		if (!transportOptions)
+			return {} as mediasoupTypes.TransportOptions<AppData>;
+		const iceParams = transportOptions.iceParameters;
+		const iceCandidates = transportOptions.iceCandidates;
+		const dtlsParams = transportOptions.dtlsParameters;
 
 		return {
-			id: proto.id,
+			id: transportOptions.id,
 			iceParameters: {
-				usernameFragment:
-					iceParams?.usernameFragment ?? iceParams?.username_fragment ?? "",
+				usernameFragment: iceParams?.usernameFragment ?? "",
 				password: iceParams?.password ?? "",
-				iceLite: iceParams?.iceLite ?? iceParams?.ice_lite ?? false,
+				iceLite: iceParams?.iceLite ?? false,
 			},
 			iceCandidates: iceCandidates.map(
 				(candidate): IceCandidate => ({
@@ -343,20 +250,20 @@ export class GrpcSignalingAdapter {
 					ip: candidate.address,
 					protocol: candidate.protocol?.toLowerCase() === "tcp" ? "tcp" : "udp",
 					port: candidate.port,
-					type: this.parseCandidateType(candidate.type),
+					type: GrpcSignalingAdapter.parseCandidateType(candidate.type),
 					tcpType: candidate.tcpType as "passive" | "active" | "so",
 				}),
 			),
 			dtlsParameters: {
-				role: this.parseDtlsRole(dtlsParams?.role),
+				role: GrpcSignalingAdapter.parseDtlsRole(dtlsParams?.role),
 				fingerprints: (dtlsParams?.fingerprints ?? []).map((fp) =>
-					this.parseFingerprint(fp),
+					GrpcSignalingAdapter.parseFingerprint(fp),
 				),
 			},
 		};
 	}
 
-	private parseFingerprint(
+	static parseFingerprint(
 		fp: ProtoFingerprint,
 	): mediasoupTypes.DtlsFingerprint {
 		let { algorithm, value } = fp;
@@ -381,19 +288,14 @@ export class GrpcSignalingAdapter {
 				.trim();
 		}
 
-		this.addLog(
-			`Fingerprint parsed: ${algorithm} = ${value.substring(0, 20)}...`,
-			"debug",
-		);
-
 		return {
 			algorithm: algorithm as mediasoupTypes.FingerprintAlgorithm,
 			value,
 		};
 	}
 
-	private parseDtlsRole(
-		role: string | undefined,
+	static parseDtlsRole(
+		role: string | undefined | null,
 	): "auto" | "client" | "server" {
 		const normalized = role?.toLowerCase();
 		if (
@@ -405,126 +307,83 @@ export class GrpcSignalingAdapter {
 		}
 		return "auto";
 	}
+}
 
-	private parseRtpParameters(
-		proto: ProtoRtpParameters | undefined,
-	): mediasoupTypes.RtpParameters {
-		if (!proto?.mid) return {} as mediasoupTypes.RtpParameters;
+// твои кастомные типы
+import type {
+	RtpCodecParameters as CustomRtpCodecParameters,
+	RtpEncodingParameters as CustomRtpEncodingParameters,
+	RtpHeaderExtensionParameters as CustomRtpHeaderExtensionParameters,
+	RtpParameters as CustomRtpParameters,
+} from "@/hooks/generated/types";
 
-		try {
-			return JSON.parse(proto.mid) as mediasoupTypes.RtpParameters;
-		} catch (error) {
-			this.addLog(`Failed to parse RtpParameters: ${error}`, "error");
-			return {} as mediasoupTypes.RtpParameters;
-		}
+export function convertRtpParameters(
+	msParams: RtpParameters,
+): CustomRtpParameters {
+	const codecs: CustomRtpCodecParameters[] = msParams.codecs.map((c) => ({
+		mimeType: c.mimeType,
+		payloadType: c.payloadType,
+		clockRate: c.clockRate,
+		channels: c.channels ?? null,
+		parameters: convertParameters(c.parameters),
+		rtcpFeedback:
+			c.rtcpFeedback?.map((f) => ({
+				type: f.type,
+				parameter: f.parameter ?? null,
+			})) ?? [],
+	}));
+
+	const headerExtensions: CustomRtpHeaderExtensionParameters[] =
+		msParams.headerExtensions?.map((h) => ({
+			uri: h.uri,
+			id: h.id,
+			encrypt: h.encrypt ?? false,
+			parameters: convertParameters(h.parameters),
+		})) ?? [];
+
+	const encodings: CustomRtpEncodingParameters[] =
+		msParams.encodings?.map((e) => ({
+			active: e.active ?? true,
+			ssrc: e.ssrc ?? 0,
+			rid: e.rid ?? "",
+			codecPayloadType: e.codecPayloadType ?? 0,
+			rtx: e.rtx ? { ssrc: e.rtx.ssrc } : null,
+			dtx: e.dtx ?? false,
+			scalabilityMode: e.scalabilityMode ?? "",
+			scaleResolutionDownBy: e.scaleResolutionDownBy ?? 1,
+			maxBitrate: e.maxBitrate ?? 0,
+			maxFramerate: e.maxFramerate ?? 0,
+			adaptivePtime: e.adaptivePtime ?? false,
+			priority: e.priority ?? "medium",
+			networkPriority: e.networkPriority ?? "medium",
+		})) ?? [];
+
+	return {
+		mid: msParams.mid ?? "",
+		codecs,
+		headerExtensions,
+		encodings,
+		rtcp: msParams.rtcp
+			? {
+					cname: msParams.rtcp.cname ?? "",
+					reducedSize: msParams.rtcp.reducedSize ?? false,
+					mux: msParams.rtcp.mux ?? false,
+				}
+			: null,
+		msid: msParams.msid ?? "",
+	};
+}
+
+/**
+ * Преобразует Record<string, unknown> в Record<string, string>
+ */
+function convertParameters(
+	params?: Record<string, unknown>,
+): Record<string, string> {
+	if (!params) return {};
+	const out: Record<string, string> = {};
+	for (const [key, value] of Object.entries(params)) {
+		out[key] = value == null ? "" : String(value);
 	}
-
-	// ─── mediasoup → Proto conversion ─────────────────────────────────────────
-
-	public convertToProto(message: ClientMessage): object {
-		switch (message.action) {
-			case "Init":
-				return {
-					message: {
-						init: {
-							roomId: this.sessionId,
-							rtpCapabilities: {
-								codecs: [
-									{
-										mimeType: JSON.stringify(message.rtpCapabilities),
-										kind: "serialized",
-										preferredPayloadType: 0,
-										clockRate: 0,
-										channels: 0,
-										parameters: "",
-										rtcpFeedback: "",
-									},
-								],
-								headerExtensions: [],
-							},
-						},
-					},
-				};
-
-			case "ConnectProducerTransport":
-				return {
-					message: {
-						connectProducerTransport: {
-							dtlsParameters: {
-								fingerprints: message.dtlsParameters?.fingerprints ?? [],
-								role: message.dtlsParameters?.role ?? "auto",
-							},
-						},
-					},
-				};
-
-			case "ConnectConsumerTransport":
-				return {
-					message: {
-						connectConsumerTransport: {
-							dtlsParameters: {
-								fingerprints: message.dtlsParameters?.fingerprints ?? [],
-								role: message.dtlsParameters?.role ?? "auto",
-							},
-						},
-					},
-				};
-
-			case "Produce":
-				return {
-					message: {
-						produce: {
-							kind: message.kind === "audio" ? 1 : 2,
-							rtpParameters: {
-								mid: JSON.stringify(message.rtpParameters),
-								codecs: [],
-								headerExtensions: [],
-								encodings: [],
-								rtcp: { cname: "", reducedSize: false },
-							},
-							appData: JSON.stringify(message.appData ?? {}),
-						},
-					},
-				};
-
-			case "Consume":
-				return {
-					message: {
-						consume: {
-							producerId: message.producerId,
-							rtpCapabilities: JSON.stringify(message.rtpCapabilities ?? {}),
-						},
-					},
-				};
-
-			case "ConsumerResume":
-				return {
-					message: {
-						consumerResume: {
-							consumerId: (message as ClientMessage & { id: string }).id,
-						},
-					},
-				};
-
-			case "CloseProducer":
-				return {
-					message: {
-						closeProducer: {
-							producerId: (message as ClientMessage & { producerId: string })
-								.producerId,
-						},
-					},
-				};
-
-			case "Leave":
-				return {
-					message: {
-						leave: {},
-					},
-				};
-
-			default:
-				return { action: message.action };
-		}
-	}
+	return out;
 }

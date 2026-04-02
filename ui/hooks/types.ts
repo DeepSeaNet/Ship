@@ -1,12 +1,3 @@
-export type Account = {
-	username: string;
-	user_id: number;
-	public_address: string;
-	server_address: string;
-	avatar_url?: string;
-	encrypted?: boolean;
-};
-
 export type RegisterResult = {
 	success: boolean;
 	message?: string;

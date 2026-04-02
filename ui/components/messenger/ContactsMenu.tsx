@@ -1,13 +1,13 @@
+import { Plus, ShieldCheck, Xmark } from "@gravity-ui/icons";
 import {
 	Avatar,
 	Button,
 	Input,
-	ScrollShadow,
 	Modal,
+	ScrollShadow,
 	Slider,
 } from "@heroui/react";
 import { useState } from "react";
-import { ShieldCheck, Xmark, Plus } from "@gravity-ui/icons";
 import { useMessengerState } from "@/hooks";
 
 interface ContactsMenuProps {
@@ -216,7 +216,6 @@ export function ContactsMenu({ onClose }: ContactsMenuProps) {
 										value={newUserId}
 										onChange={(e) => setNewUserId(e.target.value)}
 										variant="secondary"
-										autoFocus
 									/>
 									{addError && (
 										<span className="text-xs text-danger">{addError}</span>

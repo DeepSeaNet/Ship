@@ -151,8 +151,8 @@ export function InviteMemberModal({
 											</div>
 										) : (
 											filteredContacts.map((contact) => {
-												const isMember = group.members?.includes(
-													Number(contact.id),
+												const isMember = group.group_config?.members?.includes(
+													contact.id,
 												);
 												return (
 													<div

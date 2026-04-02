@@ -9,13 +9,13 @@ import {
 	TextField,
 	toast,
 } from "@heroui/react";
-import { useState } from "react";
-import { ExportAccountModal } from "../ExportAccountModal";
-import { updateAvatar } from "@/hooks/useAccounts";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
-import { ImageCropModal } from "../ImageCropModal";
+import { useState } from "react";
 import { useMessengerState } from "@/hooks";
+import { updateAvatar } from "@/hooks/useAccounts";
+import { ExportAccountModal } from "../ExportAccountModal";
+import { ImageCropModal } from "../ImageCropModal";
 
 export function AccountPanel() {
 	const { currentUser } = useMessengerState();

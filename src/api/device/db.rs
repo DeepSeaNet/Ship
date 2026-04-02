@@ -267,7 +267,7 @@ impl GroupManager {
         let mut hasher = sha2::Sha256::new();
         hasher.update(media_data);
         let hash = hasher.finalize();
-        let media_id = format!("{:x}", hash);
+        let media_id = hex::encode(hash);
 
         // Check existence cache first
         if let Some(exists) = self.media_exists_cache.get(&media_id).await {
@@ -323,7 +323,7 @@ impl GroupManager {
                     let mut hasher = sha2::Sha256::new();
                     hasher.update(media_data);
                     let hash = hasher.finalize();
-                    media_id = Some(format!("{:x}", hash));
+                    media_id = Some(hex::encode(hash));
                 }
 
                 // Start transaction
@@ -434,7 +434,7 @@ impl GroupManager {
                 .await
                 .unwrap_or_default();
 
-                let max_inline_size = 1024 * 1024 * 1024;
+                let max_inline_size = 1024 * 1024 * 100;
                 let mut result_messages = Vec::with_capacity(rows.len());
 
                 for row in rows {
@@ -691,10 +691,9 @@ impl GroupManager {
         let rows = sqlx::query(
             "SELECT DISTINCT group_id
              FROM group_messages
-             WHERE sender_id = ? OR receiver_id = ?
+             WHERE sender_id = ?
              ORDER BY MAX(timestamp) DESC",
         )
-        .bind(user_id)
         .bind(user_id)
         .fetch_all(&self.pool)
         .await?;

@@ -1,6 +1,7 @@
 import { toast } from "@heroui/react";
-import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { useState } from "react";
+import { sendGroupMessage } from "./generated";
 import type { Message } from "./messengerTypes";
 import { useMessengerState } from "./useMessengerState";
 
@@ -46,11 +47,11 @@ export function useSendMessage() {
 				isOwn: true,
 				status: "sending",
 				reply_to: options.replyTo,
-				edited: !!options.editId,
+				edited: Boolean(options.editId),
 				expires: options.expires,
 				media_name: fileName,
 				media: options.file ? convertFileSrc(options.file) : undefined,
-				is_file: !!options.file,
+				is_file: Boolean(options.file),
 			};
 
 			// Optimistically add the new message
@@ -58,9 +59,9 @@ export function useSendMessage() {
 		}
 
 		try {
-			await invoke<number>("send_group_message", {
+			sendGroupMessage({
 				groupId: chatId,
-				messageId: messageId,
+				messageId,
 				text: content.trim(),
 				file: options.file || null,
 				replyMessageId: options.replyTo || null,

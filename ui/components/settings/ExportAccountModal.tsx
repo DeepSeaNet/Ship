@@ -8,9 +8,9 @@ import {
 	Xmark,
 } from "@gravity-ui/icons";
 import { Button, Modal, Spinner, toast } from "@heroui/react";
+import Image from "next/image";
 import { useEffect } from "react";
 import { useAccountExport } from "@/hooks/useAccountExport";
-import Image from "next/image";
 
 interface ExportAccountModalProps {
 	isOpen: boolean;

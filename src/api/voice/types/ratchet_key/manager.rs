@@ -142,7 +142,6 @@ impl GroupRatchetManager {
                 user_id_le_bytes,
                 EXPORT_SECRET_LENGTH,
             )
-            .await
             .map_err(|e| RatchetError::ExportError(e.to_string()))?;
         s.as_bytes()
             .try_into()

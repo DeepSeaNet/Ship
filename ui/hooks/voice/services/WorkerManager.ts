@@ -1,15 +1,9 @@
-import { invoke } from "@tauri-apps/api/core";
-import type { VoiceKeysPayload } from "../crypto/groupCryptoManager";
+import { getVoiceKeys, onVoiceEvent } from "@/hooks/generated";
 import type { LoggerFunction } from "../types/mediasoup";
-import {
-	getPayloadTypeMapping,
-	getPayloadTypeMappingString,
-} from "../utils/codecTypes";
 import {
 	getEncodedStreamWorker,
 	terminateEncodedStreamWorker,
 } from "../utils/encodedStreamsTransform";
-import { listen } from "@tauri-apps/api/event";
 
 export interface WorkerManagerOptions {
 	sessionId: string;
@@ -51,13 +45,10 @@ export class WorkerManager {
 			// 2. Initialize worker (no MessagePort needed — crypto is in-worker)
 			this.encodedStreamWorker.postMessage({ type: "init" });
 
-			// 3. Sync codec mapping
-			this.updateCodecMapping();
-
-			// 4. Fetch key material from Rust and send to worker
+			// 3. Fetch key material from Rust and send to worker
 			this.fetchAndSyncKeys();
 
-			// 5. Listen for key refresh events from Rust
+			// 4. Listen for key refresh events from Rust
 			this.listenVoiceEvenets();
 
 			this.addLog("Worker initialized (SubtleCrypto mode)", "success");
@@ -73,7 +64,7 @@ export class WorkerManager {
 		if (!this.encodedStreamWorker) return;
 
 		try {
-			const keys: VoiceKeysPayload = await invoke("get_voice_keys");
+			const keys = await getVoiceKeys();
 
 			this.encodedStreamWorker.postMessage({
 				type: "updateKeys",
@@ -91,32 +82,11 @@ export class WorkerManager {
 	}
 
 	private async listenVoiceEvenets(): Promise<void> {
-		const _unlisten = await listen<any>("voice-event", (event) => {
-			if (event.payload.type === "server_commit") {
+		const _unlisten = await onVoiceEvent((event) => {
+			if (event.type === "server_commit") {
 				this.fetchAndSyncKeys();
 			}
 		});
-	}
-
-	/**
-	 * Synchronize codec payload type mappings with the Worker
-	 */
-	public updateCodecMapping(): void {
-		if (!this.encodedStreamWorker) return;
-
-		try {
-			const mapping = getPayloadTypeMapping();
-			this.encodedStreamWorker.postMessage({
-				type: "updateCodecMapping",
-				codecMapping: mapping,
-			});
-			this.addLog(
-				`Codec mapping synced with worker: ${getPayloadTypeMappingString()}`,
-				"info",
-			);
-		} catch (error) {
-			this.addLog(`Error syncing codec mapping: ${error}`, "error");
-		}
 	}
 
 	/**

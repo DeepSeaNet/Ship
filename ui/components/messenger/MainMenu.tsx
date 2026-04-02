@@ -8,14 +8,14 @@ import {
 	useMessengerState,
 } from "@/hooks/useMessengerState";
 import { ChatArea } from "./ChatArea";
+import { ContactsMenu } from "./ContactsMenu";
 import { LeftSidebar } from "./LeftSidebar";
 import { RightSidebar } from "./RightSidebar";
 import { TopBar } from "./TopBar";
-import { ContactsMenu } from "./ContactsMenu";
 import "./messenger.css";
-import { getStatusColor, handleStatusChange } from "@/hooks/useContacts";
-import { SettingsModal } from "../settings/SettingsModal/index";
 import { useAppearanceSettings } from "@/hooks/useAppearanceSettings";
+import { getStatusColor, handleStatusChange } from "@/hooks/useContacts";
+import { SettingsModal } from "../settings/SettingsModal";
 
 function MessengerContent() {
 	const { setAnimatingIn, currentUser, upsertUser } = useMessengerState();

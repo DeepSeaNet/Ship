@@ -15,6 +15,7 @@ import {
 	Spinner,
 	Tabs,
 	TextField,
+	toast,
 } from "@heroui/react";
 import { useState } from "react";
 
@@ -45,11 +46,11 @@ export function LoginForm({
 
 	const handleBase64Import = async () => {
 		if (!base64Input.trim()) {
-			alert("Please enter a valid base64 string");
+			toast("Please enter a valid base64 string", { variant: "danger" });
 			return;
 		}
 		if (!base64Key.trim()) {
-			alert("Please enter the decryption key");
+			toast("Please enter the decryption key", { variant: "danger" });
 			return;
 		}
 

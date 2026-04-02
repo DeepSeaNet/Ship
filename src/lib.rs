@@ -27,13 +27,13 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             app.webview_windows().values().for_each(|webview_window| {
-                if let Err(e) = webview_window.with_webview(|webview| {
+                if let Err(e) = webview_window.with_webview(|_webview| {
                     #[cfg(target_os = "linux")]
                     {
-                        if let Some(settings) = webview.inner().settings() {
+                        if let Some(settings) = _webview.inner().settings() {
                             enable_web_features(&settings);
 
-                            allow_all_permissions(&webview.inner());
+                            allow_all_permissions(&_webview.inner());
                         }
                     }
                 }) {

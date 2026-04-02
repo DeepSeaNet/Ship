@@ -1,13 +1,4 @@
-// Global UI State Types
-export interface Permissions {
-	manage_members: boolean;
-	send_messages: boolean;
-	delete_messages: boolean;
-	rename_group: boolean;
-	manage_permissions: boolean;
-	pin_messages: boolean;
-	manage_admins: boolean;
-}
+import type { DateTime, JoinMode, Permissions, Visibility } from "./generated";
 
 export interface GroupPermissions extends Permissions {
 	allow_links: boolean;
@@ -17,20 +8,16 @@ export interface GroupPermissions extends Permissions {
 	allow_video_messages: boolean;
 }
 
-type DateTime = {
-	timestamp: number;
-};
-
 export interface GroupConfig {
 	id: number;
 	name: string;
 	created_at: DateTime;
 	updated_at: DateTime;
 
-	visibility: "Public" | "Private";
-	join_mode: "InviteOnly" | "LinkOnly" | "Open" | "RequestToJoin";
-	invite_link?: string;
-	max_members?: number;
+	visibility: Visibility;
+	join_mode: JoinMode;
+	invite_link?: string | null;
+	max_members?: number | null;
 
 	creator_id: string;
 	members: string[];
@@ -38,19 +25,16 @@ export interface GroupConfig {
 	permissions: Record<string, Permissions>;
 	default_permissions: Permissions;
 	banned: string[];
-	muted: Record<string, string>;
+	muted: Record<string, DateTime>;
 
-	description?: string;
-	avatar?: string;
-	banner?: string;
-	pinned_message_id?: string;
-	slow_mode_delay?: number;
-	allow_stickers?: boolean;
-	allow_gifs?: boolean;
-	allow_voice_messages?: boolean;
-	allow_video_messages?: boolean;
-	allow_links?: boolean;
-	allow_messages?: boolean;
+	description?: string | null;
+	pinned_message_id?: string | null;
+	slow_mode_delay?: number | null;
+	allow_stickers: boolean;
+	allow_gifs: boolean;
+	allow_voice_messages: boolean;
+	allow_video_messages: boolean;
+	allow_links: boolean;
 }
 
 // Basic Chat interface that can be a single user or a group
@@ -77,13 +61,13 @@ export interface Message {
 	timestamp: string;
 	isOwn: boolean;
 	status?: "sending" | "sent" | "read" | "error";
-	media_name?: string;
-	media?: string; // URL or base64
-	media_id?: string;
-	media_data?: string;
-	reply_to?: string;
+	media_name?: string | null;
+	media?: string | null; // URL or base64
+	media_id?: string | null;
+	media_data?: string | null;
+	reply_to?: string | null;
 	edited?: boolean;
-	expires?: number;
+	expires?: string | number | null;
 	is_file?: boolean;
 }
 

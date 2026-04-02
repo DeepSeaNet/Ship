@@ -1,17 +1,23 @@
-import { GrpcSignalingAdapter } from "./GrpcSignalingAdapter";
-import { MediaManager } from "./MediaManager";
-import { MediasoupService } from "./MediasoupService";
-import { WorkerManager } from "./WorkerManager";
+import { toast } from "@heroui/react";
+import type { Consumer } from "mediasoup-client/types";
+import {
+	joinSession,
+	leaveSession,
+	type VoiceRequest,
+} from "@/hooks/generated";
 import type {
-	ClientMessage,
+	AppData,
 	LogEntry,
 	LogEntryType,
 	MediaTrackInfo,
-	ServerInit,
 } from "../types/mediasoup";
-import { invoke } from "@tauri-apps/api/core";
-import { toast } from "@heroui/react";
-import type { Consumer } from "mediasoup-client/types";
+import {
+	GrpcSignalingAdapter,
+	parseRtpCapabilities,
+} from "./GrpcSignalingAdapter";
+import { MediaManager } from "./MediaManager";
+import { MediasoupService } from "./MediasoupService";
+import { WorkerManager } from "./WorkerManager";
 
 export type CallStatus = "idle" | "calling" | "connected" | "error" | "ended";
 
@@ -42,7 +48,7 @@ export class VoiceSessionManager {
 	private pendingProducers: Array<{
 		producerId: string;
 		participantId: string;
-		appData: any;
+		appData: AppData;
 	}> = [];
 	private starting = false;
 
@@ -116,8 +122,8 @@ export class VoiceSessionManager {
 		track: MediaStreamTrack,
 		consumerId: string,
 		producerId: string,
-		participantId?: string,
-		appData?: any,
+		participantId: string,
+		appData?: AppData,
 	) => {
 		const prev = this.state.remoteTracks;
 		if (prev.some((t) => t.id === track.id)) return;
@@ -162,7 +168,7 @@ export class VoiceSessionManager {
 
 			try {
 				await Promise.race([
-					invoke("join_session", { sessionId: newSessionId }),
+					joinSession({ sessionId: newSessionId }),
 					new Promise((_, reject) =>
 						setTimeout(() => reject(new Error("Timeout")), 5000),
 					),
@@ -220,20 +226,55 @@ export class VoiceSessionManager {
 					}
 				},
 				onMessage: async (msg) => {
-					if (this.mediasoupService?.handleCallback(msg.action, msg)) {
+					if (msg.type === "consumed") {
+						const key = `consumed:${msg.data.producerId}`;
+						this.mediasoupService?.handleCallback(key, msg);
+						return;
+					}
+					if (this.mediasoupService?.handleCallback(msg.type, msg)) {
 						return;
 					}
 
-					if (msg.action === "Init") {
-						const initMsg = msg as ServerInit;
+					if (msg.type === "init") {
 						try {
-							await this.mediasoupService?.initializeDevice(
-								initMsg.routerRtpCapabilities,
+							console.log("Init message received", msg);
+							if (!msg.data.routerRtpCapabilities) {
+								this.addLog("No routerRtpCapabilities received", "error");
+								return;
+							}
+							if (!msg.data.producerTransportOptions) {
+								this.addLog("No producerTransportOptions received", "error");
+								return;
+							}
+							if (!msg.data.consumerTransportOptions) {
+								this.addLog("No consumerTransportOptions received", "error");
+								return;
+							}
+							const rtpCapabilities = parseRtpCapabilities(
+								msg.data.routerRtpCapabilities,
+								this.addLog,
 							);
+							const producerTransportOptions =
+								this.signaling?.parseTransportOptions(
+									msg.data.producerTransportOptions,
+								);
+							const consumerTransportOptions =
+								this.signaling?.parseTransportOptions(
+									msg.data.consumerTransportOptions,
+								);
+							if (
+								!rtpCapabilities ||
+								!producerTransportOptions ||
+								!consumerTransportOptions
+							) {
+								this.addLog("Failed to parse transport options", "error");
+								return;
+							}
+							await this.mediasoupService?.initializeDevice(rtpCapabilities);
 							await this.mediasoupService?.createTransports(
-								initMsg.producerTransportOptions,
-								initMsg.consumerTransportOptions,
-								(m: ClientMessage) => this.signaling?.sendMessage(m),
+								producerTransportOptions,
+								consumerTransportOptions,
+								(m: VoiceRequest) => this.signaling?.sendMessage(m),
 							);
 							this.updateState({ status: "connected" });
 							this.addLog("Call connected & initialized!", "success");
@@ -255,8 +296,8 @@ export class VoiceSessionManager {
 									);
 								}
 							}
-						} catch (error: any) {
-							this.addLog(`Initialization Error: ${error.message}`, "error");
+						} catch (error) {
+							this.addLog(`Initialization Error: ${error}`, "error");
 							this.updateState({ status: "error" });
 						}
 					}
@@ -273,14 +314,13 @@ export class VoiceSessionManager {
 				sessionId: newSessionId,
 				userId: this.userId || "",
 				addLog: this.addLog,
-				transformApi: "encodedStreams",
 				workerManager: this.workerManager,
 			});
 
 			this.mediaManager = new MediaManager({
 				mediasoupService: this.mediasoupService,
 				addLog: this.addLog,
-				sendMessage: (message: ClientMessage) => {
+				sendMessage: (message: VoiceRequest) => {
 					if (this.signaling && this.state.status === "connected") {
 						this.signaling.sendMessage(message);
 					}
@@ -288,8 +328,8 @@ export class VoiceSessionManager {
 			});
 
 			await this.signaling.connect();
-		} catch (err: any) {
-			this.addLog(`Failed to start call: ${err.message}`, "error");
+		} catch (error) {
+			this.addLog(`Failed to start call: ${error}`, "error");
 			this.updateState({ status: "error" });
 		} finally {
 			this.starting = false;
@@ -301,7 +341,7 @@ export class VoiceSessionManager {
 		if (this.signaling) {
 			//await this.signaling.sendMessage({ action: "Leave" });
 		}
-		await invoke("leave_session");
+		await leaveSession();
 		this.cleanup();
 	};
 
@@ -370,8 +410,8 @@ export class VoiceSessionManager {
 						};
 					}
 				}
-			} catch (err: any) {
-				this.addLog(`Screen share error: ${err.message || err}`, "error");
+			} catch (error) {
+				this.addLog(`Screen share error: ${error}`, "error");
 				this.updateState({
 					isScreenShareEnabled: false,
 					screenShareStream: null,
@@ -383,7 +423,7 @@ export class VoiceSessionManager {
 	private requestConsume = async (
 		producerId: string,
 		participantId: string,
-		appData: any,
+		appData: AppData,
 	) => {
 		if (!this.mediasoupService || !this.signaling) return;
 
@@ -395,7 +435,7 @@ export class VoiceSessionManager {
 		// Set callback FIRST to avoid race condition
 		this.mediasoupService.setResponseCallback(
 			`consumed:${producerId}`,
-			async (data: any) => {
+			async (data) => {
 				const userId = appData?.userId;
 				if (typeof userId === "string") {
 					this.addLog(
@@ -405,6 +445,7 @@ export class VoiceSessionManager {
 					const consumer = await this.mediasoupService?.createConsumer(
 						data,
 						userId,
+						appData,
 						(track, consumerId, newProducerId) => {
 							this.handleTrackAdded(
 								track,
@@ -414,7 +455,7 @@ export class VoiceSessionManager {
 								appData,
 							);
 						},
-						(m: ClientMessage) => this.signaling?.sendMessage(m),
+						(m: VoiceRequest) => this.signaling?.sendMessage(m),
 					);
 
 					if (!consumer) {
@@ -432,11 +473,11 @@ export class VoiceSessionManager {
 			},
 		);
 
-		const rtpCapabilities = this.mediasoupService.getDevice()?.rtpCapabilities;
 		await this.signaling.sendMessage({
-			action: "Consume",
-			producerId: producerId,
-			rtpCapabilities,
+			type: "consume",
+			data: {
+				producerId,
+			},
 		});
 	};
 }

@@ -11,14 +11,21 @@ import {
 	Video,
 	Xmark,
 } from "@gravity-ui/icons";
-import { Avatar, Badge, ScrollShadow, Spinner } from "@heroui/react";
+import {
+	Avatar,
+	Badge,
+	Button,
+	ScrollShadow,
+	Spinner,
+	Tooltip,
+} from "@heroui/react";
 import { useEffect, useState } from "react";
 import type { MediaItem } from "@/hooks/messengerTypes";
 import { useChats } from "@/hooks/useChats";
 import { getStatusColor } from "@/hooks/useContacts";
+import { useGroups } from "@/hooks/useGroups";
 import { useMessengerState } from "@/hooks/useMessengerState";
 import { GroupSettingsModal } from "../settings/GroupSettingsModal";
-import { useGroups } from "@/hooks/useGroups";
 
 interface RightSidebarProps {
 	onClose?: () => void;
@@ -78,12 +85,12 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 				mediaList.forEach((m) => {
 					const item: MediaItem = {
 						id: m.media_id,
-						name: m.media_type,
+						name: m.filename,
 						timestamp: new Date(m.timestamp * 1000).toISOString(),
 						type: "document", // Default
 					};
 
-					const ext = m.media_type.split(".").pop()?.toLowerCase();
+					const ext = m.filename.split(".").pop()?.toLowerCase();
 					if (!ext) return;
 					if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
 						item.type = "photo";
@@ -179,29 +186,44 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 					<div className="flex items-center justify-between">
 						<h3 className="font-semibold text-xl text-accent-surface">Info</h3>
 						<div className="flex gap-1">
-							<button
-								onClick={onToggle}
-								className="w-8 h-8 rounded-lg hover:bg-on-surface flex items-center justify-center transition text-muted"
-								title="Toggle Sidebar"
-							>
-								<ChevronRight className="w-5 h-5" />
-							</button>
-							<button
-								onClick={() => setIsSettingsOpen(true)}
-								className="w-8 h-8 rounded-lg hover:bg-on-surface flex items-center justify-center transition text-muted"
-								title="Settings"
-								disabled={!activeChat.isGroup}
-							>
-								<Gear className="w-5 h-5" />
-							</button>
-							{onClose && (
-								<button
-									onClick={onClose}
-									className="w-8 h-8 rounded-lg hover:bg-on-surface flex items-center justify-center transition text-muted"
-									title="Close"
+							<Tooltip delay={0}>
+								<Button
+									isIconOnly
+									variant="tertiary"
+									size="sm"
+									onPress={onToggle}
+									aria-label="Toggle Sidebar"
 								>
-									<Xmark className="w-5 h-5" />
-								</button>
+									<ChevronRight className="w-5 h-5" />
+								</Button>
+								<Tooltip.Content>Toggle Sidebar</Tooltip.Content>
+							</Tooltip>
+							<Tooltip delay={0}>
+								<Button
+									isIconOnly
+									variant="tertiary"
+									size="sm"
+									onPress={() => setIsSettingsOpen(true)}
+									isDisabled={!activeChat.isGroup}
+									aria-label="Settings"
+								>
+									<Gear className="w-5 h-5" />
+								</Button>
+								<Tooltip.Content>Settings</Tooltip.Content>
+							</Tooltip>
+							{onClose && (
+								<Tooltip delay={0}>
+									<Button
+										isIconOnly
+										variant="tertiary"
+										size="sm"
+										onPress={onClose}
+										aria-label="Close"
+									>
+										<Xmark className="w-5 h-5" />
+									</Button>
+									<Tooltip.Content>Close</Tooltip.Content>
+								</Tooltip>
 							)}
 						</div>
 					</div>
@@ -229,12 +251,12 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 							</p>
 						</div>
 						<div className="flex w-full gap-2">
-							<button className="flex-1 px-3 py-2 bg-on-surface rounded-xl text-sm font-medium text-muted hover:bg-neutral-800 transition">
+							<Button className="flex-1" variant="secondary">
 								Share Link
-							</button>
-							<button className="flex-1 px-3 py-2 bg-on-surface rounded-xl text-sm font-medium text-muted hover:bg-neutral-800 transition">
+							</Button>
+							<Button className="flex-1" variant="secondary">
 								Search
-							</button>
+							</Button>
 						</div>
 					</div>
 
@@ -250,16 +272,18 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 									<span className="text-sm text-muted">• {photosCount}</span>
 								)}
 							</div>
-							<button
-								onClick={() => toggleSection("photos")}
-								className="text-muted hover:text-accent-foreground transition"
+							<Button
+								isIconOnly
+								variant="tertiary"
+								size="sm"
+								onPress={() => toggleSection("photos")}
 							>
 								<ChevronDown
 									className={`w-5 h-5 transition-transform duration-200 ${
 										expandedSections.photos ? "rotate-180" : ""
 									}`}
 								/>
-							</button>
+							</Button>
 						</div>
 						{expandedSections.photos &&
 							(photosCount > 0 ? (
@@ -292,16 +316,18 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 									<span className="text-sm text-muted">• {audioCount}</span>
 								)}
 							</div>
-							<button
-								onClick={() => toggleSection("audio")}
-								className="text-muted hover:text-accent-foreground transition"
+							<Button
+								isIconOnly
+								variant="tertiary"
+								size="sm"
+								onPress={() => toggleSection("audio")}
 							>
 								<ChevronDown
 									className={`w-5 h-5 transition-transform duration-200 ${
 										expandedSections.audio ? "rotate-180" : ""
 									}`}
 								/>
-							</button>
+							</Button>
 						</div>
 						{expandedSections.audio &&
 							(audioCount > 0 ? (
@@ -332,16 +358,18 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 									<span className="text-sm text-muted">• {videosCount}</span>
 								)}
 							</div>
-							<button
-								onClick={() => toggleSection("videos")}
-								className="text-muted hover:text-accent-foreground transition"
+							<Button
+								isIconOnly
+								variant="tertiary"
+								size="sm"
+								onPress={() => toggleSection("videos")}
 							>
 								<ChevronDown
 									className={`w-5 h-5 transition-transform duration-200 ${
 										expandedSections.videos ? "rotate-180" : ""
 									}`}
 								/>
-							</button>
+							</Button>
 						</div>
 						{expandedSections.videos &&
 							(videosCount > 0 ? (
@@ -374,16 +402,18 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 									<span className="text-sm text-muted">• {documentsCount}</span>
 								)}
 							</div>
-							<button
-								onClick={() => toggleSection("documents")}
-								className="text-muted hover:text-accent-foreground transition"
+							<Button
+								isIconOnly
+								variant="tertiary"
+								size="sm"
+								onPress={() => toggleSection("documents")}
 							>
 								<ChevronDown
 									className={`w-5 h-5 transition-transform duration-200 ${
 										expandedSections.documents ? "rotate-180" : ""
 									}`}
 								/>
-							</button>
+							</Button>
 						</div>
 						{expandedSections.documents &&
 							(documentsCount > 0 ? (
@@ -414,16 +444,18 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 									Members ({membersCount})
 								</span>
 							</div>
-							<button
-								onClick={() => toggleSection("members")}
-								className="text-muted hover:text-accent-foreground transition"
+							<Button
+								isIconOnly
+								variant="tertiary"
+								size="sm"
+								onPress={() => toggleSection("members")}
 							>
 								<ChevronDown
 									className={`w-5 h-5 transition-transform duration-200 ${
 										expandedSections.members ? "rotate-180" : ""
 									}`}
 								/>
-							</button>
+							</Button>
 						</div>
 						{expandedSections.members && (
 							<div className="space-y-3 animate-in fade-in duration-200">
@@ -475,9 +507,13 @@ export function RightSidebar({ onClose, onToggle }: RightSidebarProps) {
 								))}
 
 								{membersCount > 5 && (
-									<button className="text-sm text-primary hover:underline transition font-medium">
+									<Button
+										variant="ghost"
+										size="sm"
+										className="text-primary font-medium"
+									>
 										View All {membersCount} Members
-									</button>
+									</Button>
 								)}
 							</div>
 						)}

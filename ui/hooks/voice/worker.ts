@@ -7,11 +7,6 @@
  * senderId resolution strategy:
  *   - For ENCRYPT: we are the sender — no senderId needed.
  *   - For DECRYPT: senderId is passed in transformer.options.senderId when
- *     the RTCRtpScriptTransform is created (main thread maps SSRC → userId
- *     from the voice gateway roster and passes it here).
- *     As a fallback, chunk.getMetadata().synchronizationSource (SSRC) is
- *     used to look up the userId via the ssrcToUserId map sent from the
- *     main thread via "updateSsrcMapping".
  */
 
 import { GroupCryptoManager } from "./crypto/groupCryptoManager";
@@ -19,12 +14,6 @@ import { GroupCryptoManager } from "./crypto/groupCryptoManager";
 // ==================== State ====================
 
 const cryptoManager = new GroupCryptoManager();
-
-/** SSRC (u32) → userId (bigint) — populated from the voice gateway roster. */
-const ssrcToUserId = new Map<number, bigint>();
-
-/** codec payload type → codec kind (1 = VP8, etc.) */
-let codecMapping: Record<number, number> = {};
 
 // ==================== VP8 unencrypted header offset ====================
 // DAVE §Codec Handling: VP8 key frames leave 10 bytes unencrypted,
@@ -37,15 +26,11 @@ function getVp8EncryptionOffset(data: Uint8Array): number {
 	return pFlag === 0 ? Math.min(10, data.length) : Math.min(1, data.length);
 }
 
-function isVp8Frame(
-	chunk: RTCEncodedVideoFrame,
-	metadata: RTCEncodedVideoFrameMetadata,
-): boolean {
-	if ((metadata as any)?.mimeType) {
-		return (metadata as any).mimeType.toLowerCase().includes("vp8");
+function isVp8Frame(metadata: RTCEncodedVideoFrameMetadata): boolean {
+	if (metadata.mimeType) {
+		return metadata.mimeType.toLowerCase().includes("vp8");
 	}
-	const pt = (chunk as any).payloadType ?? (metadata as any)?.payloadType;
-	return pt !== undefined && codecMapping[pt] === 1;
+	return false;
 }
 
 // ==================== senderId resolution ====================
@@ -56,9 +41,6 @@ function isVp8Frame(
  * Priority:
  *   1. options.senderId  — set by the main thread when creating the transform
  *      for a specific remote track (most reliable).
- *   2. ssrcToUserId map  — populated from the voice gateway roster via
- *      "updateSsrcMapping" message (fallback for dynamic tracks).
- *   3. Throws if neither is available.
  */
 function resolveSenderId(
 	options: Record<string, unknown>,
@@ -69,16 +51,9 @@ function resolveSenderId(
 		return BigInt(options.senderId as number);
 	}
 
-	// 2. SSRC → userId lookup.
-	const ssrc = (metadata as any).synchronizationSource as number | undefined;
-	if (ssrc !== undefined) {
-		const userId = ssrcToUserId.get(ssrc);
-		if (userId !== undefined) return userId;
-	}
-
 	throw new Error(
 		`Cannot resolve senderId: no options.senderId and SSRC ${
-			(metadata as any).synchronizationSource
+			metadata.synchronizationSource
 		} not in ssrcToUserId map`,
 	);
 }
@@ -98,10 +73,10 @@ async function processChunk(
 	}
 
 	const originalData = new Uint8Array(chunk.data);
-	const metadata = chunk.getMetadata() as any;
+	const metadata = chunk.getMetadata();
 
 	// VP8 partial encryption (only for video frames).
-	const isVp8 = isVp8Frame(chunk as RTCEncodedVideoFrame, metadata);
+	const isVp8 = isVp8Frame(metadata);
 	const offset = isVp8 ? getVp8EncryptionOffset(originalData) : 0;
 	try {
 		let processedBuffer: Uint8Array;
@@ -134,9 +109,9 @@ async function processChunk(
 
 		chunk.data = processedBuffer.buffer as ArrayBuffer;
 		controller.enqueue(chunk);
-	} catch (error: any) {
+	} catch (error) {
 		// Drop the frame on error — better than forwarding corrupt data.
-		console.error(`[Worker] ${mode} failed:`, error.message);
+		console.error(`[Worker] ${mode} failed:`, error);
 	}
 }
 
@@ -155,47 +130,20 @@ self.onmessage = async (event: MessageEvent) => {
 			}
 			break;
 
-		/**
-		 * updateSsrcMapping: { type: "updateSsrcMapping", mapping: { [ssrc: number]: number } }
-		 *
-		 * The main thread sends this whenever the voice gateway roster changes.
-		 * It maps each participant's SSRC (from RTP) to their snowflake userId.
-		 *
-		 * Example (main thread):
-		 *   worker.postMessage({
-		 *     type: "updateSsrcMapping",
-		 *     mapping: { 12345678: 1090123456789012345 }
-		 *   });
-		 */
-		case "updateSsrcMapping": {
-			const mapping = event.data.mapping as Record<number, number>;
-			ssrcToUserId.clear();
-			for (const [ssrc, userId] of Object.entries(mapping)) {
-				ssrcToUserId.set(Number(ssrc), BigInt(userId));
-			}
-			console.log(
-				"[Worker] SSRC mapping updated:",
-				ssrcToUserId.size,
-				"entries",
-			);
-			break;
-		}
-
-		case "updateCodecMapping":
-			codecMapping = event.data.codecMapping ?? {};
-			console.log("[Worker] Codec mapping updated:", codecMapping);
-			break;
-
 		case "init":
 			console.log("[Worker] Initialized.");
+			break;
+
+		default:
+			console.warn("[Worker] Unknown message type:", type);
 			break;
 	}
 };
 
 // ==================== RTCTransformEvent ====================
-
-if ((self as any).RTCTransformEvent) {
-	(self as any).onrtctransform = (event: any) => {
+const workerScope = self as DedicatedWorkerGlobalScope;
+if (workerScope) {
+	workerScope.onrtctransform = (event) => {
 		const { readable, writable, options } = event.transformer;
 
 		// options.name:     "senderTransform" | "receiverTransform"

@@ -10,7 +10,7 @@ use mls_rs_provider_sqlite::{
     SqLiteDataStorageEngine, connection_strategy::FileConnectionStrategy,
 };
 use moka::future::{Cache, CacheBuilder};
-use rand::Rng;
+use rand::RngExt;
 use std::time::Duration;
 use std::{sync::Arc, time::SystemTime};
 use tauri::AppHandle;
@@ -368,7 +368,7 @@ impl Device {
     pub async fn create_key_package(&self) -> Result<MlsMessage, GroupError> {
         self.client
             .generate_key_package_message(Default::default(), Default::default(), None)
-            .await
+            //.await
             .map_err(|e| GroupError::MlsError(format!("Key package generation failed: {}", e)))
     }
 
@@ -379,7 +379,7 @@ impl Device {
 
         self.client
             .generate_key_package_message(extensions, Default::default(), None)
-            .await
+            //.await
             .map_err(|e| GroupError::MlsError(format!("Key package generation failed: {}", e)))
     }
 
@@ -437,16 +437,16 @@ pub fn get_default_db_path(account_id: u64, device_id: &str) -> std::path::PathB
     #[cfg(not(target_os = "ios"))]
     {
         let mut path = dirs::home_dir().expect("Could not find home directory");
-        path.push(".anongram/group");
-        std::fs::create_dir_all(&path).expect("Could not create .anongram directory");
+        path.push(".ship/group");
+        std::fs::create_dir_all(&path).expect("Could not create .ship directory");
         path.push(format!("group_{}_{}.db", account_id, device_id));
         path
     }
     #[cfg(target_os = "ios")]
     {
         let mut path = dirs::document_dir().expect("Could not find home directory");
-        path.push(".anongram/group");
-        std::fs::create_dir_all(&path).expect("Could not create .anongram directory");
+        path.push(".ship/group");
+        std::fs::create_dir_all(&path).expect("Could not create .ship directory");
         path.push(format!("group_{}_{}.db", account_id, device_id));
         path
     }

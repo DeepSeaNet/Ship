@@ -89,8 +89,8 @@ export class ReceiverCryptoRatchet {
 		targetGeneration: number,
 	): Promise<CachedGeneration> {
 		await this.ensureEpochState(epoch);
-		const state = this.epochStates.get(epoch)!;
-
+		const state = this.epochStates.get(epoch);
+		if (!state) throw new Error(`No state for epoch ${epoch}`);
 		// 1. Сначала проверяем кэш
 		if (targetGeneration < state.generation) {
 			const cached = state.cache.get(targetGeneration);
@@ -99,39 +99,41 @@ export class ReceiverCryptoRatchet {
 		}
 
 		// 2. Если пакет из будущего или текущий
-		// ВАЖНО: Мы должны вычислить ВСЕ ключи до targetGeneration включительно.
 		while (state.generation <= targetGeneration) {
 			const currentGen = state.generation;
 
-			// Мы НЕ можем сделать mlsRatchetStep синхронным,
-			// но мы можем заблокировать очередь.
 			const step = await mlsRatchetStep(state.secret, currentGen);
 
-			// Сохраняем в кэш ВСЕГДА, даже текущий.
 			state.cache.set(currentGen, { key: step.key, nonce: step.nonce });
 			state.secret = step.nextSecret;
 			state.generation++;
 		}
 
-		// Удаляем из кэша только ПОСЛЕ успешного получения
-		const result = state.cache.get(targetGeneration)!;
-		// Для отладки: если оставить ключ в кэше на 1-2 секунды,
-		// ошибки "consumed" при одновременном аудио/видео исчезнут.
-		setTimeout(() => state.cache.delete(targetGeneration), 2000);
+		const result = state.cache.get(targetGeneration);
+		if (!result)
+			throw new Error(`No result for generation ${targetGeneration}`);
+
+		state.cache.delete(targetGeneration);
 
 		return result;
 	}
 
 	// ── Decrypt ───────────────────────────────────────────────────────────────
-	private processingQueue: Promise<any> = Promise.resolve();
+	private processingQueue: Promise<void> = Promise.resolve();
 
 	async decrypt(data: Uint8Array): Promise<Uint8Array> {
 		// Wrap the logic in a queue to prevent concurrent ratchet updates
-		const result = this.processingQueue.then(async () => {
-			return this.internalDecrypt(data);
-		});
+		const result = this.processingQueue.then(() => this.internalDecrypt(data));
 
-		this.processingQueue = result.catch(() => {});
+		// Continue the queue even if decryption fails, while keeping it a Promise<void>
+		this.processingQueue = result.then(
+			() => {
+				// do nothing
+			},
+			() => {
+				// do nothing
+			},
+		);
 		return result;
 	}
 	/**

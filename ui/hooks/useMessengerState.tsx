@@ -1,7 +1,6 @@
 "use client";
 
 import { toast } from "@heroui/react";
-import { invoke } from "@tauri-apps/api/core";
 import {
 	createContext,
 	type ReactNode,
@@ -20,8 +19,8 @@ import type {
 	User,
 } from "./messengerTypes";
 import { useContacts } from "./useContacts";
-import { useListener } from "./useListener";
 import { useGroups } from "./useGroups";
+import { useListener } from "./useListener";
 
 const defaultUIState: UIState = {
 	activeChatId: null,
@@ -81,6 +80,7 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 			const formattedGroups = await fetchGroups();
 
 			// Fetch private chats (placeholder for now as per previous implementation)
+			/*
 			const privateChats = await invoke<any[]>("get_chats");
 			const formattedPrivateChats: Chat[] = privateChats.map((chat: any) => ({
 				id: chat.id,
@@ -93,19 +93,17 @@ export function MessengerProvider({ children }: MessengerProviderProps) {
 					? new Date(chat.last_message.timestamp * 1000).toISOString()
 					: undefined,
 			}));
-
+			*/
 			// Combine and sort
-			const allChats = [...formattedGroups, ...formattedPrivateChats].sort(
-				(a, b) => {
-					const aTime = a.lastMessageTime
-						? new Date(a.lastMessageTime).getTime()
-						: 0;
-					const bTime = b.lastMessageTime
-						? new Date(b.lastMessageTime).getTime()
-						: 0;
-					return bTime - aTime;
-				},
-			);
+			const allChats = [...formattedGroups].sort((a, b) => {
+				const aTime = a.lastMessageTime
+					? new Date(a.lastMessageTime).getTime()
+					: 0;
+				const bTime = b.lastMessageTime
+					? new Date(b.lastMessageTime).getTime()
+					: 0;
+				return bTime - aTime;
+			});
 
 			setChats(allChats);
 		} catch (error) {

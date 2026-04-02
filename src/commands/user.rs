@@ -1,8 +1,10 @@
 use crate::api::{
     account::Account,
-    status::{Avatar, UserManager, get_default_db_path, user_status::UserStatusClient},
+    status::{
+        Avatar, DisplayUserInfo, DisplayUserStatus, UpdateUserAvatarResponse, UserManager,
+        get_default_db_path, user_status::UserStatusClient,
+    },
 };
-use serde_json::json;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -13,7 +15,7 @@ type SafeAccount = Arc<Account>;
 pub async fn get_user_status(
     user_status: tauri::State<'_, SafeUserStatus>,
     user_id: i64,
-) -> Result<serde_json::Value, String> {
+) -> Result<DisplayUserStatus, String> {
     log::debug!("Get user status called");
 
     let mut user_status = user_status.write().await;
@@ -24,7 +26,7 @@ pub async fn get_user_status(
             .await
             .map_err(|e| e.to_string())?;
 
-        Ok(json!(status))
+        Ok(status)
     } else {
         Err("User status not initialized".to_string())
     }
@@ -34,7 +36,7 @@ pub async fn get_user_status(
 pub async fn get_user_info(
     user_status: tauri::State<'_, SafeUserStatus>,
     user_id: i64,
-) -> Result<serde_json::Value, String> {
+) -> Result<DisplayUserInfo, String> {
     log::debug!("Get user info called");
 
     let mut user_status = user_status.write().await;
@@ -45,7 +47,7 @@ pub async fn get_user_info(
             .await
             .map_err(|e| e.to_string())?;
 
-        Ok(json!(user_info))
+        Ok(user_info)
     } else {
         Err("User status not initialized".to_string())
     }
@@ -81,7 +83,7 @@ pub async fn update_avatar(
     mime_type: String,
     width: i32,
     height: i32,
-) -> Result<serde_json::Value, String> {
+) -> Result<UpdateUserAvatarResponse, String> {
     log::debug!("Update avatar called");
 
     let avatar = Avatar {
@@ -101,7 +103,7 @@ pub async fn update_avatar(
             .await
             .map_err(|e| e.to_string())?;
 
-        Ok(json!(response))
+        Ok(response)
     } else {
         Err("User status not initialized".to_string())
     }
@@ -199,7 +201,7 @@ pub async fn unsubscribe_from_users(
 pub async fn get_contacts(
     user_status: tauri::State<'_, SafeUserStatus>,
     account: tauri::State<'_, SafeAccount>,
-) -> Result<Vec<serde_json::Value>, String> {
+) -> Result<Vec<DisplayUserInfo>, String> {
     log::debug!("Get contacts called");
     let mut user_status = user_status.write().await;
     if let Some(user_status) = user_status.as_mut() {
@@ -207,10 +209,8 @@ pub async fn get_contacts(
             .get_contacts()
             .await
             .map_err(|e| e.to_string())?;
-        let contacts_json: Vec<serde_json::Value> =
-            contacts.into_iter().map(|contact| json!(contact)).collect();
 
-        Ok(contacts_json)
+        Ok(contacts)
     } else {
         let user_manager = UserManager::new(get_default_db_path(account.user_id))
             .await
@@ -219,9 +219,7 @@ pub async fn get_contacts(
             .get_contacts()
             .await
             .map_err(|e| e.to_string())?;
-        let contacts_json: Vec<serde_json::Value> =
-            contacts.into_iter().map(|contact| json!(contact)).collect();
 
-        Ok(contacts_json)
+        Ok(contacts)
     }
 }

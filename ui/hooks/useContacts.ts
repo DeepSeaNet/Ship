@@ -1,7 +1,12 @@
 "use client";
 
-import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useState } from "react";
+import {
+	getContacts,
+	getUserInfo as getUserInfoCommand,
+	setUserStatus,
+	subscribeToUsers,
+} from "./generated";
 import { createMediaUrl } from "./helper";
 import type { User } from "./messengerTypes";
 
@@ -36,7 +41,7 @@ export const handleStatusChange = async (
 	status: string,
 ) => {
 	try {
-		await invoke("set_user_status", { status });
+		await setUserStatus({ status });
 		if (currentUser) {
 			upsertUser({ ...currentUser, status });
 		}
@@ -55,8 +60,8 @@ export function useContacts() {
 		setLoading(true);
 		setError(null);
 		try {
-			const result = await invoke<ContactInfo[]>("get_contacts");
-			await invoke("subscribe_to_users", {
+			const result = await getContacts();
+			await subscribeToUsers({
 				userIds: result.map((c) => c.user_id),
 			});
 			setContacts((prev) => {
@@ -83,9 +88,11 @@ export function useContacts() {
 
 	const getUserInfo = useCallback(async (userId: string | number) => {
 		try {
-			const result = await invoke<ContactInfo>("get_user_info", {
-				userId: Number(userId),
-			});
+			const result = await getUserInfoCommand({ userId: Number(userId) });
+			if (!result) {
+				console.error(`Failed to fetch user info for ${userId}`);
+				return null;
+			}
 			const contact: User = {
 				id: String(result.user_id),
 				name: result.username,
@@ -102,12 +109,6 @@ export function useContacts() {
 	const addContact = useCallback(
 		async (userId: string | number) => {
 			try {
-				// Try to invoke backend if it exists, otherwise just fetch info
-				try {
-					await invoke("add_contact", { userId: Number(userId) });
-				} catch (e) {
-					console.error("Failed to add contact:", e);
-				}
 				const info = await getUserInfo(userId);
 				if (info) {
 					setContacts((prev) => ({ ...prev, [info.id]: info }));
@@ -127,15 +128,12 @@ export function useContacts() {
 			console.log(
 				`Demo: Managing trust factor for ${userId} to level ${trustLevel}`,
 			);
-			try {
-				// Demo invocation
-				await invoke("update_trust_factor", {
-					userId: Number(userId),
-					trustLevel,
-				});
-			} catch (e) {
-				console.error("Failed to update trust factor:", e);
-			}
+			//try {
+			// Demo invocation
+			//await updateTrustFactor({ userId: Number(userId), trustLevel });
+			//} catch (e) {
+			//	console.error("Failed to update trust factor:", e);
+			//}
 			// In a real app, you might update the local state with the new trust factor here
 			return true;
 		},

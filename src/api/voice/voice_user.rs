@@ -20,12 +20,13 @@ use tokio::{
 
 use anyhow::Error;
 
-use crate::api::voice::types::basic_types::{
-    EXPORT_SECRET_LABEL, EXPORT_SECRET_LENGTH, Voice, VoiceId,
-};
 use crate::api::voice::types::ratchet_key::GroupRatchetManager;
 use crate::api::voice::types::ratchet_key::RatchetConfig;
 use crate::api::voice::voice_handler::VoiceHandler;
+use crate::api::voice::{
+    connection::echolocator,
+    types::basic_types::{EXPORT_SECRET_LABEL, EXPORT_SECRET_LENGTH, Voice, VoiceId},
+};
 use crate::api::voice::{connection::voice_connection::Backend, types::basic_types::VoiceUserData};
 use mls_rs_crypto_awslc::AwsLcCryptoProvider;
 use std::path::PathBuf;
@@ -62,7 +63,7 @@ impl VoiceUser {
         let cipher_suite = crypto_provider
             .cipher_suite_provider(CIPHERSUITE)
             .ok_or_else(|| anyhow::anyhow!("Cipher suite not supported"))?;
-        let (secret, public) = cipher_suite.signature_key_generate().await?;
+        let (secret, public) = cipher_suite.signature_key_generate()?;
         let basic_identity = BasicCredential::new(user_id.to_le_bytes().to_vec());
         let signing_identity = SigningIdentity::new(basic_identity.into_credential(), public);
 
@@ -182,20 +183,17 @@ impl VoiceUser {
         let group = self
             .client
             .create_group_with_id(group_id.to_vec(), extension_list, Default::default(), None)
-            .await
             .map_err(|e| anyhow::anyhow!("Failed to create MLS group: {}", e))?;
 
         // Get group_info for server to observe
-        let group_info = group.group_info_message_allowing_ext_commit(true).await?;
+        let group_info = group.group_info_message_allowing_ext_commit(true)?;
         let group_info_bytes = group_info.mls_encode_to_vec()?;
 
-        let secret = group
-            .export_secret(
-                EXPORT_SECRET_LABEL.as_bytes(),
-                self.user_id.to_le_bytes().as_slice(),
-                EXPORT_SECRET_LENGTH,
-            )
-            .await?;
+        let secret = group.export_secret(
+            EXPORT_SECRET_LABEL.as_bytes(),
+            self.user_id.to_le_bytes().as_slice(),
+            EXPORT_SECRET_LENGTH,
+        )?;
         let secret_array: [u8; EXPORT_SECRET_LENGTH] = secret.as_bytes().try_into()?;
 
         let signature_key = group
@@ -244,12 +242,10 @@ impl VoiceUser {
         let (mut group, _) = self
             .client
             .join_group(None, &welcome, None)
-            .await
             .map_err(|e| anyhow::anyhow!("Failed to join group: {}", e))?;
 
         group
             .write_to_storage()
-            .await
             .map_err(|e| anyhow::anyhow!("Failed to write to storage: {}", e))?;
 
         // Export secret for ratchet manager
@@ -259,7 +255,6 @@ impl VoiceUser {
                 self.user_id.to_le_bytes().as_slice(),
                 EXPORT_SECRET_LENGTH,
             )
-            .await
             .map_err(|e| anyhow::anyhow!("Failed to export secret: {}", e))?;
 
         let secret_array: [u8; EXPORT_SECRET_LENGTH] = secret
@@ -316,7 +311,6 @@ impl VoiceUser {
             let key_package = self
                 .client
                 .generate_key_package_message(Default::default(), Default::default(), None)
-                .await
                 .map_err(|e| anyhow::anyhow!("Failed to generate key package: {}", e))?;
 
             let key_package_bytes = key_package
@@ -373,7 +367,6 @@ impl VoiceUser {
             let mut voice_mls_group = voice.mls_group.write().await;
             let leave_message = voice_mls_group
                 .propose_self_remove(Vec::new())
-                .await
                 .map_err(|e| anyhow::anyhow!("Failed to propose self remove: {}", e))?;
 
             // Сериализуем сообщение для отправки
@@ -388,6 +381,7 @@ impl VoiceUser {
         // Удаляем информацию о группе из локального хранилища
         let mut lock = self.current_voice.write().await;
         *lock = None;
+        self.backend.close_signaling_stream().await?;
         Ok(())
     }
 
@@ -436,7 +430,7 @@ impl VoiceUser {
     // Отправка signaling сообщения
     pub async fn send_signaling_message(
         &self,
-        message: crate::api::voice::grpc_generated::echolocator::ClientMessage,
+        message: echolocator::ClientMessage,
     ) -> Result<(), anyhow::Error> {
         self.backend.send_signaling_message(message).await?;
         Ok(())

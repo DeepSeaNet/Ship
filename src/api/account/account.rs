@@ -27,7 +27,7 @@ impl Account {
     pub async fn create_keys() -> Result<(SignatureSecretKey, SignaturePublicKey), GroupError> {
         cipher_suite()
             .signature_key_generate()
-            .await
+            //.await
             .map_err(|_| GroupError::MlsError("Error generating signature keys".to_string()))
     }
 
@@ -35,7 +35,7 @@ impl Account {
     pub async fn sign_message(&self, message: &[u8]) -> Result<Vec<u8>, GroupError> {
         cipher_suite()
             .sign(&self.signer, message)
-            .await
+            //.await
             .map_err(|_| GroupError::CryptoError("Message signature failed".to_string()))
     }
 
@@ -48,7 +48,7 @@ impl Account {
     ) -> Result<(), GroupError> {
         cipher_suite()
             .verify(public_key, message, signature)
-            .await
+            //.await
             .map_err(|_| GroupError::CryptoError("Message verification failed".to_string()))
     }
 

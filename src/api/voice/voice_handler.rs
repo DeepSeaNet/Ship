@@ -64,7 +64,7 @@ impl VoiceHandler {
         };
 
         let mut mls_group = voice.mls_group.write().await;
-        let processed = mls_group.process_incoming_message(message_in).await;
+        let processed = mls_group.process_incoming_message(message_in);
         let processed_message = match processed {
             Ok(p) => p,
             Err(e) => {
@@ -76,7 +76,7 @@ impl VoiceHandler {
         log::info!("Processed message: {:?}", processed_message);
 
         if let ReceivedMessage::Commit(commit) = processed_message {
-            if let Err(e) = mls_group.write_to_storage().await {
+            if let Err(e) = mls_group.write_to_storage() {
                 log::error!("Failed to write to storage: {}", e);
                 return;
             }
@@ -110,7 +110,6 @@ impl VoiceHandler {
         let member_identity = BasicCredential::new(name.to_le_bytes().to_vec());
         mls_group
             .member_with_identity(&member_identity.identifier)
-            .await
             .map_err(|e| e.to_string())
     }
 
@@ -135,7 +134,6 @@ impl VoiceHandler {
 
             let commit = commit_builder
                 .build()
-                .await
                 .map_err(|e| anyhow::anyhow!("Failed to build commit: {}", e))?;
 
             let leave_message_bytes = commit
@@ -196,7 +194,7 @@ impl VoiceHandler {
                         // Process the commit
                         match MlsMessage::from_bytes(&data) {
                             Ok(commit_msg) => {
-                                match group.process_incoming_message(commit_msg).await {
+                                match group.process_incoming_message(commit_msg) {
                                     Ok(_) => {
                                         // Send ACK to server
                                         if let Err(e) = backend
@@ -206,7 +204,7 @@ impl VoiceHandler {
                                             log::error!("Failed to send commit ACK: {}", e);
                                         } else {
                                             log::info!("Server commit processed successfully");
-                                            if let Err(e) = group.write_to_storage().await {
+                                            if let Err(e) = group.write_to_storage() {
                                                 log::error!("Failed to write to storage: {}", e);
                                                 return;
                                             }
@@ -260,11 +258,11 @@ impl VoiceHandler {
                         match MlsMessage::from_bytes(&data) {
                             Ok(proposal_msg) => {
                                 log::info!("Processing proposal: {:?}", proposal_msg);
-                                match group.process_incoming_message(proposal_msg).await {
+                                match group.process_incoming_message(proposal_msg) {
                                     Ok(proposal) => {
                                         // Commit the proposal
                                         log::info!("Committing proposal: {:?}", proposal);
-                                        match group.commit(Vec::new()).await {
+                                        match group.commit(Vec::new()) {
                                             Ok(commit_output) => {
                                                 log::info!("Commit output: {:?}", commit_output);
                                                 // Serialize commit and welcome message
@@ -379,9 +377,9 @@ impl VoiceHandler {
                         // Server accepted the commit - apply it
                         log::info!("Server accepted commit, applying pending commit");
 
-                        match group.apply_pending_commit().await {
+                        match group.apply_pending_commit() {
                             Ok(_) => {
-                                if let Err(e) = group.write_to_storage().await {
+                                if let Err(e) = group.write_to_storage() {
                                     log::error!("Failed to write to storage: {}", e);
                                     return;
                                 }

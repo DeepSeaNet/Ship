@@ -10,11 +10,6 @@
 // --- State Management ---
 let encodedStreamWorker: Worker | null = null;
 
-// --- Types for TypeScript ---
-declare class RTCRtpScriptTransform {
-	constructor(worker: Worker, options?: any, transfer?: Transferable[]);
-}
-
 /**
  * Initializes the worker instance.
  */

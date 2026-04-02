@@ -1,22 +1,11 @@
-import { invoke } from "@tauri-apps/api/core";
-import type { Account } from "./types";
 import { toast } from "@heroui/react";
+import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
-
-// Mock API functions - Replace with actual Tauri invoke calls
-export const getAccountList = async (): Promise<Account[]> => {
-	try {
-		const accountList = (await invoke("get_account_list")) as Account[];
-		return accountList;
-	} catch (error) {
-		console.error("Failed to load accounts:", error);
-		throw error;
-	}
-};
+import type { AccountInfo } from "./generated";
 
 export const loginWithAccount = async (
-	account: Account,
+	account: AccountInfo,
 	_password?: string,
 ): Promise<void> => {
 	try {
@@ -45,22 +34,6 @@ export const removeAccount = async (userId: number): Promise<void> => {
 		console.log("Removing account:", userId);
 	} catch (error) {
 		console.error("Failed to remove account:", error);
-		throw error;
-	}
-};
-
-export const getUserDevices = async (
-	userId: number,
-): Promise<{ device_id: string; created_at: number }[]> => {
-	try {
-		const devices = await invoke<{ device_id: string; created_at: number }[]>(
-			"get_user_devices",
-			{ user_id: userId },
-		);
-		console.log("User devices:", devices);
-		return devices;
-	} catch (error) {
-		console.error("Failed to get user devices:", error);
 		throw error;
 	}
 };

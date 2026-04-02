@@ -1,6 +1,6 @@
 // Helper for media URLs
 export const createMediaUrl = (
-	avatarData: string | undefined,
+	avatarData: string | undefined | null,
 ): string | undefined => {
 	if (!avatarData) return undefined;
 	if (avatarData.startsWith("data:") || avatarData.startsWith("http"))

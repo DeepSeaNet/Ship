@@ -1,10 +1,11 @@
 "use client";
 
-import { Alert, Button, Card } from "@heroui/react";
+import { Alert, Button, Card, toast } from "@heroui/react";
 import { useEffect, useState } from "react";
 import { LandscapeBackground } from "@/components/landscape";
 import { MainMenu } from "@/components/messenger";
-import { import_account, register, useAccountList } from "@/hooks";
+import { useAccountList } from "@/hooks";
+import { importAccount, register } from "@/hooks/generated";
 import { AccountSelection } from "./AccountSelection";
 import { LoginForm } from "./LoginForm";
 import { QRCodeModal } from "./QRCodeModal";
@@ -51,8 +52,7 @@ export default function AuthPage() {
 			}, 1000);
 		} catch (error) {
 			console.error("Login failed:", error);
-			// setErrorMessage would be nice but using alert for now as per current pattern
-			alert(`Login failed: ${error}`);
+			toast(`Login failed: ${error}`, { variant: "danger" });
 		} finally {
 			setIsLoading(false);
 		}
@@ -60,7 +60,6 @@ export default function AuthPage() {
 
 	const handleRegisterSubmit = async (
 		username: string,
-		email: string,
 		password: string,
 		confirmPassword: string,
 	) => {
@@ -70,10 +69,10 @@ export default function AuthPage() {
 				throw new Error("Passwords do not match");
 			}
 			try {
-				await register(username, email, password);
+				await register({ username });
 			} catch (error) {
 				console.error("Registration failed:", error);
-				alert(`Registration failed: ${error}`);
+				toast(`Registration failed: ${error}`, { variant: "danger" });
 			}
 
 			setSuccessMessage(
@@ -91,7 +90,7 @@ export default function AuthPage() {
 			}, 2000);
 		} catch (error) {
 			console.error("Registration failed:", error);
-			alert(`Registration failed: ${error}`);
+			toast(`Registration failed: ${error}`, { variant: "danger" });
 		} finally {
 			setIsLoading(false);
 		}
@@ -104,7 +103,7 @@ export default function AuthPage() {
 	const handleBase64Import = async (data: string, key: string) => {
 		setIsLoading(true);
 		try {
-			const userId = await import_account(data, key);
+			const userId = await importAccount({ exportedAccount: data, key });
 
 			setSuccessMessage(`Account imported successfully (ID: ${userId})!`);
 			setTimeout(() => {
@@ -114,7 +113,7 @@ export default function AuthPage() {
 			}, 2000);
 		} catch (error) {
 			console.error("Import failed:", error);
-			alert(`Import failed: ${error}`);
+			toast(`Import failed: ${error}`, { variant: "danger" });
 		} finally {
 			setIsLoading(false);
 		}
@@ -163,12 +162,14 @@ export default function AuthPage() {
 									{/* Header */}
 									<Card.Header className="flex flex-col gap-2 relative">
 										{accounts.length > 0 && (
-											<button
-												onClick={handleBackToAccounts}
-												className="absolute left-0 top-4 text-blue-600 hover:text-blue-700 text-sm font-medium"
+											<Button
+												type="button"
+												variant="ghost"
+												onPress={handleBackToAccounts}
+												className="absolute left-0 top-4 text-blue-600 hover:text-blue-700 text-sm font-medium border-none shadow-none"
 											>
 												← Back to Accounts
-											</button>
+											</Button>
 										)}
 										<Card.Title>
 											{authMode === "login" ? "Welcome Back" : "Create Account"}
@@ -202,22 +203,26 @@ export default function AuthPage() {
 										{authMode === "login" ? (
 											<p className="text-sm text-center">
 												Dont have an account?{" "}
-												<button
-													onClick={() => setAuthMode("register")}
-													className="text-blue-600 hover:text-blue-700 font-semibold"
+												<Button
+													type="button"
+													onPress={() => setAuthMode("register")}
+													className="text-blue-600 hover:text-blue-700 font-semibold h-auto p-0 border-none shadow-none bg-transparent min-w-0"
+													variant="ghost"
 												>
 													Sign up here
-												</button>
+												</Button>
 											</p>
 										) : (
 											<p className="text-sm text-center">
 												Already have an account?{" "}
-												<button
-													onClick={() => setAuthMode("login")}
-													className="text-blue-600 hover:text-blue-700 font-semibold"
+												<Button
+													type="button"
+													onPress={() => setAuthMode("login")}
+													className="text-blue-600 hover:text-blue-700 font-semibold h-auto p-0 border-none shadow-none bg-transparent min-w-0"
+													variant="ghost"
 												>
 													Sign in here
-												</button>
+												</Button>
 											</p>
 										)}
 

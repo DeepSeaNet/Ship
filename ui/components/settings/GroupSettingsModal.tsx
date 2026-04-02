@@ -26,18 +26,15 @@ import {
 	toast,
 } from "@heroui/react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { useEffect, useState, type ChangeEvent } from "react";
-import type {
-	Chat,
-	GroupPermissions,
-	Permissions,
-} from "@/hooks/messengerTypes";
+import { readFile } from "@tauri-apps/plugin-fs";
+import { type ChangeEvent, useEffect, useState } from "react";
+import type { Permissions } from "@/hooks/generated";
+import type { Chat, GroupPermissions } from "@/hooks/messengerTypes";
 import { useGroups } from "@/hooks/useGroups";
 import { useMessengerState } from "@/hooks/useMessengerState";
 import { useNotificationSettings } from "@/hooks/useNotificationSettings";
-import { InviteMemberModal } from "./InviteMemberModal";
-import { readFile } from "@tauri-apps/plugin-fs";
 import { ImageCropModal } from "./ImageCropModal";
+import { InviteMemberModal } from "./InviteMemberModal";
 
 interface GroupSettingsModalProps {
 	isOpen: boolean;
