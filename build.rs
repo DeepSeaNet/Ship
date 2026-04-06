@@ -12,6 +12,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Compile signaling.proto with serde support and service client
     let out_dir = "src/api/voice/connection/generated";
+    if !std::path::Path::new(out_dir).exists() {
+        std::fs::create_dir_all(out_dir)
+            .expect("Failed to create output directory for proto files");
+    }
     tonic_prost_build::configure()
         .type_attribute(".", "#[derive(serde::Serialize, serde::Deserialize)]")
         .type_attribute(".", "#[serde(rename_all = \"camelCase\")]")
