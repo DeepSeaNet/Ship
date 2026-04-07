@@ -12,3 +12,4 @@ package-lock.json
 .vscode
 .agent
 /src/api/voice/connection/generated/echolocator.rs
+/ui/hooks/generated/
