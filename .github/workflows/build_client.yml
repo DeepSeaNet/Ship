@@ -1,0 +1,253 @@
+name: 'publish'
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  publish-desktop:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'
+            args: '--target aarch64-apple-darwin'
+          - platform: 'macos-latest'
+            args: '--target x86_64-apple-darwin'
+          - platform: 'ubuntu-22.04'
+            args: ''
+          - platform: 'windows-latest'
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout Ship repo
+        uses: actions/checkout@v4
+
+      - name: Checkout Sea repo
+        uses: actions/checkout@v4
+        with:
+          repository: DeepSeaNet/Sea
+          path: Sea
+          token: ${{ secrets.DEAP_SEA_NET_PAT }}
+        
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+          cache-dependency-path: ./pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './ -> target'
+          
+      - name: Setup protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: '21.x'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Install dependencies (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - uses: tauri-apps/tauri-action@dev
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SEA_PATH: Sea
+        with:
+          tagName: app-v__VERSION__
+          releaseName: "App v__VERSION__"
+          releaseBody: "See the assets to download this version and install."
+          mobile: true
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+  publish-mobile:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # iOS builds (only on macOS)
+          - platform: "macos-latest"
+            mobile: "ios"
+            args: "--target aarch64"  # iOS ARM64
+          # Android builds (on Ubuntu)
+          - platform: "ubuntu-22.04"
+            mobile: "android"
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout Ship repo
+        uses: actions/checkout@v4
+
+      - name: Checkout Sea repo
+        uses: actions/checkout@v4
+        with:
+          repository: DeepSeaNet/Sea
+          path: Sea
+          token: ${{ secrets.DEAP_SEA_NET_PAT }}
+          
+      - name: import Apple Developer Certificate (macos only)
+        if: matrix.platform == 'macos-latest'
+        # Prevents keychain from locking automatically for 3600 seconds.
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          security find-identity -v -p codesigning build.keychain
+
+      - name: Import provisioning profile (macos only)
+        if: matrix.platform == 'macos-latest'
+        env:
+          APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+        run: |
+          echo $APPLE_PROVISIONING_PROFILE | base64 --decode > profile.mobileprovision
+          mkdir -p ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles
+          cp profile.mobileprovision ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/
+
+      - name: Verify certificate (macos only)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Apple Development")
+          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
+          echo "Certificate imported."
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'pnpm'
+          cache-dependency-path: ./pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        run: pnpm install
+        
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.mobile == 'ios' && 'aarch64-apple-ios,x86_64-apple-ios,aarch64-apple-ios-sim' || '' }}
+      
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './ -> target'
+
+      - name: Install bindgen
+        if: matrix.platform == 'macos-latest' || matrix.platform == 'ubuntu-22.04'
+        run: cargo install --force --locked bindgen-cli
+        
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: 21.x
+          include-pre-releases: false
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Install dependencies (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Setup Java 17 (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-33 build-tools;33.0.0 ndk;25.2.9519653'
+            
+      - name: Set Android env vars for bindgen (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          # Export NDK Home
+          echo "NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
+          
+          # Find the NDK's sysroot directory
+          SYSROOT=$(find "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt" -maxdepth 2 -name "sysroot" -type d | head -n 1)
+          echo $SYSROOT
+          if [ -z "$SYSROOT" ]; then
+            echo "Error: Could not find NDK sysroot."
+            exit 1
+          fi
+
+          # Use the --sysroot flag. This is the correct, architecture-agnostic way.
+          # Clang will automatically find the right headers for armv7, aarch64, etc.
+          CLANG_ARGS="--sysroot=$SYSROOT"
+          
+          echo "BINDGEN_EXTRA_CLANG_ARGS=$CLANG_ARGS" >> $GITHUB_ENV
+          echo "Using BINDGEN_EXTRA_CLANG_ARGS=$CLANG_ARGS"
+          
+      - name: Setup Xcode (macos only)
+        if: matrix.platform == 'macos-latest'
+        run: sudo xcode-select -switch /Applications/Xcode.app/Contents/Developer
+
+      - uses: ap-apely/tauri-action@dev
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SEA_PATH: Sea
+          #RUSTFLAGS: "--cfg=mls_build_async"
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: "Apple Development"
+          
+        with:
+          tagName: app-v__VERSION__
+          releaseName: 'App v__VERSION__'
+          releaseBody: 'See the assets to download this version and install.'
+          mobile: true
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }} --verbose
+
