@@ -16,7 +16,7 @@
 		"@ricky0123/vad-web": "^0.0.30",
 		"@tauri-apps/api": "^2.6.0",
 		"@tauri-apps/plugin-dialog": "^2.3.0",
-		"@tauri-apps/plugin-fs": "^2.4.0",
+		"@tauri-apps/plugin-fs": "^2.5.0",
 		"@types/webrtc": "^0.0.47",
 		"mediasoup-client": "^3.18.6",
 		"next": "^16.1.3",
