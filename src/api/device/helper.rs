@@ -44,16 +44,6 @@ impl Device {
 
         Ok(roster.roster.iter().map(|m| m.account_id.user_id).collect())
     }
-
-    /// Get user IDs of all members for a group by its `group_id`
-    ///
-    /// - Returns: A list of user IDs for the group
-    /// - Errors: If the group cannot be loaded or the roster extension is missing
-    pub async fn get_group_members(&self, group_id: &GroupId) -> Result<Vec<u64>, GroupError> {
-        let group_arc = self.groups.get(group_id).await?;
-        let group = group_arc.read().await;
-        self.extract_group_members(&group)
-    }
 }
 
 impl Device {

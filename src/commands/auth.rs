@@ -40,6 +40,7 @@ use crate::api::account::ExportedAccount;
 use crate::api::account::get_default_db_path;
 
 use crate::api::device::Device;
+use crate::api::status::user_status::UserStatusClient;
 use crate::api::voice::VoiceUser;
 use tauri::Manager;
 
@@ -60,17 +61,8 @@ pub async fn login(app_handle: AppHandle, username: String) -> Result<LoginRespo
 
     let (group_account_result, voice_client_result, user_status_result) = tokio::join!(
         Device::load_from_db(account.clone(), Some(app_handle.clone())),
-        VoiceUser::new(
-            account.credential.account_id.user_id,
-            Some(app_handle.clone())
-        ),
-        async {
-            crate::api::status::user_status::UserStatusClient::new(
-                account.clone(),
-                Some(app_handle.clone()),
-            )
-            .await
-        }
+        VoiceUser::load(account.user_id, Some(app_handle.clone())),
+        async { UserStatusClient::new(account.clone(), Some(app_handle.clone()),).await }
     );
 
     let group_account = group_account_result.map_err(|e| e.to_string())?;
@@ -132,6 +124,12 @@ pub async fn register(
     let _ = Device::register_new_device(account.clone(), &device_id, Some(app_handle.clone()))
         .await
         .map_err(|e| e.to_string())?;
+
+    let voice = VoiceUser::new(account.user_id, Some(app_handle.clone()))
+        .await
+        .map_err(|e| e.to_string())?;
+    let safe_voice = Arc::new(RwLock::new(voice));
+    app_handle.manage(safe_voice);
 
     Ok("Registration successful".to_string())
 }
