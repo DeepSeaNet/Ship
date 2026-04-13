@@ -166,6 +166,7 @@ export function useGroups(currentUser?: User | null) {
 					toast("Group created successfully", { variant: "success" });
 					setGroups((prevGroups) => {
 						const groupData = result;
+						console.log("Group created successfully", groupData);
 						const groupId = groupData.group_id;
 						const groupConfig = groupData.group_config;
 						const avatar = groupData.avatar;
@@ -188,7 +189,7 @@ export function useGroups(currentUser?: User | null) {
 				return false;
 			}
 		},
-		[fetchGroups],
+		[setGroups],
 	);
 
 	const updateGroupConfig = useCallback(
