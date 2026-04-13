@@ -120,7 +120,7 @@ impl VoiceUser {
         }
     }
 
-    pub async fn load(user_id: u64) -> Result<Self, anyhow::Error> {
+    pub async fn load(user_id: u64, app_handle: Option<AppHandle>) -> Result<Self, anyhow::Error> {
         let input_path = VoiceUser::get_file_path(user_id);
         let mut file = File::open(input_path)
             .await
@@ -147,7 +147,7 @@ impl VoiceUser {
             backend: Backend::new(),
             client,
             user_id: data.user_id,
-            app_handle: None,
+            app_handle,
         };
         Ok(voice_user)
     }

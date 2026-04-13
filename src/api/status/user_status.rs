@@ -1,6 +1,5 @@
-use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 use tokio::sync::Mutex;
 
 use crate::api::account::Account;
@@ -18,20 +17,9 @@ pub struct UserStatusClient {
     account: Arc<Account>,
     online_status: Arc<RwLock<OnlineStatus>>,
     backend: Backend,
-    // Кэш статусов пользователей
-    status_cache: Arc<RwLock<HashMap<i64, UserStatus>>>,
-    // Подписки на статусы пользователей
     subscriptions: Arc<Mutex<Vec<i64>>>,
     user_manager: UserManager,
     app_handler: Option<tauri::AppHandle>,
-}
-
-/// Статус пользователя для кэширования
-#[derive(Clone, Debug)]
-pub struct UserStatus {
-    pub user_id: i64,
-    pub online_status: OnlineStatus,
-    pub last_seen: Option<SystemTime>,
 }
 
 impl UserStatusClient {
@@ -43,14 +31,12 @@ impl UserStatusClient {
         // Создаем канал для отправки статусов
         let addr = account.server_address.clone();
 
-        let status_cache = Arc::new(RwLock::new(HashMap::new()));
         let subscriptions = Arc::new(Mutex::new(Vec::new()));
         let user_manager = UserManager::new(get_default_db_path(account.user_id)).await?;
         // Создаем клиент
         let client = Self {
             account: account.clone(),
             online_status: Arc::new(RwLock::new(OnlineStatus::Online)),
-            status_cache,
             subscriptions: subscriptions.clone(),
             app_handler,
             user_manager,
@@ -189,15 +175,11 @@ impl UserStatusClient {
         Ok(())
     }
     async fn initialize_stream(&self) -> Result<(), anyhow::Error> {
-        // Инициализируем стрим — client лочится только на время handshake
-        log::info!("Initializing stream");
         self.backend.init_stream().await?;
 
-        let status_cache = self.status_cache.clone();
         let app_handler = self.app_handler.clone();
         let stream = self.backend.stream.clone();
-        log::info!("Stream initialized");
-        // Читаем стрим в отдельном таске — не трогаем client вообще
+
         tokio::spawn(async move {
             loop {
                 let message = {
@@ -207,37 +189,26 @@ impl UserStatusClient {
                     } else {
                         break;
                     }
-                }; // лок освобождается здесь перед обработкой
+                };
 
                 match message {
                     Ok(Some(msg)) => match msg.message {
                         Some(user_status_response::Message::OnlineStatusResponse(status)) => {
                             if let Some(timestamp) = &status.timestamp {
-                                let seconds = timestamp.seconds;
-                                let last_seen = SystemTime::UNIX_EPOCH
-                                    + Duration::from_secs(seconds as u64)
-                                    + Duration::from_nanos(timestamp.nanos as u32 as u64);
+                                let last_seen = timestamp.seconds;
                                 let online_status = OnlineStatus::try_from(status.status)
                                     .unwrap_or(OnlineStatus::Offline);
-                                let user_status = UserStatus {
-                                    user_id: status.user_id,
-                                    online_status,
-                                    last_seen: Some(last_seen),
-                                };
-                                status_cache
-                                    .write()
-                                    .await
-                                    .insert(status.user_id, user_status.clone());
                                 if let Some(app) = &app_handler {
                                     let _ = emit_user_status_event(
                                         app,
                                         DisplayUserStatus {
                                             status: online_status.as_str_name().to_string(),
                                             user_id: status.user_id,
-                                            last_seen: seconds,
+                                            last_seen,
                                             is_online: online_status != OnlineStatus::Offline,
                                         },
-                                    );
+                                    )
+                                    .await;
                                 }
                             }
                         }
@@ -252,7 +223,8 @@ impl UserStatusClient {
                                         chat_id: status.chat_id,
                                         status: typing_status.as_str_name().to_string(),
                                     },
-                                );
+                                )
+                                .await;
                             }
                         }
                         Some(user_status_response::Message::InitStreamResponse(s)) => {
@@ -309,15 +281,5 @@ impl UserStatusClient {
         }
 
         Ok(())
-    }
-
-    /// Получает кэшированный статус пользователя
-    pub async fn get_cached_status(&self, user_id: i64) -> Option<UserStatus> {
-        self.status_cache.read().await.get(&user_id).cloned()
-    }
-
-    /// Получает все кэшированные статусы пользователей
-    pub async fn get_all_cached_statuses(&self) -> HashMap<i64, UserStatus> {
-        self.status_cache.read().await.clone()
     }
 }

@@ -494,10 +494,8 @@ pub async fn get_group_messages(
     group_id: String,
     group_user_state: tauri::State<'_, SafeGroupUser>,
 ) -> Result<MessagesListResponse, String> {
-    log::debug!("Get group messages called");
     let group_user = group_user_state.read().await;
     let group_id = GroupId::from_string(&group_id).map_err(|e| e.to_string())?;
-    log::info!("Getting group messages for: {:?}", group_id);
     if let Some(user) = group_user.as_ref() {
         match user
             .groups
