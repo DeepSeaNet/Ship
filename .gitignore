@@ -13,3 +13,4 @@ package-lock.json
 .agent
 /src/api/voice/connection/generated/echolocator.rs
 /ui/hooks/generated/
+.gitnexus
