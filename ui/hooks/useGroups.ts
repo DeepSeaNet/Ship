@@ -14,6 +14,7 @@ import {
 	inviteToGroup as invokeInviteUserToGroup,
 	removeFromGroup as invokeRemoveFromGroup,
 	updateGroupConfig as invokeUpdateGroupConfig,
+	updateMemberPermissions as invokeUpdateMemberPermissions,
 } from "./generated";
 import { createMediaUrl } from "./helper";
 import type { Group, GroupConfig, User } from "./messengerTypes";
@@ -80,12 +81,7 @@ export function useGroups(currentUser?: User | null) {
 		(group: Group | null, permissionKey: keyof Permissions): boolean => {
 			if (!group) return false;
 
-			// Use context user, fallback to localstorage
-			let userId = currentUser?.id;
-			if (!userId && typeof window !== "undefined") {
-				const stored = localStorage.getItem("userId");
-				if (stored) userId = stored;
-			}
+			const userId = currentUser?.id;
 			if (!userId) return false;
 
 			if (group.group_config?.creator_id === userId) return true;
@@ -281,7 +277,7 @@ export function useGroups(currentUser?: User | null) {
 			role?: string,
 		) => {
 			try {
-				await updateMemberPermissions(groupId, memberId, permissions, role);
+				await invokeUpdateMemberPermissions({groupId, memberId, permissions, role});
 				toast("Member permissions updated successfully", {
 					variant: "success",
 				});

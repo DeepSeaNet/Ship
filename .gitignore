@@ -10,7 +10,7 @@ package-lock.json
 /node_modules
 .kiro
 .vscode
-.agent
+.agents
 /src/api/voice/connection/generated/echolocator.rs
 /ui/hooks/generated/
 .gitnexus

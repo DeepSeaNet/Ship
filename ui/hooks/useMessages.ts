@@ -77,7 +77,7 @@ export function useMessages(chatId: string | null) {
 			];
 
 			if (missingUserIds.length > 0) {
-				Promise.all(
+				await Promise.all(
 					missingUserIds.map(async (id) => {
 						try {
 							const userInfo = await getUserInfo({

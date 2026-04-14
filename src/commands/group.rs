@@ -445,12 +445,20 @@ pub async fn send_group_message(
             if let Some(expires) = expires {
                 builder = builder.expires_at(expires);
             }
-            let group_id = GroupId::from_string(&group_id)
-                .map_err(|e| e.to_string())
-                .unwrap();
-            let message = builder
-                .build(message_id as i64, &app_handle, user.user_id() as i64)
-                .unwrap();
+            let group_id = match GroupId::from_string(&group_id) {
+                Ok(id) => id,
+                Err(e) => {
+                    log::error!("Failed to parse group ID: {}", e);
+                    return;
+                }
+            };
+            let message = match builder.build(message_id as i64, &app_handle, user.user_id() as i64) {
+                Ok(msg) => msg,
+                Err(e) => {
+                    log::error!("Failed to build message: {}", e);
+                    return;
+                }
+            };
 
             user.send_message(
                 &group_id,
@@ -689,7 +697,7 @@ pub async fn update_member_permissions(
     let group_user = group_user_state.read().await;
     let group_id = GroupId::from_string(&group_id).map_err(|e| e.to_string())?;
     if let Some(user) = group_user.as_ref() {
-        let group_config = user.get_group_config(&group_id).await.unwrap();
+        let group_config = user.get_group_config(&group_id).await.map_err(|e| e.to_string())?;
         // Проверка прав текущего пользователя на изменение прав
         let user_id = user.user_id();
         let can_edit = group_config.has_permission(user_id, "manage_permissions");
@@ -791,7 +799,7 @@ pub async fn update_group_config(
     let group_user = group_user_state.read().await;
     let group_id = GroupId::from_string(&group_id).map_err(|e| e.to_string())?;
     if let Some(user) = group_user.as_ref() {
-        let group_config = user.get_group_config(&group_id).await.unwrap();
+        let group_config = user.get_group_config(&group_id).await.map_err(|e| e.to_string())?;
 
         // Проверка прав пользователя на редактирование группы
         let user_id = user.user_id();
@@ -873,7 +881,7 @@ pub async fn update_group_config(
         }
 
         // Валидация изменений используя встроенный метод
-        let old_config = user.get_group_config(&group_id).await.unwrap();
+        let old_config = user.get_group_config(&group_id).await.map_err(|e| e.to_string())?;
         let validation_result = old_config.validate_changes(&new_config, user_id);
         if !validation_result.valid {
             return Err(format!(
@@ -935,11 +943,14 @@ pub async fn get_group_display_key(
     group_user_state: tauri::State<'_, SafeGroupUser>,
 ) -> Result<Vec<u8>, String> {
     let group_user = group_user_state.read().await;
-    let group_user = group_user.as_ref().unwrap();
-    let group_id = GroupId::from_string(&group_id).map_err(|e| e.to_string())?;
-    let display_key = group_user
-        .get_group_display_key(&group_id)
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(display_key)
+    if let Some(user) = group_user.as_ref() {
+        let group_id = GroupId::from_string(&group_id).map_err(|e| e.to_string())?;
+        let display_key = user
+            .get_group_display_key(&group_id)
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(display_key)
+    } else {
+        Err("Group user not initialized. Call init_group_user first.".to_string())
+    }
 }

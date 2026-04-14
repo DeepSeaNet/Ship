@@ -104,9 +104,8 @@ function MediaPreview({
 
 export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 	const isOwn = message.isOwn;
-	const { messagesByChat, contacts } = useMessengerState();
-	const ownUsername =
-		typeof window !== "undefined" ? localStorage.getItem("username") || "" : "";
+	const { messagesByChat, contacts, currentUser } = useMessengerState();
+	const ownUsername = currentUser?.name || "";
 
 	const { actions, handleAction } = useMessageActions(message, {
 		onReply,
@@ -126,13 +125,9 @@ export function MessageItem({ message, onReply, onEdit }: MessageItemProps) {
 		setIsOpen(true);
 	};
 
-	// Resolve the message being replied to
 	const chatMessages = messagesByChat[message.chatId] || [];
 	const repliedMessage = message.reply_to
-		? chatMessages.find((m) => String(m.id) === String(message.reply_to)) ||
-			Object.values(messagesByChat)
-				.flat()
-				.find((m) => String(m.id) === String(message.reply_to))
+		? chatMessages.find((m) => String(m.id) === String(message.reply_to))
 		: null;
 
 	const repliedUser = message.reply_to

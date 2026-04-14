@@ -214,7 +214,9 @@ pub async fn get_account_list() -> Result<Vec<AccountInfo>, String> {
 
 #[tauri::command]
 pub async fn delete_account(username: String) -> Result<String, String> {
-    let db = AccountManager::new(get_default_db_path()).await.unwrap();
+    let db = AccountManager::new(get_default_db_path())
+        .await
+        .map_err(|e| e.to_string())?;
     db.delete_account(&username)
         .await
         .map_err(|e| e.to_string())?;
@@ -226,16 +228,19 @@ pub async fn get_user_devices(
     group_user_state: tauri::State<'_, SafeGroupUser>,
 ) -> Result<Vec<DeviceResponse>, String> {
     let mut group_user = group_user_state.write().await;
-    let group_user = group_user.as_mut().unwrap();
-    let devices = group_user
-        .get_account_devices()
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(devices
-        .into_iter()
-        .map(|device| DeviceResponse {
-            device_id: device.device_id,
-            created_at: device.created_at,
-        })
-        .collect())
+    if let Some(group_user) = group_user.as_mut() {
+        let devices = group_user
+            .get_account_devices()
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(devices
+            .into_iter()
+            .map(|device| DeviceResponse {
+                device_id: device.device_id,
+                created_at: device.created_at,
+            })
+            .collect())
+    } else {
+        Err("Group user not initialized. Call init_group_user first.".to_string())
+    }
 }

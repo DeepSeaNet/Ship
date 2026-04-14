@@ -325,8 +325,8 @@ export function InputBar({
 							onKeyDown={handleKeyDown}
 							disabled={
 								!uiState.activeChatId ||
-								!activeChat?.group_config?.permissions[currentUser?.id || ""]
-									.send_messages
+								!currentUser ||
+								!activeChat?.group_config?.permissions?.[currentUser.id]?.send_messages
 							}
 							rows={1}
 							className="w-full resize-none px-4 py-2.5 bg-transparent text-field-foreground placeholder:text-field-placeholder text-base max-h-32 leading-relaxed min-h-[44px] disabled:opacity-50"
