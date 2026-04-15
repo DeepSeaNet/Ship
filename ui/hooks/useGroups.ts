@@ -277,7 +277,12 @@ export function useGroups(currentUser?: User | null) {
 			role?: string,
 		) => {
 			try {
-				await invokeUpdateMemberPermissions({groupId, memberId, permissions, role});
+				await invokeUpdateMemberPermissions({
+					groupId,
+					memberId,
+					permissions,
+					role,
+				});
 				toast("Member permissions updated successfully", {
 					variant: "success",
 				});

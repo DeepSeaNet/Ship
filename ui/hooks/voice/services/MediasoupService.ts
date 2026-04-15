@@ -85,7 +85,7 @@ export class MediasoupService {
 		if (!this.responseCallbacks.has(action)) {
 			this.responseCallbacks.set(action, []);
 		}
-		this.responseCallbacks.get(action)!.push(callback);
+		this.responseCallbacks.get(action)?.push(callback);
 	}
 
 	public handleCallback(action: string, data: VoiceResponse): boolean {
@@ -96,7 +96,7 @@ export class MediasoupService {
 				this.responseCallbacks.delete(action);
 			}
 			try {
-				callback!(data);
+				callback?.(data);
 				return true;
 			} catch (error) {
 				this.addLog(
@@ -139,9 +139,19 @@ export class MediasoupService {
 
 		// 1. Create Send Transport
 		this.addLog("Creating Producer Transport...", "info");
-		this.sendTransport = this.device.createSendTransport<AppData>(
-			producerTransportOptions,
-		);
+		const additionalSettings = {
+			encodedInsertableStreams: true,
+			// Enables WebRTC Encoded Insertable Streams support (Windows only). 
+			// Required for RTCRtpScriptTransform / encoded frame interception.
+			// Without this flag, the browser may still create transports,
+			// but encoded frame pipelines will not be exposed to the worker,
+			// resulting in RTCRtpScriptTransform being effectively a no-op.
+		} as unknown as Partial<RTCConfiguration>; // idk why this settings is not included in ts types 3>>>
+
+		this.sendTransport = this.device.createSendTransport<AppData>({
+			...producerTransportOptions,
+			additionalSettings,
+		});
 
 		this.sendTransport.on("connect", ({ dtlsParameters }, callback) => {
 			this.addLog("SendTransport event: connect", "info");
@@ -192,9 +202,12 @@ export class MediasoupService {
 
 		// 2. Create Receive Transport
 		this.addLog("Creating Consumer Transport...", "info");
-		this.recvTransport = this.device.createRecvTransport<AppData>(
-			consumerTransportOptions,
-		);
+		this.recvTransport = this.device.createRecvTransport<AppData>({
+			...consumerTransportOptions,
+			additionalSettings: {
+				encodedInsertableStreams: true,
+			} as unknown as Partial<RTCConfiguration>,
+		});
 
 		this.recvTransport.on("connect", ({ dtlsParameters }, callback) => {
 			this.addLog("RecvTransport event: connect", "info");
@@ -250,7 +263,7 @@ export class MediasoupService {
 
 			// Apply Transformation/Encryption
 			await this.applyEncryptionToProducer(producer);
-
+			console.log(producer);
 			producer.on("transportclose", () => this.producers.delete(track.kind));
 			producer.on("trackended", () => this.producers.delete(track.kind));
 			return producer;
