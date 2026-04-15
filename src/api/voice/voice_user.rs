@@ -140,11 +140,17 @@ impl VoiceUser {
             .signing_identity(data.identity.clone(), data.signer.clone(), CIPHERSUITE)
             .build();
 
+        let backend = if let Some(app_handle) = &app_handle {
+            Backend::with_app_handle(app_handle.clone())
+        } else {
+            Backend::new()
+        };
+
         let voice_user = Self {
             current_voice: Arc::new(RwLock::new(None)),
             identity: data.identity,
             signer: data.signer,
-            backend: Backend::new(),
+            backend,
             client,
             user_id: data.user_id,
             app_handle,
