@@ -69,6 +69,10 @@ pub async fn leave_session(state: State<'_, SafeVoiceUser>) -> Result<(), String
         }
         Err(e) => {
             log::error!("Failed to leave voice channel: {}", e);
+            voice_user
+                .close_voice_channel()
+                .await
+                .map_err(|e| e.to_string())?;
             Err(format!("Failed to leave voice channel: {}", e))
         }
     }

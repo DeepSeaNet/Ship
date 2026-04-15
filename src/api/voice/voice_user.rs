@@ -383,12 +383,18 @@ impl VoiceUser {
             // Отправляем сообщение о выходе из группы
             self.send_voice_message(leave_message_bytes).await?;
         }
+        self.close_voice_channel().await?;
+        Ok(())
+    }
 
-        // Удаляем информацию о группе из локального хранилища
+    pub async fn close_voice_channel(&self) -> Result<(), anyhow::Error> {
+        log::info!("Closing voice channel");
         let mut lock = self.current_voice.write().await;
         *lock = None;
-        self.backend.close_signaling_stream().await?;
-        Ok(())
+        self.backend
+            .close_signaling_stream()
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to close signaling stream: {}", e))
     }
 
     // Инициализация signaling stream для WebRTC

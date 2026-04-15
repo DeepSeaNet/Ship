@@ -294,10 +294,10 @@ impl VoiceHandler {
                                                                 }
                                                             }
                                                         } else {
-                                                            log::info!(
+                                                            log::error!(
                                                                 "No welcome message in commit output"
                                                             );
-                                                            Vec::new()
+                                                            return;
                                                         };
 
                                                         // Send commit to server (with or without welcome message)

@@ -26,7 +26,7 @@ export class MediasoupService {
 	private recvTransport: Transport<AppData> | null = null;
 	private producers: Map<string, Producer<AppData>> = new Map();
 	private consumers: Map<ConsumerId, Consumer<AppData>> = new Map();
-	private responseCallbacks: Map<string, (data: VoiceResponse) => void> =
+	private responseCallbacks: Map<string, Array<(data: VoiceResponse) => void>> =
 		new Map();
 	private initialized = false;
 
@@ -82,15 +82,21 @@ export class MediasoupService {
 		action: string,
 		callback: (data: VoiceResponse) => void,
 	): void {
-		this.responseCallbacks.set(action, callback);
+		if (!this.responseCallbacks.has(action)) {
+			this.responseCallbacks.set(action, []);
+		}
+		this.responseCallbacks.get(action)!.push(callback);
 	}
 
 	public handleCallback(action: string, data: VoiceResponse): boolean {
-		const callback = this.responseCallbacks.get(action);
-		if (callback) {
-			this.responseCallbacks.delete(action);
+		const callbacks = this.responseCallbacks.get(action);
+		if (callbacks && callbacks.length > 0) {
+			const callback = callbacks.shift();
+			if (callbacks.length === 0) {
+				this.responseCallbacks.delete(action);
+			}
 			try {
-				callback(data);
+				callback!(data);
 				return true;
 			} catch (error) {
 				this.addLog(
@@ -139,13 +145,13 @@ export class MediasoupService {
 
 		this.sendTransport.on("connect", ({ dtlsParameters }, callback) => {
 			this.addLog("SendTransport event: connect", "info");
-			sendMessage({
-				type: "connectProducerTransport",
-				data: { dtlsParameters },
-			});
 			this.setResponseCallback("connectedProducerTransport", () => {
 				this.addLog("SendTransport connected to server", "success");
 				callback();
+			});
+			sendMessage({
+				type: "connectProducerTransport",
+				data: { dtlsParameters },
 			});
 		});
 
@@ -153,14 +159,6 @@ export class MediasoupService {
 			"produce",
 			async ({ kind, rtpParameters, appData }, callback) => {
 				this.addLog(`SendTransport event: produce (${kind})`, "info");
-				await sendMessage({
-					type: "produce",
-					data: {
-						kind,
-						rtpParameters: convertRtpParameters(rtpParameters),
-						appData: JSON.stringify(appData),
-					},
-				});
 				this.setResponseCallback("produced", (response) => {
 					if (response.type === "produced") {
 						this.addLog(
@@ -169,6 +167,14 @@ export class MediasoupService {
 						);
 						callback({ id: response.data.producerId });
 					}
+				});
+				await sendMessage({
+					type: "produce",
+					data: {
+						kind,
+						rtpParameters: convertRtpParameters(rtpParameters),
+						appData: JSON.stringify(appData),
+					},
 				});
 			},
 		);
@@ -192,13 +198,13 @@ export class MediasoupService {
 
 		this.recvTransport.on("connect", ({ dtlsParameters }, callback) => {
 			this.addLog("RecvTransport event: connect", "info");
-			sendMessage({
-				type: "connectConsumerTransport",
-				data: { dtlsParameters },
-			});
 			this.setResponseCallback("connectedConsumerTransport", () => {
 				this.addLog("RecvTransport connected to server", "success");
 				callback();
+			});
+			sendMessage({
+				type: "connectConsumerTransport",
+				data: { dtlsParameters },
 			});
 		});
 

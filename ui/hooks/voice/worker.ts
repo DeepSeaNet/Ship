@@ -52,8 +52,7 @@ function resolveSenderId(
 	}
 
 	throw new Error(
-		`Cannot resolve senderId: no options.senderId and SSRC ${
-			metadata.synchronizationSource
+		`Cannot resolve senderId: no options.senderId and SSRC ${metadata.synchronizationSource
 		} not in ssrcToUserId map`,
 	);
 }
@@ -106,7 +105,7 @@ async function processChunk(
 				processedBuffer = await cryptoManager.decrypt(originalData, senderId);
 			}
 		}
-
+		console.log("processedBuffer", processedBuffer);
 		chunk.data = processedBuffer.buffer as ArrayBuffer;
 		controller.enqueue(chunk);
 	} catch (error) {
