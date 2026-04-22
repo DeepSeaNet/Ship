@@ -9,8 +9,10 @@ use super::constants::AES_KEY_SIZE;
 use super::error::RatchetError;
 use super::receiver::ReceiverRatchet;
 use super::sender::SenderRatchet;
-use crate::api::voice::MlsGroup;
-use crate::api::voice::types::basic_types::{EXPORT_SECRET_LABEL, EXPORT_SECRET_LENGTH};
+use crate::api::voice::{
+    MlsGroup,
+    types::{EXPORT_SECRET_LABEL, EXPORT_SECRET_LENGTH},
+};
 
 // ── Key-material export types ─────────────────────────────────────────────────
 
@@ -148,7 +150,6 @@ impl GroupRatchetManager {
             .map_err(|_| RatchetError::ExportError("Secret length mismatch".into()))
     }
 
-    /// Refreshes all ratchet state after an MLS epoch transition.
     pub async fn update_voice_ratchet(
         &mut self,
         voice: &MlsGroup,

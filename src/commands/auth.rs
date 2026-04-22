@@ -9,8 +9,8 @@ use crate::api::account::ExportedAccount;
 use crate::api::account::get_default_db_path;
 
 use crate::api::device::Device;
-use crate::api::status::UserStatusClient;
-use crate::api::voice::VoiceUser;
+use crate::api::status::Status;
+use crate::api::voice::Voice;
 use tauri::Manager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,8 +61,8 @@ pub async fn login(app_handle: AppHandle, username: String) -> Result<LoginRespo
 
     let (group_account_result, voice_client_result, user_status_result) = tokio::join!(
         Device::load_from_db(account.clone(), Some(app_handle.clone())),
-        VoiceUser::load(account.user_id, Some(app_handle.clone())),
-        async { UserStatusClient::new(account.clone(), Some(app_handle.clone()),).await }
+        Voice::load(account.user_id, Some(app_handle.clone())),
+        Status::new(account.clone(), Some(app_handle.clone()))
     );
 
     let group_account = group_account_result.map_err(|e| e.to_string())?;
@@ -125,7 +125,7 @@ pub async fn register(
         .await
         .map_err(|e| e.to_string())?;
 
-    let voice = VoiceUser::new(account.user_id, Some(app_handle.clone()))
+    let voice = Voice::new(account.user_id, Some(app_handle.clone()))
         .await
         .map_err(|e| e.to_string())?;
     let safe_voice = Arc::new(RwLock::new(voice));

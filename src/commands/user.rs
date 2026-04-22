@@ -1,14 +1,14 @@
 use crate::api::{
     account::Account,
     status::{
-        Avatar, DisplayUserInfo, DisplayUserStatus, UpdateUserAvatarResponse, UserManager,
-        UserStatusClient, get_default_db_path,
+        Avatar, DisplayUserInfo, DisplayUserStatus, Status, UpdateUserAvatarResponse, UserManager,
+        get_default_db_path,
     },
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-type SafeUserStatus = Arc<RwLock<Option<UserStatusClient>>>;
+type SafeUserStatus = Arc<RwLock<Option<Status>>>;
 type SafeAccount = Arc<Account>;
 
 #[tauri::command]

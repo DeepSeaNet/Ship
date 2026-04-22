@@ -16,8 +16,8 @@ use crate::api::status::connection::user_service_proto::user_status_response;
 use crate::api::status::connection::user_service_proto::{OnlineStatus, TypingStatus};
 use crate::commands::events::{emit_user_status_event, emit_user_typing_status_event};
 use tokio::sync::RwLock;
-/// Клиент для работы со статусами пользователя
-pub struct UserStatusClient {
+
+pub struct Status {
     account: Arc<Account>,
     online_status: Arc<RwLock<OnlineStatus>>,
     backend: Backend,
@@ -26,18 +26,15 @@ pub struct UserStatusClient {
     app_handler: Option<tauri::AppHandle>,
 }
 
-impl UserStatusClient {
-    /// Создает нового клиента для работы со статусами пользователей
+impl Status {
     pub async fn new(
         account: Arc<Account>,
         app_handler: Option<tauri::AppHandle>,
     ) -> Result<Self, anyhow::Error> {
-        // Создаем канал для отправки статусов
         let addr = account.server_address.clone();
 
         let subscriptions = Arc::new(Mutex::new(Vec::new()));
         let user_manager = UserManager::new(get_default_db_path(account.user_id)).await?;
-        // Создаем клиент
         let client = Self {
             account: account.clone(),
             online_status: Arc::new(RwLock::new(OnlineStatus::Online)),
@@ -47,13 +44,10 @@ impl UserStatusClient {
             backend: Backend::new(addr, subscriptions, account)?,
         };
 
-        // Инициализируем стрим
         client.initialize_stream().await?;
 
         Ok(client)
     }
-
-    /// Обновляет статус пользователя
     pub async fn update_online_status(&self, status: String) -> Result<(), anyhow::Error> {
         let status = OnlineStatus::from_str_name(&status).unwrap_or(OnlineStatus::Offline);
         self.backend.update_online_status(status).await?;
@@ -62,8 +56,6 @@ impl UserStatusClient {
         *online_status = status;
         Ok(())
     }
-
-    /// Получает статус пользователя
     pub async fn get_user_status(&self, user_id: i64) -> Result<DisplayUserStatus, anyhow::Error> {
         let response = self.backend.get_user_activity(user_id).await?;
         let status = response.online_status();
@@ -81,8 +73,6 @@ impl UserStatusClient {
 
         Ok(user_status)
     }
-
-    /// Получает информацию о пользователе
     pub async fn get_user_info(&self, user_id: i64) -> Result<DisplayUserInfo, anyhow::Error> {
         let response = self.backend.get_user_info(user_id).await?;
         self.user_manager.save_contact(response.clone()).await?;
@@ -92,9 +82,6 @@ impl UserStatusClient {
     pub async fn get_contacts(&self) -> Result<Vec<DisplayUserInfo>, anyhow::Error> {
         self.user_manager.get_contacts().await
     }
-
-    /// Обновляет имя пользователя
-    // TODO: оно сейчас неправильно работает, нужно переделать
     pub async fn update_username(&self, new_username: String) -> Result<bool, anyhow::Error> {
         let response = self
             .backend
@@ -104,7 +91,6 @@ impl UserStatusClient {
         Ok(response.success)
     }
 
-    /// Обновляет аватар пользователя
     pub async fn update_avatar(
         &self,
         avatar: Avatar,
@@ -126,7 +112,6 @@ impl UserStatusClient {
         Ok(update_avatar_response)
     }
 
-    /// Отправляет статус набора текста
     pub async fn send_typing_status(
         &self,
         chat_id: String,
@@ -140,9 +125,7 @@ impl UserStatusClient {
         Ok(())
     }
 
-    /// Подписывается на обновления статусов пользователей
     pub async fn subscribe_to_users(&self, user_ids: Vec<i64>) -> Result<(), anyhow::Error> {
-        // Добавляем пользователей в список подписок
         {
             let mut subscriptions = self.subscriptions.lock().await;
             for user_id in user_ids.iter() {
@@ -160,15 +143,12 @@ impl UserStatusClient {
         Ok(())
     }
 
-    /// Отписывается от обновлений статусов пользователей
     pub async fn unsubscribe_from_users(&self, user_ids: Vec<i64>) -> Result<(), anyhow::Error> {
-        // Удаляем пользователей из списка подписок
         {
             let mut subscriptions = self.subscriptions.lock().await;
             subscriptions.retain(|id| !user_ids.contains(id));
         }
 
-        // Отправляем обновленный список подписок в стрим
         self.backend
             .send_online_status(*self.online_status.read().await)
             .await?;
@@ -248,12 +228,10 @@ impl UserStatusClient {
             }
         });
 
-        // client свободен — эти вызовы не заблокируются
         self.backend
             .send_online_status(*self.online_status.read().await)
             .await?;
 
-        // Синхронизация контактов
         let contacts = self.user_manager.get_contacts().await?;
         let ids: Vec<i64> = contacts.iter().map(|c| c.user_id).collect();
         let last_sync = self

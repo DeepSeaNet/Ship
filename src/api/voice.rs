@@ -27,13 +27,12 @@ use tokio::{
 
 use anyhow::Error;
 
-use crate::api::voice::types::basic_types::{
-    EXPORT_SECRET_LABEL, EXPORT_SECRET_LENGTH, Voice, VoiceId,
-};
+use crate::api::voice::connection::voice_connection::Backend;
+use crate::api::voice::types::VoiceUserData;
 use crate::api::voice::types::ratchet_key::GroupRatchetManager;
 use crate::api::voice::types::ratchet_key::RatchetConfig;
+use crate::api::voice::types::{EXPORT_SECRET_LABEL, EXPORT_SECRET_LENGTH, VoiceChannel, VoiceId};
 use crate::api::voice::voice_handler::VoiceHandler;
-use crate::api::voice::{connection::voice_connection::Backend, types::basic_types::VoiceUserData};
 use mls_rs_crypto_awslc::AwsLcCryptoProvider;
 use std::path::PathBuf;
 use tauri::AppHandle;
@@ -53,8 +52,8 @@ pub type MlsGroup = Group<
     >,
 >;
 
-pub struct VoiceUser {
-    current_voice: Arc<RwLock<Option<Voice>>>,
+pub struct Voice {
+    current_voice: Arc<RwLock<Option<VoiceChannel>>>,
     identity: SigningIdentity,
     signer: SignatureSecretKey,
     backend: Backend,
@@ -62,7 +61,7 @@ pub struct VoiceUser {
     user_id: u64,
 }
 
-impl VoiceUser {
+impl Voice {
     pub async fn new(user_id: u64, app_handle: Option<AppHandle>) -> Result<Self, anyhow::Error> {
         let crypto_provider = AwsLcCryptoProvider::default();
         let cipher_suite = crypto_provider
@@ -97,7 +96,7 @@ impl VoiceUser {
     }
 
     pub async fn save(&self) {
-        let output_path = VoiceUser::get_file_path(self.user_id);
+        let output_path = Voice::get_file_path(self.user_id);
 
         let data = VoiceUserData {
             identity: self.identity.clone(),
@@ -125,7 +124,7 @@ impl VoiceUser {
     }
 
     pub async fn load(user_id: u64, app_handle: Option<AppHandle>) -> Result<Self, anyhow::Error> {
-        let input_path = VoiceUser::get_file_path(user_id);
+        let input_path = Voice::get_file_path(user_id);
         let mut file = File::open(input_path)
             .await
             .map_err(|e| anyhow::anyhow!("Failed to open file: {}", e))?;
@@ -219,7 +218,7 @@ impl VoiceUser {
             group.context().epoch,
         );
 
-        let voice = Voice {
+        let voice = VoiceChannel {
             voice_id: voice_id.clone(),
             voice_name: "".to_string(),
             mls_group: Arc::new(RwLock::new(group)),
@@ -293,7 +292,7 @@ impl VoiceUser {
             .await;
 
         // Save group and ratchet manager
-        let _ = self.current_voice.write().await.insert(Voice {
+        let _ = self.current_voice.write().await.insert(VoiceChannel {
             voice_id: voice_id.clone(),
             voice_name: "".to_string(),
             mls_group: Arc::new(RwLock::new(group)),

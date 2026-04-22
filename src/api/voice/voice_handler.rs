@@ -7,12 +7,11 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::api::voice::connection::voice_connection::Backend;
-use crate::api::voice::types::basic_types::Voice;
-use crate::api::voice::types::client_messages::*;
+use crate::api::voice::types::VoiceChannel;
 
 #[derive(Clone)]
 pub struct VoiceHandler {
-    voice: Arc<RwLock<Option<Voice>>>,
+    voice: Arc<RwLock<Option<VoiceChannel>>>,
     user_id: u64,
     identity: SigningIdentity,
     backend: Backend,
@@ -20,7 +19,7 @@ pub struct VoiceHandler {
 
 impl VoiceHandler {
     pub fn new(
-        voice: Arc<RwLock<Option<Voice>>>,
+        voice: Arc<RwLock<Option<VoiceChannel>>>,
         user_id: u64,
         identity: SigningIdentity,
         backend: Backend,
@@ -105,46 +104,12 @@ impl VoiceHandler {
         self.backend.send_voice_message(voice_id, message).await
     }
 
-    async fn find_member_index(&self, name: u64, group: &Voice) -> Result<Member, String> {
+    async fn find_member_index(&self, name: u64, group: &VoiceChannel) -> Result<Member, String> {
         let mls_group = group.mls_group.read().await;
         let member_identity = BasicCredential::new(name.to_le_bytes().to_vec());
         mls_group
             .member_with_identity(&member_identity.identifier)
             .map_err(|e| e.to_string())
-    }
-
-    async fn process_remove_user_message(
-        &self,
-        remove_user_message: RemoveUserMessage,
-    ) -> Result<(), anyhow::Error> {
-        log::info!("Received remove user message: {:?}", remove_user_message);
-        let voice_lock = self.voice.read().await;
-        let voice = voice_lock
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("No active voice session"))?;
-
-        let mut voice_mls_group = voice.mls_group.write().await;
-
-        if let Ok(member) = self
-            .find_member_index(remove_user_message.user_id, voice)
-            .await
-        {
-            let mut commit_builder = voice_mls_group.commit_builder();
-            commit_builder = commit_builder.remove_member(member.index)?;
-
-            let commit = commit_builder
-                .build()
-                .map_err(|e| anyhow::anyhow!("Failed to build commit: {}", e))?;
-
-            let leave_message_bytes = commit
-                .commit_message
-                .mls_encode_to_vec()
-                .map_err(|e| anyhow::anyhow!("Failed to serialize leave message: {}", e))?;
-
-            let _ = self.send_voice_message(leave_message_bytes).await;
-        }
-
-        Ok(())
     }
 
     pub fn create_voice_data_handler(
@@ -161,7 +126,7 @@ impl VoiceHandler {
     }
 
     pub fn create_mls_event_handler(
-        current_voice: Arc<RwLock<Option<Voice>>>,
+        current_voice: Arc<RwLock<Option<VoiceChannel>>>,
         backend: Backend,
         user_id: u64,
     ) -> Arc<dyn Fn(String, Vec<u8>, Option<String>) + Send + Sync + 'static> {
@@ -347,7 +312,7 @@ impl VoiceHandler {
     }
 
     pub fn create_commit_response_handler(
-        current_voice: Arc<RwLock<Option<Voice>>>,
+        current_voice: Arc<RwLock<Option<VoiceChannel>>>,
         user_id: u64,
     ) -> Arc<dyn Fn(String, bool, String) + Send + Sync + 'static> {
         Arc::new(move |voice_id, accepted, error_message| {

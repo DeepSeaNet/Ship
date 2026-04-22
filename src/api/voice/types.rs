@@ -1,3 +1,4 @@
+pub mod ratchet_key;
 use mls_rs::{crypto::SignatureSecretKey, identity::SigningIdentity};
 use mls_rs_codec::{MlsDecode, MlsEncode, MlsSize};
 use std::sync::Arc;
@@ -20,7 +21,7 @@ impl VoiceId {
 }
 
 #[derive(Clone)]
-pub struct Voice {
+pub struct VoiceChannel {
     pub voice_id: String,
     pub voice_name: String,
     pub mls_group: Arc<RwLock<MlsGroup>>,

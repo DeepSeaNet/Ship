@@ -1,11 +1,11 @@
 use crate::api::connection::get_avaliable_voice_servers;
 use crate::api::voice::echolocator::client_message::VoiceRequest;
-use crate::api::voice::{VoiceKeysPayload, VoiceUser, echolocator::ClientMessage};
+use crate::api::voice::{Voice, VoiceKeysPayload, echolocator::ClientMessage};
 use std::sync::Arc;
 use tauri::State;
 use tokio::sync::RwLock;
 
-type SafeVoiceUser = Arc<RwLock<VoiceUser>>;
+type SafeVoiceUser = Arc<RwLock<Voice>>;
 
 /// Export key material for TypeScript `SubtleCrypto`
 #[tauri::command]
