@@ -1,3 +1,6 @@
+pub mod group_config_builder;
+pub mod group_extension;
+
 use mls_rs_codec::{MlsDecode, MlsEncode, MlsSize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -264,19 +267,8 @@ impl GroupConfig {
         self.update_timestamp();
     }
 
-    pub fn remove_banned(&mut self, banned_id: u64) {
-        self.banned
-            .remove(self.banned.iter().position(|id| *id == banned_id).unwrap());
-        self.update_timestamp();
-    }
-
     pub fn add_muted(&mut self, muted_id: u64, muted_until: DateTime) {
         self.muted.insert(muted_id, muted_until);
-        self.update_timestamp();
-    }
-
-    pub fn remove_muted(&mut self, muted_id: u64) {
-        self.muted.remove(&muted_id);
         self.update_timestamp();
     }
 

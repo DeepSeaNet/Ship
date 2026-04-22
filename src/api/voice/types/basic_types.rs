@@ -3,7 +3,7 @@ use mls_rs_codec::{MlsDecode, MlsEncode, MlsSize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::api::voice::{types::ratchet_key::GroupRatchetManager, voice_user::MlsGroup};
+use crate::api::voice::{MlsGroup, types::ratchet_key::GroupRatchetManager};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct VoiceId(Vec<u8>);

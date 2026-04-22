@@ -40,7 +40,7 @@ pub struct Backend {
 }
 
 impl Backend {
-    pub async fn new(
+    pub fn new(
         address: String,
         subscriptions: Arc<Mutex<Vec<i64>>>,
         account: Arc<Account>,
@@ -121,11 +121,7 @@ impl Backend {
         Ok(())
     }
 
-    pub async fn update_online_status(
-        &mut self,
-        status: OnlineStatus,
-    ) -> Result<(), anyhow::Error> {
-        // Создаем запрос на обновление статуса
+    pub async fn update_online_status(&self, status: OnlineStatus) -> Result<(), anyhow::Error> {
         let timestamp = SystemTime::now();
         let seconds = timestamp
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -146,10 +142,7 @@ impl Backend {
         }
         Ok(())
     }
-    pub async fn get_user_activity(
-        &mut self,
-        user_id: i64,
-    ) -> Result<GetUserActivityResponse, Status> {
+    pub async fn get_user_activity(&self, user_id: i64) -> Result<GetUserActivityResponse, Status> {
         let request = GetUserActivityRequest { user_id };
 
         let response = self
@@ -161,7 +154,7 @@ impl Backend {
         Ok(response.into_inner())
     }
 
-    pub async fn get_user_info(&mut self, user_id: i64) -> Result<DisplayUserInfo, anyhow::Error> {
+    pub async fn get_user_info(&self, user_id: i64) -> Result<DisplayUserInfo, anyhow::Error> {
         let request = GetUserInfoRequest { user_id };
 
         let response = self
@@ -198,7 +191,7 @@ impl Backend {
     }
 
     pub async fn update_username(
-        &mut self,
+        &self,
         user_id: i64,
         new_username: String,
     ) -> Result<UpdateUsernameResponse, Status> {
@@ -232,7 +225,7 @@ impl Backend {
     }
 
     pub async fn update_avatar(
-        &mut self,
+        &self,
         user_id: i64,
         avatar: Avatar,
     ) -> Result<UpdateAvatarResponse, Status> {
@@ -275,7 +268,7 @@ impl Backend {
     }
 
     pub async fn mark_message_read(
-        &mut self,
+        &self,
         message_id: i64,
         chat_id: i64,
     ) -> Result<MarkMessageReadResponse, Status> {
@@ -378,7 +371,7 @@ impl Backend {
     }
 
     pub async fn get_updated_users(
-        &mut self,
+        &self,
         ids: Vec<i64>,
         timestamp: i64,
     ) -> Result<Vec<DisplayUserInfo>, anyhow::Error> {

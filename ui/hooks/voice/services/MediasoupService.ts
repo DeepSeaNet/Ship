@@ -141,7 +141,7 @@ export class MediasoupService {
 		this.addLog("Creating Producer Transport...", "info");
 		const additionalSettings = {
 			encodedInsertableStreams: true,
-			// Enables WebRTC Encoded Insertable Streams support (Windows only). 
+			// Enables WebRTC Encoded Insertable Streams support (Windows only).
 			// Required for RTCRtpScriptTransform / encoded frame interception.
 			// Without this flag, the browser may still create transports,
 			// but encoded frame pipelines will not be exposed to the worker,

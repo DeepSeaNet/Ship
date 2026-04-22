@@ -7,19 +7,19 @@ use mls_rs::{
 use mls_rs_codec::{MlsDecode, MlsEncode};
 
 use crate::api::device::{
-    device::Device,
+    Device,
     types::{
         config::CREDENTIAL_V1,
         custom_mls::credentials::{AccountCredential, DeviceCredential},
         errors::GroupError,
         extensions::{
             group_config::{
-                group_config::GroupConfig,
+                GroupConfig,
                 group_extension::{GroupConfigExtension, UpdateGroupConfigProposal},
             },
             roster::{
+                RosterExtension,
                 proposals::{AddUserProposal, RemoveUserProposal},
-                roster_extension::RosterExtension,
             },
         },
         group::{GroupId, MlsGroup},
@@ -184,7 +184,7 @@ impl Device {
     ///
     /// - Errors: If MLS operations fail (e.g if you dont have permission [manage_members] to remove the user)
     pub(super) async fn build_remove_commit(
-        &mut self,
+        &self,
         group: &mut MlsGroup,
         user_id: u64,
     ) -> Result<CommitOutput, GroupError> {

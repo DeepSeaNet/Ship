@@ -3,7 +3,7 @@ use base64::{Engine, engine::general_purpose};
 use tauri::{AppHandle, Emitter};
 
 use crate::api::device::types::{
-    errors::GroupError, extensions::group_config::group_config::GroupConfig, group::GroupId,
+    errors::GroupError, extensions::group_config::GroupConfig, group::GroupId,
     message::UserGroupMessage,
 };
 use crate::api::status::{DisplayUserStatus, DisplayUserTypingStatus};

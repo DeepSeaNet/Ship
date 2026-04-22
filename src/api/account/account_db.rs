@@ -4,7 +4,7 @@ use mls_rs_codec::MlsEncode;
 use sqlx::{Row, SqlitePool, sqlite::SqliteConnectOptions};
 use std::{path::PathBuf, str::FromStr};
 
-use crate::api::account::account::Account;
+use crate::api::account::Account;
 
 pub struct AccountManager {
     pool: SqlitePool,

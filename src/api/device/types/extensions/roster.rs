@@ -1,4 +1,5 @@
 //! MLS extensions for user roster management
+pub mod proposals;
 
 use mls_rs_codec::{MlsDecode, MlsEncode, MlsSize};
 use mls_rs_core::extension::{ExtensionType, MlsCodecExtension};

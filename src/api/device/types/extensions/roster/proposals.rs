@@ -5,7 +5,7 @@ use mls_rs::group::proposal::MlsCustomProposal;
 use mls_rs_codec::{MlsDecode, MlsEncode, MlsSize};
 use mls_rs_core::group::ProposalType;
 
-use super::roster_extension::{ADD_USER_PROPOSAL_V1, REMOVE_USER_PROPOSAL_V1};
+use super::{ADD_USER_PROPOSAL_V1, REMOVE_USER_PROPOSAL_V1};
 
 /// Custom proposal to add a new user to the authorized user roster
 /// This proposal will be processed by our MLS rules to update the RosterExtension

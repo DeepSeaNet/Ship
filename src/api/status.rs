@@ -1,3 +1,11 @@
+mod connection;
+mod types;
+mod user_db;
+pub use types::{
+    Avatar, DisplayUserInfo, DisplayUserStatus, DisplayUserTypingStatus, UpdateUserAvatarResponse,
+};
+pub use user_db::{UserManager, get_default_db_path};
+
 use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
@@ -6,10 +14,6 @@ use crate::api::account::Account;
 use crate::api::status::connection::Backend;
 use crate::api::status::connection::user_service_proto::user_status_response;
 use crate::api::status::connection::user_service_proto::{OnlineStatus, TypingStatus};
-use crate::api::status::types::{
-    Avatar, DisplayUserInfo, DisplayUserStatus, DisplayUserTypingStatus, UpdateUserAvatarResponse,
-};
-use crate::api::status::user_db::{UserManager, get_default_db_path};
 use crate::commands::events::{emit_user_status_event, emit_user_typing_status_event};
 use tokio::sync::RwLock;
 /// Клиент для работы со статусами пользователя
@@ -40,7 +44,7 @@ impl UserStatusClient {
             subscriptions: subscriptions.clone(),
             app_handler,
             user_manager,
-            backend: Backend::new(addr, subscriptions, account).await?,
+            backend: Backend::new(addr, subscriptions, account)?,
         };
 
         // Инициализируем стрим
@@ -50,7 +54,7 @@ impl UserStatusClient {
     }
 
     /// Обновляет статус пользователя
-    pub async fn update_online_status(&mut self, status: String) -> Result<(), anyhow::Error> {
+    pub async fn update_online_status(&self, status: String) -> Result<(), anyhow::Error> {
         let status = OnlineStatus::from_str_name(&status).unwrap_or(OnlineStatus::Offline);
         self.backend.update_online_status(status).await?;
         self.backend.send_online_status(status).await?;
@@ -60,10 +64,7 @@ impl UserStatusClient {
     }
 
     /// Получает статус пользователя
-    pub async fn get_user_status(
-        &mut self,
-        user_id: i64,
-    ) -> Result<DisplayUserStatus, anyhow::Error> {
+    pub async fn get_user_status(&self, user_id: i64) -> Result<DisplayUserStatus, anyhow::Error> {
         let response = self.backend.get_user_activity(user_id).await?;
         let status = response.online_status();
         let last_seen = if let Some(last_seen) = response.last_seen {
@@ -82,19 +83,19 @@ impl UserStatusClient {
     }
 
     /// Получает информацию о пользователе
-    pub async fn get_user_info(&mut self, user_id: i64) -> Result<DisplayUserInfo, anyhow::Error> {
+    pub async fn get_user_info(&self, user_id: i64) -> Result<DisplayUserInfo, anyhow::Error> {
         let response = self.backend.get_user_info(user_id).await?;
         self.user_manager.save_contact(response.clone()).await?;
         Ok(response)
     }
 
-    pub async fn get_contacts(&mut self) -> Result<Vec<DisplayUserInfo>, anyhow::Error> {
+    pub async fn get_contacts(&self) -> Result<Vec<DisplayUserInfo>, anyhow::Error> {
         self.user_manager.get_contacts().await
     }
 
     /// Обновляет имя пользователя
     // TODO: оно сейчас неправильно работает, нужно переделать
-    pub async fn update_username(&mut self, new_username: String) -> Result<bool, anyhow::Error> {
+    pub async fn update_username(&self, new_username: String) -> Result<bool, anyhow::Error> {
         let response = self
             .backend
             .update_username(self.account.user_id as i64, new_username.clone())
@@ -105,7 +106,7 @@ impl UserStatusClient {
 
     /// Обновляет аватар пользователя
     pub async fn update_avatar(
-        &mut self,
+        &self,
         avatar: Avatar,
     ) -> Result<UpdateUserAvatarResponse, anyhow::Error> {
         let response = self
@@ -262,7 +263,7 @@ impl UserStatusClient {
             .and_then(|s| s.parse::<i64>().ok())
             .unwrap_or(0);
 
-        let mut backend = self.backend.clone();
+        let backend = self.backend.clone();
         match backend.get_updated_users(ids, last_sync).await {
             Ok(updated_users) => {
                 for user in updated_users {

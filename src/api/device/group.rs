@@ -2,13 +2,13 @@ use mls_rs::{MlsMessage, group::proposal::MlsCustomProposal};
 use mls_rs_codec::{MlsDecode, MlsEncode};
 
 use crate::api::device::{
-    device::Device,
+    Device,
     types::{
         config::CREDENTIAL_V1,
         custom_mls::credentials::DeviceCredential,
         errors::GroupError,
         extensions::{
-            group_config::{group_config::GroupConfig, group_extension::UpdateGroupConfigProposal},
+            group_config::{GroupConfig, group_extension::UpdateGroupConfigProposal},
             roster::proposals::RemoveUserProposal,
         },
         group::{GroupId, MlsGroup},
@@ -243,11 +243,7 @@ impl Device {
     ///
     /// Removes all devices belonging to `user_id` and updates membership
     /// in the group configuration, then sends and applies the commit.
-    pub async fn remove_user(
-        &mut self,
-        group_id: &GroupId,
-        user_id: u64,
-    ) -> Result<(), GroupError> {
+    pub async fn remove_user(&self, group_id: &GroupId, user_id: u64) -> Result<(), GroupError> {
         let group_arc = self.groups.get(group_id).await?;
         let mut group = group_arc.write().await;
 

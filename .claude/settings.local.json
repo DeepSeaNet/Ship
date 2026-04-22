@@ -1,0 +1,18 @@
+{
+	"permissions": {
+		"allow": [
+			"mcp__gitnexus__list_repos",
+			"Bash(npx gitnexus *)",
+			"Bash(npx tsc *)",
+			"Bash(npx biome *)",
+			"Bash(pnpm tsc *)",
+			"Bash(pnpm exec *)",
+			"mcp__gitnexus__query",
+			"mcp__gitnexus__context",
+			"mcp__gitnexus__impact",
+			"mcp__gitnexus__detect_changes",
+			"Bash(cargo clippy *)",
+			"Bash(cargo test *)"
+		]
+	}
+}

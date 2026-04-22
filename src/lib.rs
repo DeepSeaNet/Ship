@@ -15,11 +15,6 @@ mod commands;
 #[cfg(test)]
 mod tests;
 
-async fn init_client(_app_handle: tauri::AppHandle) -> Result<(), String> {
-    log::info!("Client initialized");
-    Ok(())
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -37,10 +32,9 @@ pub fn run() {
                         }
                     }
                 }) {
-                    eprintln!("Error configuring webview: {:?}", e);
+                    eprintln!("Error configuring webview: {e:?}");
                 }
             });
-            tauri::async_runtime::spawn(init_client(app.handle().clone()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

@@ -1,3 +1,11 @@
+mod connection;
+mod db;
+mod group;
+mod handler;
+mod helper;
+pub mod mls_client;
+pub mod types;
+
 use mls_rs::{
     ExtensionList, MlsMessage,
     client_builder::ClientBuilder,
@@ -19,7 +27,6 @@ use crate::api::{
     account::Account,
     device::{
         connection::{Backend, group_microservice::Device as SDevice},
-        db::{self},
         handler::GroupHandler,
         mls_client::MlsClient,
         types::{
@@ -33,9 +40,7 @@ use crate::api::{
                 group_config::group_extension::{
                     GROUP_CONFIG_EXTENSION_V1, UPDATE_GROUP_CONFIG_PROPOSAL_V1,
                 },
-                roster::roster_extension::{
-                    ADD_USER_PROPOSAL_V1, REMOVE_USER_PROPOSAL_V1, ROSTER_EXTENSION_V1,
-                },
+                roster::{ADD_USER_PROPOSAL_V1, REMOVE_USER_PROPOSAL_V1, ROSTER_EXTENSION_V1},
             },
             group::GroupStorage,
             identity_keypair::IdentityKeypair,
@@ -70,7 +75,7 @@ impl Device {
         let client = Self::create_client(&identity)?;
         let db_path = db::get_default_db_path(account.credential.account_id.user_id);
         let groups = GroupStorage::new(db_path).await?;
-        let backend = Backend::new(account.server_address.clone()).await.ok();
+        let backend = Backend::new(account.server_address.clone()).ok();
         let contacts_parsed_cache = CacheBuilder::new(10_000)
             .time_to_live(Duration::from_secs(60 * 30))
             .build();
@@ -91,7 +96,7 @@ impl Device {
     /// Establishes the stream and installs the group message handler.
     pub async fn init_backend(&mut self) -> Result<(), GroupError> {
         if self.backend.is_none() {
-            let backend = Backend::new(self.account.server_address.clone()).await.ok();
+            let backend = Backend::new(self.account.server_address.clone()).ok();
             self.init_stream().await?;
             self.backend = backend;
         }
@@ -108,7 +113,7 @@ impl Device {
     ) -> Result<Self, GroupError> {
         let identity = IdentityKeypair::from_bytes(identity)?;
         let client = Self::create_client(&identity)?;
-        let backend = Backend::new(account.server_address.clone()).await.ok();
+        let backend = Backend::new(account.server_address.clone()).ok();
         groups.load_groups(&client).await?;
         let contacts_parsed_cache = CacheBuilder::new(10_000)
             .time_to_live(Duration::from_secs(60 * 30))
@@ -299,19 +304,19 @@ impl Device {
                 GroupError::ConnectionError(format!("Stream initialization failed: {}", e))
             })?;
 
-        self.init_group_handler().await
+        self.init_group_handler()
     }
 
     /// Initialize group message handler
     ///
     /// Spawns an async task that processes inbound group events.
-    async fn init_group_handler(&mut self) -> Result<(), GroupError> {
+    fn init_group_handler(&self) -> Result<(), GroupError> {
         let backend = self
             .backend
             .as_ref()
             .ok_or(GroupError::BackendError("Client is offline".to_string()))?;
 
-        let mut handler = GroupHandler::new(
+        let handler = GroupHandler::new(
             self.user_id(),
             self.client.clone(),
             self.groups.clone(),

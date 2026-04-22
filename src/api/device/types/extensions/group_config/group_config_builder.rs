@@ -1,4 +1,4 @@
-use crate::api::device::types::extensions::group_config::group_config::{
+use crate::api::device::types::extensions::group_config::{
     DateTime, GroupConfig, JoinMode, Permissions, Visibility,
 };
 use std::collections::BTreeMap;
@@ -92,18 +92,6 @@ impl GroupConfigBuilder {
         self
     }
 
-    /// Set the group avatar
-    pub fn with_avatar(mut self, avatar: Vec<u8>) -> Self {
-        self.avatar = Some(avatar);
-        self
-    }
-
-    /// Set the group banner
-    pub fn with_banner(mut self, banner: Vec<u8>) -> Self {
-        self.banner = Some(banner);
-        self
-    }
-
     /// Set the maximum number of members
     pub fn with_max_members(mut self, max_members: u32) -> Self {
         self.max_members = Some(max_members);
@@ -113,18 +101,6 @@ impl GroupConfigBuilder {
     /// Set the slow mode delay in seconds
     pub fn with_slow_mode_delay(mut self, delay: u32) -> Self {
         self.slow_mode_delay = Some(delay);
-        self
-    }
-
-    /// Set the invite link
-    pub fn with_invite_link<S: Into<String>>(mut self, link: S) -> Self {
-        self.invite_link = Some(link.into());
-        self
-    }
-
-    /// Set the pinned message ID
-    pub fn with_pinned_message(mut self, message_id: u64) -> Self {
-        self.pinned_message_id = Some(message_id);
         self
     }
 
@@ -155,66 +131,6 @@ impl GroupConfigBuilder {
     /// Configure whether links are allowed
     pub fn allow_links(mut self, allow: bool) -> Self {
         self.allow_links = Some(allow);
-        self
-    }
-
-    /// Add additional members to the group (beyond the creator)
-    pub fn with_members(mut self, member_ids: Vec<u64>) -> Self {
-        self.additional_members = member_ids;
-        self
-    }
-
-    /// Add a single member to the group
-    pub fn add_member(mut self, member_id: u64) -> Self {
-        self.additional_members.push(member_id);
-        self
-    }
-
-    /// Add additional admins to the group (beyond the creator)
-    pub fn with_admins(mut self, admin_ids: Vec<u64>) -> Self {
-        self.additional_admins = admin_ids;
-        self
-    }
-
-    /// Add a single admin to the group
-    pub fn add_admin(mut self, admin_id: u64) -> Self {
-        self.additional_admins.push(admin_id);
-        self
-    }
-
-    /// Set custom permissions for a specific user
-    pub fn with_user_permissions(mut self, user_id: u64, permissions: Permissions) -> Self {
-        self.custom_permissions.insert(user_id, permissions);
-        self
-    }
-
-    /// Set the default permissions for new members
-    pub fn with_default_permissions(mut self, permissions: Permissions) -> Self {
-        self.default_member_permissions = Some(permissions);
-        self
-    }
-
-    /// Add banned users to the group
-    pub fn with_banned_users(mut self, banned_ids: Vec<u64>) -> Self {
-        self.banned_users = banned_ids;
-        self
-    }
-
-    /// Add a single banned user
-    pub fn ban_user(mut self, user_id: u64) -> Self {
-        self.banned_users.push(user_id);
-        self
-    }
-
-    /// Add muted users with their mute expiration times
-    pub fn with_muted_users(mut self, muted: BTreeMap<u64, DateTime>) -> Self {
-        self.muted_users = muted;
-        self
-    }
-
-    /// Mute a single user until the specified time
-    pub fn mute_user(mut self, user_id: u64, until: DateTime) -> Self {
-        self.muted_users.insert(user_id, until);
         self
     }
 
@@ -331,51 +247,6 @@ impl GroupConfigBuilder {
         }
 
         Ok(config)
-    }
-}
-
-/// Predefined configurations for common group types
-impl GroupConfigBuilder {
-    /// Create a public group configuration
-    pub fn public_group(group_id: u64, group_name: String, creator_id: u64) -> Self {
-        Self::new(group_id, group_name, creator_id)
-            .with_visibility(Visibility::Public)
-            .with_join_mode(JoinMode::Open)
-            .with_default_permissions(Permissions::member())
-    }
-
-    /// Create a private group configuration
-    pub fn private_group(group_id: u64, group_name: String, creator_id: u64) -> Self {
-        Self::new(group_id, group_name, creator_id)
-            .with_visibility(Visibility::Private)
-            .with_join_mode(JoinMode::InviteOnly)
-            .with_default_permissions(Permissions::member())
-    }
-
-    /// Create a hidden group configuration
-    pub fn hidden_group(group_id: u64, group_name: String, creator_id: u64) -> Self {
-        Self::new(group_id, group_name, creator_id)
-            .with_visibility(Visibility::Hidden)
-            .with_join_mode(JoinMode::InviteOnly)
-            .with_default_permissions(Permissions::member())
-    }
-
-    /// Create a read-only group configuration
-    pub fn read_only_group(group_id: u64, group_name: String, creator_id: u64) -> Self {
-        Self::new(group_id, group_name, creator_id)
-            .with_visibility(Visibility::Public)
-            .with_join_mode(JoinMode::RequestToJoin)
-            .with_default_permissions(Permissions::reader())
-    }
-
-    /// Create a restricted content group (no media/links)
-    pub fn restricted_content_group(group_id: u64, group_name: String, creator_id: u64) -> Self {
-        Self::new(group_id, group_name, creator_id)
-            .allow_stickers(false)
-            .allow_gifs(false)
-            .allow_voice_messages(false)
-            .allow_video_messages(false)
-            .allow_links(false)
     }
 }
 

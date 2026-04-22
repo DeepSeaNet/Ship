@@ -4,7 +4,7 @@ use crate::api::device::types::{
     config::{CREDENTIAL_V1, cipher_suite},
     custom_mls::credentials::{DeviceCredential, DeviceCredentialTBS},
     errors::GroupError,
-    extensions::roster::roster_extension::RosterExtension,
+    extensions::roster::RosterExtension,
 };
 use mls_rs::{CipherSuiteProvider, ExtensionList, IdentityProvider};
 use mls_rs_codec::MlsDecode;

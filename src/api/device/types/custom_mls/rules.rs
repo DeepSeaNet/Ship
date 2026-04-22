@@ -19,8 +19,8 @@ use crate::api::device::types::extensions::group_config::group_extension::{
     GroupConfigExtension, UPDATE_GROUP_CONFIG_PROPOSAL_V1, UpdateGroupConfigProposal,
 };
 use crate::api::device::types::extensions::roster::{
+    ADD_USER_PROPOSAL_V1, REMOVE_USER_PROPOSAL_V1, RosterExtension,
     proposals::{AddUserProposal, RemoveUserProposal},
-    roster_extension::{ADD_USER_PROPOSAL_V1, REMOVE_USER_PROPOSAL_V1, RosterExtension},
 };
 
 /// Custom MLS rules that handle our AddUser proposals and maintain the user roster

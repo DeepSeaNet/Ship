@@ -6,6 +6,15 @@ use tauri::AppHandle;
 use tauri::Emitter;
 use tokio::sync::RwLock;
 
+use crate::api::device::Device;
+use crate::api::device::types::extensions::group_config;
+use crate::api::device::types::{
+    extensions::group_config::{GroupConfig, group_config_builder},
+    group::GroupId,
+    message::UserGroupMessage,
+    message_builder::MessageBuilder,
+};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupActionResponse {
     pub success: bool,
@@ -77,15 +86,6 @@ pub struct UpdatePermissions {
     pub pin_messages: Option<bool>,
     pub manage_admins: Option<bool>,
 }
-
-use crate::api::device::Device;
-use crate::api::device::types::extensions::group_config::group_config::GroupConfig;
-use crate::api::device::types::{
-    extensions::group_config::{group_config, group_config_builder},
-    group::GroupId,
-    message::UserGroupMessage,
-    message_builder::MessageBuilder,
-};
 
 type SafeGroupUser = Arc<RwLock<Option<Device>>>;
 
@@ -452,7 +452,8 @@ pub async fn send_group_message(
                     return;
                 }
             };
-            let message = match builder.build(message_id as i64, &app_handle, user.user_id() as i64) {
+            let message = match builder.build(message_id as i64, &app_handle, user.user_id() as i64)
+            {
                 Ok(msg) => msg,
                 Err(e) => {
                     log::error!("Failed to build message: {}", e);
@@ -639,7 +640,7 @@ pub async fn get_all_group_media(
 
                 Ok(MediaListResponse { media: media_json })
             }
-            Err(e) => Err(format!("Failed to get group media: {}", e)),
+            Err(e) => Err(format!("Failed to get group media: {e}")),
         }
     } else {
         Err("Group user not initialized. Call init_group_user first.".to_string())
@@ -660,7 +661,7 @@ pub async fn clear_group_media_cache(
             }),
             Err(e) => Ok(GroupActionResponse {
                 success: false,
-                message: format!("Failed to clear media cache: {}", e),
+                message: format!("Failed to clear media cache: {e}"),
             }),
         }
     } else {
@@ -677,7 +678,7 @@ pub async fn get_group_media_cache_size(
     if let Some(user) = group_user.as_ref() {
         match user.groups.messages.get_media_cache_size().await {
             Ok(size) => Ok(CacheSizeResponse { size }),
-            Err(e) => Err(format!("Failed to get media cache size: {}", e)),
+            Err(e) => Err(format!("Failed to get media cache size: {e}")),
         }
     } else {
         Err("Group user not initialized. Call init_group_user first.".to_string())
@@ -697,8 +698,10 @@ pub async fn update_member_permissions(
     let group_user = group_user_state.read().await;
     let group_id = GroupId::from_string(&group_id).map_err(|e| e.to_string())?;
     if let Some(user) = group_user.as_ref() {
-        let group_config = user.get_group_config(&group_id).await.map_err(|e| e.to_string())?;
-        // Проверка прав текущего пользователя на изменение прав
+        let group_config = user
+            .get_group_config(&group_id)
+            .await
+            .map_err(|e| e.to_string())?;
         let user_id = user.user_id();
         let can_edit = group_config.has_permission(user_id, "manage_permissions");
 
@@ -706,26 +709,21 @@ pub async fn update_member_permissions(
             return Err("You don't have permission to edit user permissions".to_string());
         }
 
-        // Проверяем, что член группы существует и создаем новую конфигурацию
         let mut new_config = group_config.clone();
         if !new_config.is_member(member_id) {
             return Err(format!(
-                "User with ID {} is not a member of the group",
-                member_id
+                "User with ID {member_id} is not a member of the group"
             ));
         }
 
-        // Если указана роль, устанавливаем соответствующие права
         if let Some(role_name) = role {
             new_config.set_member_role(member_id, &role_name);
         } else {
-            // Иначе устанавливаем индивидуальные права
             let mut member_permissions = new_config
                 .get_member_permissions(member_id)
                 .cloned()
                 .unwrap_or_else(group_config::Permissions::default);
 
-            // Обновляем каждое право, если оно указано в переданном JSON
             if let Some(val) = permissions.manage_members {
                 member_permissions = member_permissions.with_manage_members(val);
             }
@@ -754,7 +752,6 @@ pub async fn update_member_permissions(
                 member_permissions = member_permissions.with_manage_admins(val);
             }
 
-            // Устанавливаем обновленные права используя метод GroupConfig
             new_config.update_permissions(member_id, |p| {
                 *p = member_permissions;
             });
@@ -799,7 +796,10 @@ pub async fn update_group_config(
     let group_user = group_user_state.read().await;
     let group_id = GroupId::from_string(&group_id).map_err(|e| e.to_string())?;
     if let Some(user) = group_user.as_ref() {
-        let group_config = user.get_group_config(&group_id).await.map_err(|e| e.to_string())?;
+        let group_config = user
+            .get_group_config(&group_id)
+            .await
+            .map_err(|e| e.to_string())?;
 
         // Проверка прав пользователя на редактирование группы
         let user_id = user.user_id();
@@ -825,7 +825,7 @@ pub async fn update_group_config(
             match mode.as_str() {
                 "invite_only" => new_config.set_join_mode(group_config::JoinMode::InviteOnly),
                 "request_to_join" => {
-                    new_config.set_join_mode(group_config::JoinMode::RequestToJoin)
+                    new_config.set_join_mode(group_config::JoinMode::RequestToJoin);
                 }
                 "open" => new_config.set_join_mode(group_config::JoinMode::Open),
                 _ => {}
@@ -871,7 +871,7 @@ pub async fn update_group_config(
         if let Some(allow_messages) = allow_messages {
             new_config.set_allow_messages(allow_messages);
         }
-        log::info!("Allow messages: {:?}", allow_messages);
+        log::info!("Allow messages: {allow_messages:?}");
         if let Some(avatar_data) = avatar {
             if avatar_data.len() > 5 * 1024 * 1024 {
                 return Err("Avatar size must be less than 5MB".to_string());
@@ -881,7 +881,10 @@ pub async fn update_group_config(
         }
 
         // Валидация изменений используя встроенный метод
-        let old_config = user.get_group_config(&group_id).await.map_err(|e| e.to_string())?;
+        let old_config = user
+            .get_group_config(&group_id)
+            .await
+            .map_err(|e| e.to_string())?;
         let validation_result = old_config.validate_changes(&new_config, user_id);
         if !validation_result.valid {
             return Err(format!(
@@ -926,7 +929,9 @@ pub async fn update_group_config(
                 "default_permissions": default_permissions,
             }
         });
-        app_handle.emit("server-event", event_payload).unwrap();
+        app_handle
+            .emit("server-event", event_payload)
+            .map_err(|e| e.to_string())?;
 
         Ok(GroupActionResponse {
             success: true,

@@ -1,3 +1,10 @@
+mod connection;
+mod types;
+mod voice_handler;
+
+pub use connection::echolocator;
+pub use types::ratchet_key::VoiceKeysPayload;
+
 use log;
 use mls_rs::{
     CipherSuite, CipherSuiteProvider, CryptoProvider, ExtensionList, Group, MlsMessage,
@@ -20,13 +27,12 @@ use tokio::{
 
 use anyhow::Error;
 
+use crate::api::voice::types::basic_types::{
+    EXPORT_SECRET_LABEL, EXPORT_SECRET_LENGTH, Voice, VoiceId,
+};
 use crate::api::voice::types::ratchet_key::GroupRatchetManager;
 use crate::api::voice::types::ratchet_key::RatchetConfig;
 use crate::api::voice::voice_handler::VoiceHandler;
-use crate::api::voice::{
-    connection::echolocator,
-    types::basic_types::{EXPORT_SECRET_LABEL, EXPORT_SECRET_LENGTH, Voice, VoiceId},
-};
 use crate::api::voice::{connection::voice_connection::Backend, types::basic_types::VoiceUserData};
 use mls_rs_crypto_awslc::AwsLcCryptoProvider;
 use std::path::PathBuf;
@@ -53,7 +59,6 @@ pub struct VoiceUser {
     signer: SignatureSecretKey,
     backend: Backend,
     client: MlsClient,
-    app_handle: Option<AppHandle>,
     user_id: u64,
 }
 
@@ -86,7 +91,6 @@ impl VoiceUser {
             backend,
             client,
             user_id,
-            app_handle,
         };
         voice_user.save().await;
         Ok(voice_user)
@@ -153,7 +157,6 @@ impl VoiceUser {
             backend,
             client,
             user_id: data.user_id,
-            app_handle,
         };
         Ok(voice_user)
     }

@@ -3,6 +3,16 @@ use std::sync::Arc;
 use tauri::AppHandle;
 use tokio::sync::RwLock;
 
+use crate::api::account::Account;
+use crate::api::account::AccountManager;
+use crate::api::account::ExportedAccount;
+use crate::api::account::get_default_db_path;
+
+use crate::api::device::Device;
+use crate::api::status::UserStatusClient;
+use crate::api::voice::VoiceUser;
+use tauri::Manager;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoginResponse {
     pub user_id: u64,
@@ -33,16 +43,6 @@ pub struct EncryptedExportedAccount {
     pub encrypted_data: String,
     pub key: String,
 }
-
-use crate::api::account::Account;
-use crate::api::account::AccountManager;
-use crate::api::account::ExportedAccount;
-use crate::api::account::get_default_db_path;
-
-use crate::api::device::Device;
-use crate::api::status::user_status::UserStatusClient;
-use crate::api::voice::VoiceUser;
-use tauri::Manager;
 
 type SafeAccount = Arc<Account>;
 type SafeGroupUser = Arc<RwLock<Option<Device>>>;

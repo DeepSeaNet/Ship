@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use super::types::custom_mls::credentials::DeviceCredential;
-use super::types::extensions::group_config::group_config::GroupConfig;
+use super::types::extensions::group_config::GroupConfig;
 use super::types::extensions::group_config::group_extension::{
     GroupConfigExtension, UPDATE_GROUP_CONFIG_PROPOSAL_V1, UpdateGroupConfigProposal,
 };
@@ -83,7 +83,7 @@ impl GroupHandler {
         self.account.sign_message(&tbs_bytes).await
     }
 
-    async fn upload_key_packages(&mut self) -> Result<(), GroupError> {
+    async fn upload_key_packages(&self) -> Result<(), GroupError> {
         let key_package = self
             .client
             .generate_key_package_message(Default::default(), Default::default(), None)
@@ -111,7 +111,7 @@ impl GroupHandler {
             .map_err(|e| GroupError::BackendError(format!("Key package upload failed: {}", e)))
     }
 
-    async fn join(&mut self, welcome_message: &MlsMessage) -> Result<GroupId, GroupError> {
+    async fn join(&self, welcome_message: &MlsMessage) -> Result<GroupId, GroupError> {
         let (mut group, _) = self.client.join_group(None, welcome_message, None)
             //.await
             ?;
@@ -294,7 +294,7 @@ impl GroupHandler {
         }
     }
 
-    pub async fn process_stream(&mut self) -> Result<(), GroupError> {
+    pub async fn process_stream(&self) -> Result<(), GroupError> {
         log::info!("Waiting for stream messages...");
         while let Some(result) = self.backend.next_message().await {
             match result {

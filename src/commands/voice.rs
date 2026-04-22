@@ -7,7 +7,7 @@ use tokio::sync::RwLock;
 
 type SafeVoiceUser = Arc<RwLock<VoiceUser>>;
 
-/// Export key material for TypeScript SubtleCrypto
+/// Export key material for TypeScript `SubtleCrypto`
 #[tauri::command]
 pub async fn get_voice_keys(state: State<'_, SafeVoiceUser>) -> Result<VoiceKeysPayload, String> {
     let voice_user = state.read().await;
@@ -21,13 +21,13 @@ pub async fn initialize_connection(state: State<'_, SafeVoiceUser>) -> Result<()
     let voice_user = state.read().await;
 
     match voice_user.initialize().await {
-        Ok(_) => {
+        Ok(()) => {
             log::info!("Connection initialized successfully");
             Ok(())
         }
         Err(e) => {
-            log::error!("Failed to initialize connection: {}", e);
-            Err(format!("Failed to initialize connection: {}", e))
+            log::error!("Failed to initialize connection: {e}");
+            Err(format!("Failed to initialize connection: {e}"))
         }
     }
 }
@@ -38,8 +38,6 @@ pub async fn join_session(
     session_id: String,
     state: State<'_, SafeVoiceUser>,
 ) -> Result<(), String> {
-    log::info!("join_session: session_id={}", session_id);
-
     let voice_user = state.read().await;
     voice_user.initialize().await.map_err(|e| e.to_string())?;
     if voice_user.is_joined().await {
@@ -47,33 +45,34 @@ pub async fn join_session(
         return Err("Already joined session".to_string());
     }
     match voice_user.join(session_id).await {
-        Ok(_) => {
+        Ok(()) => {
             log::info!("Successfully joined session");
             Ok(())
         }
         Err(e) => {
-            log::error!("Failed to join session: {}", e);
-            Err(format!("Join session failed: {}", e))
+            log::error!("Failed to join session: {e}");
+            Err(format!("Join session failed: {e}"))
         }
     }
 }
 
 // Команда для отсоединения от сессии
 #[tauri::command]
-pub async fn leave_session(state: State<'_, SafeVoiceUser>) -> Result<(), String> {
-    let voice_user = state.read().await;
-    match voice_user.leave_voice_channel().await {
-        Ok(_) => {
+pub async fn leave_session(voice_user: State<'_, SafeVoiceUser>) -> Result<(), String> {
+    match voice_user.read().await.leave_voice_channel().await {
+        Ok(()) => {
             log::info!("Successfully left voice channel");
             Ok(())
         }
         Err(e) => {
-            log::error!("Failed to leave voice channel: {}", e);
+            log::error!("Failed to leave voice channel: {e}");
             voice_user
+                .read()
+                .await
                 .close_voice_channel()
                 .await
                 .map_err(|e| e.to_string())?;
-            Err(format!("Failed to leave voice channel: {}", e))
+            Err(format!("Failed to leave voice channel: {e}"))
         }
     }
 }
@@ -89,10 +88,11 @@ pub async fn get_voice_servers() -> Result<Vec<String>, String> {
 pub async fn init_webrtc_signaling(
     session_id: String,
     rtp_capabilities: Option<String>,
-    state: State<'_, SafeVoiceUser>,
+    voice_user: State<'_, SafeVoiceUser>,
 ) -> Result<(), String> {
-    let voice_user = state.read().await;
     voice_user
+        .read()
+        .await
         .init_signaling_stream(session_id, rtp_capabilities)
         .await
         .map_err(|e| e.to_string())?;
@@ -104,14 +104,14 @@ pub async fn init_webrtc_signaling(
 #[tauri::command]
 pub async fn send_webrtc_message(
     message: VoiceRequest,
-    state: State<'_, SafeVoiceUser>,
+    voice_user: State<'_, SafeVoiceUser>,
 ) -> Result<(), String> {
-    log::info!("send_webrtc_message: message={:?}", message);
     let voice_message = ClientMessage {
         voice_request: Some(message),
     };
-    let voice_user = state.read().await;
     voice_user
+        .read()
+        .await
         .send_signaling_message(voice_message)
         .await
         .map_err(|e| e.to_string())?;

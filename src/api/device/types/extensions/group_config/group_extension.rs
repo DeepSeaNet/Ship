@@ -2,13 +2,12 @@ use mls_rs::group::proposal::{MlsCustomProposal, ProposalType};
 use mls_rs_codec::{MlsDecode, MlsEncode, MlsSize};
 use mls_rs_core::extension::{ExtensionType, MlsCodecExtension};
 
-use crate::api::device::types::extensions::group_config::group_config::GroupConfig;
-// Новый ExtensionType
+use crate::api::device::types::extensions::group_config::GroupConfig;
+
 pub const GROUP_CONFIG_EXTENSION_V1: ExtensionType = ExtensionType::new(65003);
 
 pub const UPDATE_GROUP_CONFIG_PROPOSAL_V1: ProposalType = ProposalType::new(65004);
 
-// Расширение GroupConfig
 #[derive(Debug, Clone, MlsSize, MlsDecode, MlsEncode)]
 pub struct GroupConfigExtension {
     pub config: GroupConfig,
@@ -34,7 +33,7 @@ impl MlsCustomProposal for UpdateGroupConfigProposal {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::device::types::extensions::group_config::group_config::GroupConfig;
+    use crate::api::device::types::extensions::group_config::GroupConfig;
     use mls_rs_core::extension::ExtensionList;
 
     #[test]

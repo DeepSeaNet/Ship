@@ -38,7 +38,7 @@ pub struct Backend {
 }
 
 impl Backend {
-    pub async fn new(address: String) -> Result<Self> {
+    pub fn new(address: String) -> Result<Self> {
         let uri = Uri::from_str(&address.clone())?;
 
         let endpoint = create_client_endpoint().map_err(|e| {

@@ -2,7 +2,7 @@ use crate::api::{
     account::Account,
     status::{
         Avatar, DisplayUserInfo, DisplayUserStatus, UpdateUserAvatarResponse, UserManager,
-        get_default_db_path, user_status::UserStatusClient,
+        UserStatusClient, get_default_db_path,
     },
 };
 use std::sync::Arc;

@@ -9,8 +9,8 @@ use super::constants::AES_KEY_SIZE;
 use super::error::RatchetError;
 use super::receiver::ReceiverRatchet;
 use super::sender::SenderRatchet;
+use crate::api::voice::MlsGroup;
 use crate::api::voice::types::basic_types::{EXPORT_SECRET_LABEL, EXPORT_SECRET_LENGTH};
-use crate::api::voice::voice_user::MlsGroup;
 
 // ── Key-material export types ─────────────────────────────────────────────────
 
@@ -68,7 +68,7 @@ impl GroupRatchetManager {
     // ── Participant management ────────────────────────────────────────────────
 
     pub async fn add_participant(
-        &mut self,
+        &self,
         user_id: u64,
         public_key: Vec<u8>,
         base_secret: Option<[u8; AES_KEY_SIZE]>,
@@ -106,7 +106,7 @@ impl GroupRatchetManager {
         self.group_epoch = epoch;
     }
 
-    pub async fn update_sender_epoch(&mut self, new_base: &[u8; AES_KEY_SIZE], epoch: u64) {
+    pub async fn update_sender_epoch(&self, new_base: &[u8; AES_KEY_SIZE], epoch: u64) {
         self.sender_ratchet
             .write()
             .await
@@ -131,7 +131,7 @@ impl GroupRatchetManager {
 
     /// DAVE §Sender Key Derivation:
     ///   sender_base_secret = MLS-Exporter("Discord Secure Frames v0", LE(user_id), 16)
-    pub async fn export_secret(
+    pub fn export_secret(
         &self,
         voice: &MlsGroup,
         user_id_le_bytes: &[u8],
@@ -163,9 +163,7 @@ impl GroupRatchetManager {
 
         self.update_group_epoch(group_epoch).await;
 
-        let sender_secret = self
-            .export_secret(voice, &local_user_id.to_le_bytes())
-            .await?;
+        let sender_secret = self.export_secret(voice, &local_user_id.to_le_bytes())?;
         self.update_sender_epoch(&sender_secret, group_epoch).await;
 
         for member in voice.roster().members() {
@@ -187,7 +185,7 @@ impl GroupRatchetManager {
                 member_id,
                 group_epoch
             );
-            let secret = self.export_secret(voice, &id_bytes).await?;
+            let secret = self.export_secret(voice, &id_bytes)?;
             self.add_participant(
                 member_id,
                 member.signing_identity.signature_key.to_vec(),

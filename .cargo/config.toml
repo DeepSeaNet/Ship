@@ -1,2 +1,7 @@
 [build]
 #rustflags = ["--cfg=mls_build_async"]
+
+[alias]
+clippy-ci = "clippy --all-targets --all-features -- -D warnings"
+clippy-strict = "clippy --all-targets --all-features -- -D clippy::all -D warnings"
+clippy-hard = "clippy --all-targets --all-features -- -D clippy::all -D warnings -W clippy::pedantic -W clippy::nursery -D clippy::unwrap_used "

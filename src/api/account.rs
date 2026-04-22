@@ -1,10 +1,15 @@
+mod account_db;
+mod account_service;
+mod types;
+
+pub use account_db::{AccountManager, get_default_db_path};
+pub use types::ExportedAccount;
+
 use anyhow::Result;
 use mls_rs::CipherSuiteProvider;
 use mls_rs_codec::{MlsDecode, MlsEncode, MlsSize};
 use mls_rs_core::crypto::{SignaturePublicKey, SignatureSecretKey};
 
-use crate::api::account::AccountManager;
-use crate::api::account::get_default_db_path;
 use crate::api::device::types::{
     config::cipher_suite, custom_mls::credentials::AccountCredential, errors::GroupError,
 };

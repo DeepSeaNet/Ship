@@ -18,9 +18,9 @@ pub async fn save_file_from_memory(
 fn save_to_downloads(file_data: &[u8], file_name: &str) -> Result<String, String> {
     let mut downloads_dir =
         dirs::download_dir().ok_or_else(|| "Could not find downloads directory".to_string())?;
-    downloads_dir.push("anongram");
+    downloads_dir.push("ship");
     std::fs::create_dir_all(&downloads_dir)
-        .map_err(|e| format!("Could not create anongram directory: {}", e))?;
+        .map_err(|e| format!("Could not create anongram directory: {e}"))?;
 
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -39,7 +39,7 @@ fn save_to_downloads(file_data: &[u8], file_name: &str) -> Result<String, String
 
     let file_path = downloads_dir.join(&unique_name);
 
-    fs::write(&file_path, file_data).map_err(|e| format!("Failed to save file: {}", e))?;
+    fs::write(&file_path, file_data).map_err(|e| format!("Failed to save file: {e}"))?;
 
     file_path
         .to_str()
