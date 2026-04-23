@@ -1,4 +1,4 @@
-use anyhow::Result;
+use crate::api::account::{AccountError, AccountResult};
 use dirs;
 use mls_rs_codec::MlsEncode;
 use sqlx::{Row, SqlitePool, sqlite::SqliteConnectOptions};
@@ -11,7 +11,7 @@ pub struct AccountManager {
 }
 
 impl AccountManager {
-    pub async fn new(db_path: PathBuf) -> Result<Self> {
+    pub async fn new(db_path: PathBuf) -> AccountResult<Self> {
         let db_url = format!("sqlite:{}", db_path.display());
         let options = SqliteConnectOptions::from_str(&db_url)?.create_if_missing(true);
 
@@ -47,13 +47,13 @@ impl AccountManager {
         Ok(AccountManager { pool })
     }
 
-    pub async fn save_account(&self, account: &Account) -> Result<()> {
+    pub async fn save_account(&self, account: &Account) -> AccountResult<()> {
         println!("saving account: {}", account.username);
 
         let mls_credential_bytes = account
             .credential
             .mls_encode_to_vec()
-            .map_err(|e| anyhow::anyhow!("Failed to encode MLS credential: {}", e))?;
+            .map_err(AccountError::Codec)?;
         let mls_signer_bytes = account.signer.as_bytes().to_vec();
 
         sqlx::query(
@@ -75,7 +75,7 @@ impl AccountManager {
         Ok(())
     }
 
-    pub async fn get_account_by_username(&self, username: &str) -> Result<Option<Account>> {
+    pub async fn get_account_by_username(&self, username: &str) -> AccountResult<Option<Account>> {
         use crate::api::device::types::custom_mls::credentials::AccountCredential;
         use mls_rs_codec::MlsDecode;
         use mls_rs_core::crypto::SignatureSecretKey;
@@ -94,7 +94,7 @@ impl AccountManager {
                 let mls_signer_bytes: Vec<u8> = row.get("mls_signer");
 
                 let credential = AccountCredential::mls_decode(&mut &*mls_credential_bytes)
-                    .map_err(|e| anyhow::anyhow!("Failed to decode MLS credential: {}", e))?;
+                    .map_err(AccountError::Codec)?;
 
                 let signer = SignatureSecretKey::new(mls_signer_bytes);
 
@@ -117,7 +117,7 @@ impl AccountManager {
         &self,
         username: &str,
         avatar_url: Option<String>,
-    ) -> Result<()> {
+    ) -> AccountResult<()> {
         sqlx::query(
             "UPDATE accounts SET avatar_url = ?, updated_at = CURRENT_TIMESTAMP WHERE username = ?",
         )
@@ -129,7 +129,7 @@ impl AccountManager {
         Ok(())
     }
 
-    pub async fn delete_account(&self, username: &str) -> Result<()> {
+    pub async fn delete_account(&self, username: &str) -> AccountResult<()> {
         sqlx::query("DELETE FROM accounts WHERE username = ?")
             .bind(username)
             .execute(&self.pool)
@@ -138,7 +138,7 @@ impl AccountManager {
         Ok(())
     }
 
-    pub async fn list_accounts(&self) -> Result<Vec<Account>> {
+    pub async fn list_accounts(&self) -> AccountResult<Vec<Account>> {
         use crate::api::device::types::custom_mls::credentials::AccountCredential;
         use mls_rs_codec::MlsDecode;
         use mls_rs_core::crypto::SignatureSecretKey;
@@ -156,7 +156,7 @@ impl AccountManager {
             let mls_signer_bytes: Vec<u8> = row.get("mls_signer");
 
             let credential = AccountCredential::mls_decode(&mut &*mls_credential_bytes)
-                .map_err(|e| anyhow::anyhow!("Failed to decode MLS credential: {}", e))?;
+                .map_err(AccountError::Codec)?;
 
             let signer = SignatureSecretKey::new(mls_signer_bytes);
 

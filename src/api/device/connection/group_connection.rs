@@ -3,7 +3,7 @@ pub mod group_microservice {
     tonic::include_proto!("group_microservice");
 }
 
-use anyhow::Result;
+use crate::api::device::types::errors::GroupError;
 use group_microservice::group_delivery_service_client::GroupDeliveryServiceClient;
 use group_microservice::{
     GetUserCredentialRequest, GetUserKeyPackagesRequest, GetUsersDevicesRequest,
@@ -38,12 +38,13 @@ pub struct Backend {
 }
 
 impl Backend {
-    pub fn new(address: String) -> Result<Self> {
-        let uri = Uri::from_str(&address.clone())?;
+    pub fn new(address: String) -> Result<Self, GroupError> {
+        let uri = Uri::from_str(&address.clone())
+            .map_err(|e| GroupError::ConnectionError(e.to_string()))?;
 
         let endpoint = create_client_endpoint().map_err(|e| {
             log::error!("Failed to create endpoint: {}", e);
-            anyhow::anyhow!("Failed to create endpoint")
+            GroupError::ConnectionError("Failed to create endpoint".to_string())
         })?;
         let connector = H3QuinnConnector::new(uri.clone(), "sea_group".to_string(), endpoint);
 

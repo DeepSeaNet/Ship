@@ -1,11 +1,13 @@
 mod account_db;
 mod account_service;
+mod error;
 mod types;
+
+pub use error::{AccountError, AccountResult};
 
 pub use account_db::{AccountManager, get_default_db_path};
 pub use types::ExportedAccount;
 
-use anyhow::Result;
 use mls_rs::CipherSuiteProvider;
 use mls_rs_codec::{MlsDecode, MlsEncode, MlsSize};
 use mls_rs_core::crypto::{SignaturePublicKey, SignatureSecretKey};
@@ -71,28 +73,25 @@ impl Account {
 }
 
 impl Account {
-    pub async fn save_to_db(&self) -> Result<()> {
+    pub async fn save_to_db(&self) -> AccountResult<()> {
         let account_manager = AccountManager::new(get_default_db_path()).await?;
         account_manager.save_account(self).await
     }
 
-    pub async fn load_from_db(username: String) -> Result<Self> {
+    pub async fn load_from_db(username: String) -> AccountResult<Self> {
         let account_manager = AccountManager::new(get_default_db_path()).await?;
         account_manager
             .get_account_by_username(&username)
             .await?
-            .ok_or(anyhow::anyhow!(
-                "Account with username: {} doesnt exist in database",
-                username
-            ))
+            .ok_or(AccountError::AccountNotFound(username))
     }
 
-    pub async fn list_accounts() -> Result<Vec<Account>> {
+    pub async fn list_accounts() -> AccountResult<Vec<Account>> {
         let account_manager = AccountManager::new(get_default_db_path()).await?;
         account_manager.list_accounts().await
     }
 
-    pub async fn update_avatar(&self, avatar_url: String) -> Result<()> {
+    pub async fn update_avatar(&self, avatar_url: String) -> AccountResult<()> {
         let account_manager = AccountManager::new(get_default_db_path()).await?;
         account_manager
             .update_avatar_url(&self.username, Some(avatar_url))

@@ -1,6 +1,9 @@
 mod connection;
+mod error;
 mod types;
 mod voice_handler;
+
+pub use error::{VoiceError, VoiceResult};
 
 pub use connection::echolocator;
 pub use types::ratchet_key::VoiceKeysPayload;
@@ -24,8 +27,6 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     sync::RwLock,
 };
-
-use anyhow::Error;
 
 use crate::api::voice::connection::voice_connection::Backend;
 use crate::api::voice::types::VoiceUserData;
@@ -59,14 +60,15 @@ pub struct Voice {
     backend: Backend,
     client: MlsClient,
     user_id: u64,
+    app_handle: Option<AppHandle>,
 }
 
 impl Voice {
-    pub async fn new(user_id: u64, app_handle: Option<AppHandle>) -> Result<Self, anyhow::Error> {
+    pub async fn new(user_id: u64, app_handle: Option<AppHandle>) -> VoiceResult<Self> {
         let crypto_provider = AwsLcCryptoProvider::default();
         let cipher_suite = crypto_provider
             .cipher_suite_provider(CIPHERSUITE)
-            .ok_or_else(|| anyhow::anyhow!("Cipher suite not supported"))?;
+            .ok_or_else(|| VoiceError::CipherSuiteNotSupported)?;
         let (secret, public) = cipher_suite.signature_key_generate()?;
         let basic_identity = BasicCredential::new(user_id.to_le_bytes().to_vec());
         let signing_identity = SigningIdentity::new(basic_identity.into_credential(), public);
@@ -77,11 +79,7 @@ impl Voice {
             .signing_identity(signing_identity.clone(), secret.clone(), CIPHERSUITE)
             .build();
 
-        let backend = if let Some(app_handle) = &app_handle {
-            Backend::with_app_handle(app_handle.clone())
-        } else {
-            Backend::new()
-        };
+        let backend = Backend::new();
 
         let voice_user = Self {
             current_voice: Arc::new(RwLock::new(None)),
@@ -90,6 +88,7 @@ impl Voice {
             backend,
             client,
             user_id,
+            app_handle,
         };
         voice_user.save().await;
         Ok(voice_user)
@@ -123,17 +122,14 @@ impl Voice {
         }
     }
 
-    pub async fn load(user_id: u64, app_handle: Option<AppHandle>) -> Result<Self, anyhow::Error> {
+    pub async fn load(user_id: u64, app_handle: Option<AppHandle>) -> VoiceResult<Self> {
         let input_path = Voice::get_file_path(user_id);
-        let mut file = File::open(input_path)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to open file: {}", e))?;
+        let mut file = File::open(input_path).await.map_err(VoiceError::Io)?;
         let mut file_bytes = Vec::new();
         file.read_to_end(&mut file_bytes)
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to read file: {}", e))?;
-        let data = VoiceUserData::mls_decode(&mut &*file_bytes)
-            .map_err(|e| anyhow::anyhow!("Failed to decode voice user data: {}", e))?;
+            .map_err(VoiceError::Io)?;
+        let data = VoiceUserData::mls_decode(&mut &*file_bytes).map_err(VoiceError::Codec)?;
 
         let crypto_provider = AwsLcCryptoProvider::default();
 
@@ -143,11 +139,7 @@ impl Voice {
             .signing_identity(data.identity.clone(), data.signer.clone(), CIPHERSUITE)
             .build();
 
-        let backend = if let Some(app_handle) = &app_handle {
-            Backend::with_app_handle(app_handle.clone())
-        } else {
-            Backend::new()
-        };
+        let backend = Backend::new();
 
         let voice_user = Self {
             current_voice: Arc::new(RwLock::new(None)),
@@ -156,6 +148,7 @@ impl Voice {
             backend,
             client,
             user_id: data.user_id,
+            app_handle,
         };
         Ok(voice_user)
     }
@@ -179,7 +172,7 @@ impl Voice {
         }
     }
 
-    pub async fn create_voice_channel(&self, voice_id: String) -> Result<Vec<u8>, anyhow::Error> {
+    pub async fn create_voice_channel(&self, voice_id: String) -> VoiceResult<Vec<u8>> {
         let group_id = VoiceId::from_string(&voice_id);
 
         let server_identity_bytes = self.backend.get_server_info().await?;
@@ -191,7 +184,7 @@ impl Voice {
         let group = self
             .client
             .create_group_with_id(group_id.to_vec(), extension_list, Default::default(), None)
-            .map_err(|e| anyhow::anyhow!("Failed to create MLS group: {}", e))?;
+            .map_err(VoiceError::Mls)?;
 
         // Get group_info for server to observe
         let group_info = group.group_info_message_allowing_ext_commit(true)?;
@@ -241,20 +234,18 @@ impl Voice {
         &self,
         voice_id: String,
         welcome_message: Vec<u8>,
-    ) -> Result<(), Error> {
+    ) -> VoiceResult<()> {
         log::info!("Processing welcome message for voice {}", voice_id);
 
-        let welcome = MlsMessage::from_bytes(&welcome_message)
-            .map_err(|e| anyhow::anyhow!("Failed to deserialize welcome message: {}", e))?;
-
+        let welcome = MlsMessage::from_bytes(&welcome_message).map_err(|e| {
+            VoiceError::DeserializationError("welcome message".to_string(), e.to_string())
+        })?;
         let (mut group, _) = self
             .client
             .join_group(None, &welcome, None)
-            .map_err(|e| anyhow::anyhow!("Failed to join group: {}", e))?;
+            .map_err(VoiceError::Mls)?;
 
-        group
-            .write_to_storage()
-            .map_err(|e| anyhow::anyhow!("Failed to write to storage: {}", e))?;
+        group.write_to_storage().map_err(VoiceError::Mls)?;
 
         // Export secret for ratchet manager
         let secret = group
@@ -263,12 +254,16 @@ impl Voice {
                 self.user_id.to_le_bytes().as_slice(),
                 EXPORT_SECRET_LENGTH,
             )
-            .map_err(|e| anyhow::anyhow!("Failed to export secret: {}", e))?;
+            .map_err(VoiceError::Mls)?;
 
-        let secret_array: [u8; EXPORT_SECRET_LENGTH] = secret
-            .as_bytes()
-            .try_into()
-            .map_err(|e| anyhow::anyhow!("Secret must be exactly 16 bytes: {}", e))?;
+        let secret_array: [u8; EXPORT_SECRET_LENGTH] =
+            secret
+                .as_bytes()
+                .try_into()
+                .map_err(|_| VoiceError::InvalidSecretSize {
+                    expected: EXPORT_SECRET_LENGTH,
+                    got: secret.as_bytes().len(),
+                })?;
 
         let group_epoch = group.context().epoch;
 
@@ -303,11 +298,11 @@ impl Voice {
         Ok(())
     }
 
-    pub async fn initialize(&self) -> Result<(), anyhow::Error> {
+    pub async fn initialize(&self) -> VoiceResult<()> {
         self.backend.initialize().await
     }
 
-    pub async fn join(&self, session_id: String) -> Result<(), anyhow::Error> {
+    pub async fn join(&self, session_id: String) -> VoiceResult<()> {
         log::info!("join: session_id={:?}", session_id);
 
         let session_exists = self.backend.try_get_room(session_id.clone()).await?;
@@ -319,11 +314,9 @@ impl Voice {
             let key_package = self
                 .client
                 .generate_key_package_message(Default::default(), Default::default(), None)
-                .map_err(|e| anyhow::anyhow!("Failed to generate key package: {}", e))?;
+                .map_err(VoiceError::Mls)?;
 
-            let key_package_bytes = key_package
-                .mls_encode_to_vec()
-                .map_err(|e| anyhow::anyhow!("Failed to serialize key package: {}", e))?;
+            let key_package_bytes = key_package.mls_encode_to_vec().map_err(VoiceError::Codec)?;
 
             // Send join request to server and wait for welcome message
             let welcome_message = self
@@ -349,54 +342,37 @@ impl Voice {
         Ok(())
     }
 
-    // Отправка голосового сообщения
-    pub async fn send_voice_message(&self, message: Vec<u8>) -> Result<(), anyhow::Error> {
-        let voice_id = {
-            let lock = self.current_voice.read().await;
-            lock.as_ref()
-                .map(|v| v.voice_id.clone())
-                .ok_or_else(|| anyhow::anyhow!("No active voice session"))?
-        };
-
-        self.backend
-            .send_voice_message(voice_id, message)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to send voice message: {}", e))
-    }
-
-    pub async fn leave_voice_channel(&self) -> Result<(), anyhow::Error> {
+    pub async fn leave_voice_channel(&self) -> VoiceResult<()> {
         log::info!("Leaving voice channel");
 
         {
             let lock = self.current_voice.read().await;
-            let voice = lock
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!("No active voice session"))?;
+            let voice = lock.as_ref().ok_or(VoiceError::NoActiveSession)?;
             let mut voice_mls_group = voice.mls_group.write().await;
             let leave_message = voice_mls_group
                 .propose_self_remove(Vec::new())
-                .map_err(|e| anyhow::anyhow!("Failed to propose self remove: {}", e))?;
+                .map_err(VoiceError::Mls)?;
 
-            // Сериализуем сообщение для отправки
             let leave_message_bytes = leave_message
                 .mls_encode_to_vec()
-                .map_err(|e| anyhow::anyhow!("Failed to serialize leave message: {}", e))?;
+                .map_err(VoiceError::Codec)?;
 
-            // Отправляем сообщение о выходе из группы
-            self.send_voice_message(leave_message_bytes).await?;
+            self.backend
+                .send_voice_message(voice.voice_id.clone(), leave_message_bytes)
+                .await?;
         }
         self.close_voice_channel().await?;
         Ok(())
     }
 
-    pub async fn close_voice_channel(&self) -> Result<(), anyhow::Error> {
+    pub async fn close_voice_channel(&self) -> VoiceResult<()> {
         log::info!("Closing voice channel");
         let mut lock = self.current_voice.write().await;
         *lock = None;
         self.backend
             .close_signaling_stream()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to close signaling stream: {}", e))
+            .map_err(|e| VoiceError::Backend(format!("Failed to close signaling stream: {}", e)))
     }
 
     // Инициализация signaling stream для WebRTC
@@ -404,40 +380,24 @@ impl Voice {
         &self,
         room_id: String,
         rtp_capabilities: Option<String>,
-    ) -> Result<(), anyhow::Error> {
-        log::info!("Initializing signaling stream for room {}", room_id);
+    ) -> VoiceResult<()> {
+        log::info!("Initialising signaling stream for room {}", room_id);
 
-        // Set voice data handler before initializing stream
-        let voice_handler = VoiceHandler::new(
+        let rx = self
+            .backend
+            .init_signaling_stream(room_id, rtp_capabilities)
+            .await?;
+
+        let handler = VoiceHandler::new(
             self.current_voice.clone(),
             self.user_id,
             self.identity.clone(),
             self.backend.clone(),
+            self.app_handle.clone(),
         );
 
-        let voice_data_handler = voice_handler.create_voice_data_handler();
-        self.backend
-            .set_voice_data_handler(voice_data_handler)
-            .await;
+        tokio::spawn(async move { handler.process_stream(rx).await });
 
-        // Set MLS event handler for AddProposal and ServerCommit
-        let mls_handler = VoiceHandler::create_mls_event_handler(
-            self.current_voice.clone(),
-            self.backend.clone(),
-            self.user_id,
-        );
-        self.backend.set_mls_event_handler(mls_handler).await;
-
-        // Set commit response handler for ServerCommitResponse
-        let commit_response_handler =
-            VoiceHandler::create_commit_response_handler(self.current_voice.clone(), self.user_id);
-        self.backend
-            .set_commit_response_handler(commit_response_handler)
-            .await;
-
-        self.backend
-            .init_signaling_stream(room_id, rtp_capabilities)
-            .await?;
         Ok(())
     }
 
@@ -445,7 +405,7 @@ impl Voice {
     pub async fn send_signaling_message(
         &self,
         message: echolocator::ClientMessage,
-    ) -> Result<(), anyhow::Error> {
+    ) -> VoiceResult<()> {
         self.backend.send_signaling_message(message).await?;
         Ok(())
     }
@@ -453,11 +413,9 @@ impl Voice {
     /// Export key material for TypeScript SubtleCrypto layer
     pub async fn get_voice_keys(
         &self,
-    ) -> Result<crate::api::voice::types::ratchet_key::VoiceKeysPayload, anyhow::Error> {
+    ) -> VoiceResult<crate::api::voice::types::ratchet_key::VoiceKeysPayload> {
         let lock = self.current_voice.read().await;
-        let voice = lock
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("No active voice session"))?;
+        let voice = lock.as_ref().ok_or(VoiceError::NoActiveSession)?;
         let manager = voice.voice_ratchet_manager.read().await;
         Ok(manager.export_key_material().await)
     }

@@ -3,37 +3,35 @@ use crate::api::voice::connection::echolocator::{
     self, ClientMessage, ServerInfoRequest, TryGetRoomRequest,
     signaling_service_client::SignalingServiceClient,
 };
-use crate::commands::events::{emit_voice_server_commit, emit_voice_signaling_message};
-use anyhow::{Result, anyhow};
+use crate::api::voice::{VoiceError, VoiceResult};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tauri::AppHandle;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use tokio_stream::StreamExt;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::transport::Channel;
 
-pub type VoiceDataHandler = Arc<dyn Fn(u64, String, Vec<u8>) + Send + Sync + 'static>;
-pub type MlsEventHandler = Arc<dyn Fn(String, Vec<u8>, Option<String>) + Send + Sync + 'static>;
-pub type CommitResponseHandler = Arc<dyn Fn(String, bool, String) + Send + Sync + 'static>;
-
+/// Pure transport layer for the voice signaling gRPC channel.
+///
+/// Responsibilities:
+/// - Manage the gRPC connection lifecycle (`initialize`, `close_signaling_stream`)
+/// - Set up the bidirectional signaling stream (`init_signaling_stream`) and hand
+///   the inbound [`mpsc::Receiver`] to the caller so **all** message-handling logic
+///   lives in [`VoiceHandler`], not here.
+/// - Provide send helpers (`send_voice_message`, `send_client_commit`, `send_commit_ack`,
+///   `send_signaling_message`).
 #[derive(Clone)]
 pub struct Backend {
     client: Arc<Mutex<Option<SignalingServiceClient<Channel>>>>,
     grpc_url: String,
     signaling_message_sender: Arc<Mutex<Option<mpsc::Sender<ClientMessage>>>>,
-    voice_data_handler: Arc<Mutex<Option<VoiceDataHandler>>>,
-    mls_event_handler: Arc<Mutex<Option<MlsEventHandler>>>,
-    commit_response_handler: Arc<Mutex<Option<CommitResponseHandler>>>,
-    app_handle: Option<AppHandle>,
 }
 
 impl std::fmt::Debug for Backend {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Backend")
             .field("grpc_url", &self.grpc_url)
-            .field("app_handle", &self.app_handle)
             .finish()
     }
 }
@@ -51,93 +49,61 @@ impl Backend {
             client: Arc::new(Mutex::new(None)),
             grpc_url: format!("http://{}:50059", addr),
             signaling_message_sender: Arc::new(Mutex::new(None)),
-            voice_data_handler: Arc::new(Mutex::new(None)),
-            mls_event_handler: Arc::new(Mutex::new(None)),
-            commit_response_handler: Arc::new(Mutex::new(None)),
-            app_handle: None,
         }
     }
 
-    pub fn with_app_handle(app_handle: AppHandle) -> Self {
-        let addr = get_avaliable_voice_servers();
-        Backend {
-            client: Arc::new(Mutex::new(None)),
-            grpc_url: format!("http://{}:50059", addr),
-            signaling_message_sender: Arc::new(Mutex::new(None)),
-            voice_data_handler: Arc::new(Mutex::new(None)),
-            mls_event_handler: Arc::new(Mutex::new(None)),
-            commit_response_handler: Arc::new(Mutex::new(None)),
-            app_handle: Some(app_handle),
-        }
-    }
+    // ── Connection lifecycle ────────────────────────────────────────────────
 
-    /// Set handler for incoming voice data
-    pub async fn set_voice_data_handler(&self, handler: VoiceDataHandler) {
-        let mut handler_guard = self.voice_data_handler.lock().await;
-        *handler_guard = Some(handler);
-    }
-
-    /// Set handler for MLS events (AddProposal, ServerCommit)
-    pub async fn set_mls_event_handler(&self, handler: MlsEventHandler) {
-        let mut handler_guard = self.mls_event_handler.lock().await;
-        *handler_guard = Some(handler);
-    }
-
-    /// Set handler for commit response (ServerCommitResponse)
-    pub async fn set_commit_response_handler(&self, handler: CommitResponseHandler) {
-        let mut handler_guard = self.commit_response_handler.lock().await;
-        *handler_guard = Some(handler);
-    }
-
-    // Инициализация соединения
-    pub async fn initialize(&self) -> Result<()> {
+    pub async fn initialize(&self) -> VoiceResult<()> {
         let grpc_client = SignalingServiceClient::connect(self.grpc_url.clone()).await?;
-
         let mut client_guard = self.client.lock().await;
         *client_guard = Some(grpc_client);
-
         log::info!("Successfully connected to gRPC server");
         Ok(())
     }
 
-    // Проверка существования сессии
-    pub async fn try_get_room(&self, session_id: String) -> Result<bool> {
-        let mut client_guard = self.client.lock().await;
-        let client = client_guard
-            .as_mut()
-            .ok_or_else(|| anyhow!("gRPC client not initialized"))?;
-
-        let request = tonic::Request::new(TryGetRoomRequest { session_id });
-        let response = client.try_get_room(request).await?.into_inner();
-        log::info!("Try get room: {:?}", response);
-        if response.exists {
-            return Ok(response.exists);
-        }
-        Ok(false)
+    pub async fn close_signaling_stream(&self) -> VoiceResult<()> {
+        *self.client.lock().await = None;
+        *self.signaling_message_sender.lock().await = None;
+        Ok(())
     }
 
-    pub async fn get_server_info(&self) -> Result<Vec<u8>> {
-        let mut client_guard = self.client.lock().await;
-        let client = client_guard
-            .as_mut()
-            .ok_or_else(|| anyhow!("gRPC client not initialized"))?;
+    // ── Room management ─────────────────────────────────────────────────────
 
-        let request = tonic::Request::new(ServerInfoRequest {});
-        let response = client.get_server_info(request).await?.into_inner();
+    pub async fn try_get_room(&self, session_id: String) -> VoiceResult<bool> {
+        let mut guard = self.client.lock().await;
+        let client = guard.as_mut().ok_or(VoiceError::Backend(
+            "gRPC client not initialized".to_string(),
+        ))?;
+        let response = client
+            .try_get_room(tonic::Request::new(TryGetRoomRequest { session_id }))
+            .await?
+            .into_inner();
+        log::info!("Try get room: {:?}", response);
+        Ok(response.exists)
+    }
+
+    pub async fn get_server_info(&self) -> VoiceResult<Vec<u8>> {
+        let mut guard = self.client.lock().await;
+        let client = guard.as_mut().ok_or(VoiceError::Backend(
+            "gRPC client not initialized".to_string(),
+        ))?;
+        let response = client
+            .get_server_info(tonic::Request::new(ServerInfoRequest {}))
+            .await?
+            .into_inner();
         Ok(response.server_identity)
     }
 
-    // Send group info to server for observation (when creating new room)
     pub async fn send_group_info_to_server(
         &self,
         room_id: String,
         group_info: Vec<u8>,
-    ) -> Result<()> {
-        let mut client_guard = self.client.lock().await;
-
-        let client = client_guard
-            .as_mut()
-            .ok_or_else(|| anyhow!("gRPC client not initialized"))?;
+    ) -> VoiceResult<()> {
+        let mut guard = self.client.lock().await;
+        let client = guard.as_mut().ok_or(VoiceError::Backend(
+            "gRPC client not initialized".to_string(),
+        ))?;
 
         log::info!(
             "Sending group_info to server for room {}, size: {} bytes",
@@ -147,33 +113,29 @@ impl Backend {
 
         let request = echolocator::GetOrCreateRoomRequest {
             room_id: room_id.clone(),
-            group_info: group_info.clone(),
+            group_info,
         };
-
         match client.get_or_create_room(request).await {
             Ok(response) => {
-                let inner = response.into_inner();
                 log::info!(
                     "Server observed group for room {}: created={}",
                     room_id,
-                    inner.created
+                    response.into_inner().created
                 );
                 Ok(())
             }
-            Err(e) => {
-                log::error!("Error sending group_info to server: {}", e);
-                Err(anyhow!("Error sending group_info to server: {}", e))
-            }
+            Err(e) => Err(VoiceError::Backend(format!(
+                "Error sending group_info to server: {}",
+                e
+            ))),
         }
     }
 
-    // Join room by sending key package
-    pub async fn join_room(&self, room_id: String, key_package: Vec<u8>) -> Result<Vec<u8>> {
-        let mut client_guard = self.client.lock().await;
-
-        let client = client_guard
-            .as_mut()
-            .ok_or_else(|| anyhow!("gRPC client not initialized"))?;
+    pub async fn join_room(&self, room_id: String, key_package: Vec<u8>) -> VoiceResult<Vec<u8>> {
+        let mut guard = self.client.lock().await;
+        let client = guard.as_mut().ok_or(VoiceError::Backend(
+            "gRPC client not initialized".to_string(),
+        ))?;
 
         log::info!("Joining room {} with key package", room_id);
 
@@ -181,7 +143,6 @@ impl Backend {
             voice_id: room_id.clone(),
             key_package,
         };
-
         match client.join_room(request).await {
             Ok(response) => {
                 let inner = response.into_inner();
@@ -189,391 +150,180 @@ impl Backend {
                     log::info!("Successfully joined room {}", room_id);
                     Ok(inner.welcome_message)
                 } else {
-                    Err(anyhow!("Server failed to join room"))
+                    Err(VoiceError::Backend(
+                        "Server failed to join room".to_string(),
+                    ))
                 }
             }
-            Err(e) => {
-                log::error!("Error joining room: {}", e);
-                Err(anyhow!("Error joining room: {}", e))
-            }
+            Err(e) => Err(VoiceError::Backend(format!("Error joining room: {}", e))),
         }
     }
 
-    // Send client commit (after processing add proposal)
+    // ── Signaling stream setup ───────────────────────────────────────────────
+
+    /// Initialises the bidirectional signaling stream and returns a receiver for
+    /// incoming [`echolocator::ServerMessage`]s.
+    ///
+    /// The caller is responsible for consuming the receiver (typically by spawning
+    /// [`VoiceHandler::process_stream`]). When the receiver is dropped the background
+    /// forwarding task exits automatically.
+    pub async fn init_signaling_stream(
+        &self,
+        room_id: String,
+        rtp_capabilities: Option<String>,
+    ) -> VoiceResult<mpsc::Receiver<echolocator::ServerMessage>> {
+        let mut guard = self.client.lock().await;
+        let client = guard.as_mut().ok_or(VoiceError::Backend(
+            "gRPC client not initialized".to_string(),
+        ))?;
+
+        log::info!("Initialising signaling stream for room {}...", room_id);
+
+        let (outbound_tx, outbound_rx) = mpsc::channel::<ClientMessage>(100);
+
+        // Build the initial Init message
+        let init_message = build_init_message(room_id.clone(), rtp_capabilities);
+
+        outbound_tx
+            .send(init_message)
+            .await
+            .map_err(|e| VoiceError::Backend(format!("Failed to send init message: {}", e)))?;
+
+        // Persist the sender so callers can push outgoing messages later
+        *self.signaling_message_sender.lock().await = Some(outbound_tx);
+
+        let outbound_stream = ReceiverStream::new(outbound_rx);
+        let mut inbound = client
+            .signaling_stream(tonic::Request::new(outbound_stream))
+            .await?
+            .into_inner();
+
+        log::info!("Signaling stream connected for room {}", room_id);
+
+        // Spawn a thin forwarding task; all logic lives in VoiceHandler
+        let (server_tx, server_rx) = mpsc::channel::<echolocator::ServerMessage>(100);
+        tokio::spawn(async move {
+            log::info!("Signaling forward task started for room {}", room_id);
+            while let Some(msg) = inbound.next().await {
+                match msg {
+                    Ok(server_msg) => {
+                        if server_tx.send(server_msg).await.is_err() {
+                            log::info!("VoiceHandler receiver dropped — stopping forward task");
+                            break;
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("Signaling stream error: {}", e);
+                        break;
+                    }
+                }
+            }
+            log::info!("Signaling forward task terminated for room {}", room_id);
+        });
+
+        Ok(server_rx)
+    }
+
+    // ── Send helpers ─────────────────────────────────────────────────────────
+
+    pub async fn send_voice_message(&self, voice_id: String, data: Vec<u8>) -> VoiceResult<()> {
+        log::info!(
+            "Sending voice data: voice_id={}, size={} bytes",
+            voice_id,
+            data.len()
+        );
+        let message = ClientMessage {
+            voice_request: Some(echolocator::client_message::VoiceRequest::VoiceData(
+                echolocator::VoiceDataRequest { voice_id, data },
+            )),
+        };
+        self.send_outbound(message).await
+    }
+
     pub async fn send_client_commit(
         &self,
         voice_id: String,
         commit: Vec<u8>,
         welcome_message: Vec<u8>,
-    ) -> Result<()> {
-        log::info!("Trying to send client commit");
-        let sender_guard = self.signaling_message_sender.lock().await;
-
-        if let Some(sender) = sender_guard.as_ref() {
-            let commit_message = echolocator::ClientMessage {
-                voice_request: Some(echolocator::client_message::VoiceRequest::ClientCommit(
-                    echolocator::ClientCommitRequest {
-                        voice_id,
-                        commit,
-                        welcome_message,
-                    },
-                )),
-            };
-
-            log::info!("Sending client commit");
-
-            match sender.send(commit_message).await {
-                Ok(_) => {
-                    log::info!("Client commit successfully sent");
-                    Ok(())
-                }
-                Err(e) => {
-                    log::error!("Error sending client commit: {}", e);
-                    Err(anyhow!("Failed to send client commit: {}", e))
-                }
-            }
-        } else {
-            log::error!("Signaling stream not initialized");
-            Err(anyhow!("Signaling stream not initialized"))
-        }
+    ) -> VoiceResult<()> {
+        log::info!("Sending client commit for voice_id={}", voice_id);
+        let message = ClientMessage {
+            voice_request: Some(echolocator::client_message::VoiceRequest::ClientCommit(
+                echolocator::ClientCommitRequest {
+                    voice_id,
+                    commit,
+                    welcome_message,
+                },
+            )),
+        };
+        self.send_outbound(message).await
     }
 
-    // Send commit ACK
     pub async fn send_commit_ack(
         &self,
         commit_id: String,
         success: bool,
         error_message: Option<String>,
-    ) -> Result<()> {
-        let sender_guard = self.signaling_message_sender.lock().await;
-
-        if let Some(sender) = sender_guard.as_ref() {
-            let ack_message = echolocator::ClientMessage {
-                voice_request: Some(echolocator::client_message::VoiceRequest::CommitAck(
-                    echolocator::CommitAckRequest {
-                        commit_id: commit_id.clone(),
-                        success,
-                        error_message: error_message.unwrap_or_default(),
-                    },
-                )),
-            };
-
-            log::info!("Sending commit ACK for commit_id: {}", commit_id);
-
-            match sender.send(ack_message).await {
-                Ok(_) => {
-                    log::info!("Commit ACK successfully sent");
-                    Ok(())
-                }
-                Err(e) => {
-                    log::error!("Error sending commit ACK: {}", e);
-                    Err(anyhow!("Failed to send commit ACK: {}", e))
-                }
-            }
-        } else {
-            log::error!("Signaling stream not initialized");
-            Err(anyhow!("Signaling stream not initialized"))
-        }
-    }
-
-    // Отправка голосового сообщения через signaling stream
-    pub async fn send_voice_message(&self, voice_id: String, data: Vec<u8>) -> Result<()> {
-        let sender_guard = self.signaling_message_sender.lock().await;
-
-        if let Some(sender) = sender_guard.as_ref() {
-            let voice_data_message = ClientMessage {
-                voice_request: Some(echolocator::client_message::VoiceRequest::VoiceData(
-                    echolocator::VoiceDataRequest {
-                        voice_id: voice_id.clone(),
-                        data: data.clone(),
-                    },
-                )),
-            };
-
-            log::info!(
-                "Sending voice data: voice_id={}, size={} bytes",
-                voice_id,
-                data.len()
-            );
-
-            match sender.send(voice_data_message).await {
-                Ok(_) => {
-                    log::info!("Voice data successfully queued for sending");
-                    Ok(())
-                }
-                Err(e) => {
-                    log::error!("Error sending voice data: {}", e);
-                    Err(anyhow!("Failed to send voice data: {}", e))
-                }
-            }
-        } else {
-            log::error!("Signaling stream not initialized");
-            Err(anyhow!("Signaling stream not initialized"))
-        }
-    }
-
-    // Инициализация SignalingStream для WebRTC
-    pub async fn init_signaling_stream(
-        &self,
-        room_id: String,
-        rtp_capabilities: Option<String>,
-    ) -> Result<()> {
-        let mut client_guard = self.client.lock().await;
-
-        let client = client_guard
-            .as_mut()
-            .ok_or_else(|| anyhow!("gRPC client not initialized"))?;
-
-        log::info!("Initializing signaling stream for room {}...", room_id);
-
-        let (tx, rx) = mpsc::channel(100);
-
-        // Создаем начальное Init сообщение
-        let init_message = if let Some(rtp_caps_json) = rtp_capabilities {
-            log::info!("RTP capabilities: {}", rtp_caps_json);
-
-            let rtp_caps = echolocator::RtpCapabilities {
-                codecs: vec![echolocator::RtpCodecCapability {
-                    kind: "audio".to_string(),
-                    mime_type: rtp_caps_json,
-                    preferred_payload_type: None,
-                    clock_rate: 0,
-                    channels: None,
-                    parameters: HashMap::new(),
-                    rtcp_feedback: vec![],
-                }],
-                header_extensions: vec![],
-            };
-
-            ClientMessage {
-                voice_request: Some(echolocator::client_message::VoiceRequest::Init(
-                    echolocator::InitRequest {
-                        room_id: room_id.clone(),
-                        rtp_capabilities: Some(rtp_caps),
-                    },
-                )),
-            }
-        } else {
-            // Если RTP capabilities не переданы, используем минимальные
-            ClientMessage {
-                voice_request: Some(echolocator::client_message::VoiceRequest::Init(
-                    echolocator::InitRequest {
-                        room_id: room_id.clone(),
-                        rtp_capabilities: Some(echolocator::RtpCapabilities {
-                            codecs: vec![],
-                            header_extensions: vec![],
-                        }),
-                    },
-                )),
-            }
+    ) -> VoiceResult<()> {
+        log::info!("Sending commit ACK for commit_id={}", commit_id);
+        let message = ClientMessage {
+            voice_request: Some(echolocator::client_message::VoiceRequest::CommitAck(
+                echolocator::CommitAckRequest {
+                    commit_id,
+                    success,
+                    error_message: error_message.unwrap_or_default(),
+                },
+            )),
         };
+        self.send_outbound(message).await
+    }
 
-        // Отправляем Init сообщение первым в канал
-        if let Err(e) = tx.send(init_message).await {
-            log::error!("Failed to send init message: {}", e);
-            return Err(anyhow!("Failed to send init message: {}", e));
-        }
+    pub async fn send_signaling_message(&self, message: ClientMessage) -> VoiceResult<()> {
+        log::info!("Sending signaling message: {:?}", message);
+        self.send_outbound(message).await
+    }
 
-        log::info!("Init message sent for room {}", room_id);
+    // ── Internal helpers ─────────────────────────────────────────────────────
 
-        // Сохраняем отправитель для последующих сообщений
-        {
-            let mut sender_guard = self.signaling_message_sender.lock().await;
-            *sender_guard = Some(tx.clone());
-        }
+    async fn send_outbound(&self, message: ClientMessage) -> VoiceResult<()> {
+        let guard = self.signaling_message_sender.lock().await;
+        let sender = guard.as_ref().ok_or(VoiceError::Backend(
+            "Signaling stream not initialised".to_string(),
+        ))?;
+        sender
+            .send(message)
+            .await
+            .map_err(|e| VoiceError::Backend(format!("Failed to send message: {}", e)))
+    }
+}
 
-        let outbound = ReceiverStream::new(rx);
+// ── Free helpers ─────────────────────────────────────────────────────────────
 
-        let request = tonic::Request::new(outbound);
-
-        let response = client.signaling_stream(request).await?;
-        let mut inbound = response.into_inner();
-
-        log::info!(
-            "Signaling stream initialized successfully for room {}",
-            room_id
-        );
-
-        // Запускаем задачу для обработки входящих сообщений
-        let app_handle = self.app_handle.clone();
-        let voice_data_handler = self.voice_data_handler.clone();
-        let mls_event_handler = self.mls_event_handler.clone();
-        let commit_response_handler = self.commit_response_handler.clone();
-
-        tokio::spawn(async move {
-            log::info!(
-                "Starting signaling stream processing task for room {}",
-                room_id
-            );
-
-            while let Some(message) = inbound.next().await {
-                match message {
-                    Ok(server_message) => {
-                        // Check message type and handle accordingly
-                        if let Some(ref msg) = server_message.voice_response {
-                            match msg {
-                                echolocator::server_message::VoiceResponse::VoiceData(
-                                    voice_data,
-                                ) => {
-                                    log::debug!(
-                                        "Received voice data: user_id={}, voice_id={}, size={} bytes",
-                                        voice_data.user_id,
-                                        voice_data.voice_id,
-                                        voice_data.data.len()
-                                    );
-                                    // Call voice data handler if set
-                                    let handler_guard = voice_data_handler.lock().await;
-                                    if let Some(handler) = handler_guard.as_ref() {
-                                        handler(
-                                            voice_data.user_id,
-                                            voice_data.voice_id.clone(),
-                                            voice_data.data.clone(),
-                                        );
-                                    } else {
-                                        log::warn!("Voice data received but no handler set");
-                                    }
-                                    continue;
-                                }
-                                echolocator::server_message::VoiceResponse::AddProposal(
-                                    add_proposal,
-                                ) => {
-                                    log::info!(
-                                        "Received add proposal for voice_id: {}",
-                                        add_proposal.voice_id
-                                    );
-                                    // Call MLS event handler for AddProposal
-                                    let handler_guard = mls_event_handler.lock().await;
-                                    if let Some(handler) = handler_guard.as_ref() {
-                                        handler(
-                                            add_proposal.voice_id.clone(),
-                                            add_proposal.proposal.clone(),
-                                            None,
-                                        );
-                                    } else {
-                                        log::warn!("AddProposal received but no MLS handler set");
-                                    }
-                                    continue;
-                                }
-                                echolocator::server_message::VoiceResponse::ServerCommit(
-                                    server_commit,
-                                ) => {
-                                    log::info!(
-                                        "Received server commit for voice_id: {}, commit_id: {}",
-                                        server_commit.voice_id,
-                                        server_commit.commit_id
-                                    );
-                                    // Call MLS event handler for ServerCommit
-                                    let handler_guard = mls_event_handler.lock().await;
-                                    if let Some(handler) = handler_guard.as_ref() {
-                                        handler(
-                                            server_commit.voice_id.clone(),
-                                            server_commit.commit.clone(),
-                                            Some(server_commit.commit_id.clone()),
-                                        );
-                                    } else {
-                                        log::warn!("ServerCommit received but no MLS handler set");
-                                    }
-                                    if let Some(app_handle) = &app_handle
-                                        && let Err(e) = emit_voice_server_commit(
-                                            app_handle,
-                                            server_commit.voice_id.clone(),
-                                            server_commit.commit_id.clone(),
-                                        )
-                                        .await
-                                        {
-                                            log::error!("Failed to emit server-event: {}", e);
-                                        }
-                                    continue;
-                                }
-                                echolocator::server_message::VoiceResponse::ServerCommitResponse(
-                                    commit_response,
-                                ) => {
-                                    log::info!(
-                                        "Received server commit response for voice_id: {}, accepted: {}",
-                                        commit_response.voice_id,
-                                        commit_response.accepted
-                                    );
-                                    // Call commit response handler
-                                    let handler_guard = commit_response_handler.lock().await;
-                                    if let Some(handler) = handler_guard.as_ref() {
-                                        handler(
-                                            commit_response.voice_id.clone(),
-                                            commit_response.accepted,
-                                            commit_response.error_message.clone(),
-                                        );
-                                    } else {
-                                        log::warn!(
-                                            "ServerCommitResponse received but no handler set"
-                                        );
-                                    }
-                                    if commit_response.accepted
-                                        && let Some(app_handle) = &app_handle
-                                            && let Err(e) = emit_voice_server_commit(
-                                                app_handle,
-                                                commit_response.voice_id.clone(),
-                                                commit_response.commit_id.clone(),
-                                            )
-                                            .await
-                                            {
-                                                log::error!("Failed to emit server-event: {}", e);
-                                            }
-                                    continue;
-                                }
-                                _ => {
-                                    //log::debug!("Received signaling message: {:?}", server_message);
-                                }
-                            }
-                        }
-
-                        // Emit Tauri event for WebRTC signaling messages
-                        if let Some(app_handle) = &app_handle
-                            && let Err(e) =
-                                emit_voice_signaling_message(app_handle, server_message).await
-                        {
-                            log::error!("Failed to emit server-event: {}", e);
-                        }
-                    }
-                    Err(e) => {
-                        log::error!("Error in signaling stream: {}", e);
-                        break;
-                    }
-                }
-            }
-
-            log::info!("Signaling stream terminated");
+fn build_init_message(room_id: String, rtp_capabilities: Option<String>) -> ClientMessage {
+    let rtp_caps = rtp_capabilities
+        .map(|json| echolocator::RtpCapabilities {
+            codecs: vec![echolocator::RtpCodecCapability {
+                kind: "audio".to_string(),
+                mime_type: json,
+                preferred_payload_type: None,
+                clock_rate: 0,
+                channels: None,
+                parameters: HashMap::new(),
+                rtcp_feedback: vec![],
+            }],
+            header_extensions: vec![],
+        })
+        .unwrap_or_else(|| echolocator::RtpCapabilities {
+            codecs: vec![],
+            header_extensions: vec![],
         });
 
-        Ok(())
-    }
-
-    // Отправка signaling сообщения
-    pub async fn send_signaling_message(&self, message: ClientMessage) -> Result<()> {
-        let sender_guard = self.signaling_message_sender.lock().await;
-
-        if let Some(sender) = sender_guard.as_ref() {
-            log::info!("Sending signaling message: {:?}", message);
-
-            match sender.send(message).await {
-                Ok(_) => {
-                    log::info!("Signaling message successfully queued for sending");
-                    Ok(())
-                }
-                Err(e) => {
-                    log::error!("Error sending signaling message: {}", e);
-                    Err(anyhow!("Failed to send signaling message: {}", e))
-                }
-            }
-        } else {
-            log::error!("Signaling stream not initialized");
-            Err(anyhow!("Signaling stream not initialized"))
-        }
-    }
-
-    pub async fn close_signaling_stream(&self) -> Result<()> {
-        let mut client_guard = self.client.lock().await;
-        *client_guard = None;
-        let mut sender_guard = self.signaling_message_sender.lock().await;
-        *sender_guard = None;
-        Ok(())
+    ClientMessage {
+        voice_request: Some(echolocator::client_message::VoiceRequest::Init(
+            echolocator::InitRequest {
+                room_id,
+                rtp_capabilities: Some(rtp_caps),
+            },
+        )),
     }
 }

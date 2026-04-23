@@ -1,6 +1,9 @@
 mod connection;
+mod error;
 mod types;
 mod user_db;
+
+pub use error::{StatusError, StatusResult};
 pub use types::{
     Avatar, DisplayUserInfo, DisplayUserStatus, DisplayUserTypingStatus, UpdateUserAvatarResponse,
 };
@@ -30,7 +33,7 @@ impl Status {
     pub async fn new(
         account: Arc<Account>,
         app_handler: Option<tauri::AppHandle>,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> StatusResult<Self> {
         let addr = account.server_address.clone();
 
         let subscriptions = Arc::new(Mutex::new(Vec::new()));
@@ -48,7 +51,7 @@ impl Status {
 
         Ok(client)
     }
-    pub async fn update_online_status(&self, status: String) -> Result<(), anyhow::Error> {
+    pub async fn update_online_status(&self, status: String) -> StatusResult<()> {
         let status = OnlineStatus::from_str_name(&status).unwrap_or(OnlineStatus::Offline);
         self.backend.update_online_status(status).await?;
         self.backend.send_online_status(status).await?;
@@ -56,7 +59,7 @@ impl Status {
         *online_status = status;
         Ok(())
     }
-    pub async fn get_user_status(&self, user_id: i64) -> Result<DisplayUserStatus, anyhow::Error> {
+    pub async fn get_user_status(&self, user_id: i64) -> StatusResult<DisplayUserStatus> {
         let response = self.backend.get_user_activity(user_id).await?;
         let status = response.online_status();
         let last_seen = if let Some(last_seen) = response.last_seen {
@@ -73,16 +76,16 @@ impl Status {
 
         Ok(user_status)
     }
-    pub async fn get_user_info(&self, user_id: i64) -> Result<DisplayUserInfo, anyhow::Error> {
+    pub async fn get_user_info(&self, user_id: i64) -> StatusResult<DisplayUserInfo> {
         let response = self.backend.get_user_info(user_id).await?;
         self.user_manager.save_contact(response.clone()).await?;
         Ok(response)
     }
 
-    pub async fn get_contacts(&self) -> Result<Vec<DisplayUserInfo>, anyhow::Error> {
+    pub async fn get_contacts(&self) -> StatusResult<Vec<DisplayUserInfo>> {
         self.user_manager.get_contacts().await
     }
-    pub async fn update_username(&self, new_username: String) -> Result<bool, anyhow::Error> {
+    pub async fn update_username(&self, new_username: String) -> StatusResult<bool> {
         let response = self
             .backend
             .update_username(self.account.user_id as i64, new_username.clone())
@@ -91,17 +94,14 @@ impl Status {
         Ok(response.success)
     }
 
-    pub async fn update_avatar(
-        &self,
-        avatar: Avatar,
-    ) -> Result<UpdateUserAvatarResponse, anyhow::Error> {
+    pub async fn update_avatar(&self, avatar: Avatar) -> StatusResult<UpdateUserAvatarResponse> {
         let response = self
             .backend
             .update_avatar(self.account.user_id as i64, avatar)
             .await?;
 
         if !response.success {
-            return Err(anyhow::anyhow!("Failed to update avatar"));
+            return Err(StatusError::AvatarUpdateFailed);
         }
         let avatar_url = format!("http://{}", response.user.unwrap().avatar_url);
         let update_avatar_response = UpdateUserAvatarResponse {
@@ -117,7 +117,7 @@ impl Status {
         chat_id: String,
         status: String,
         subscribers: Vec<i64>,
-    ) -> Result<(), anyhow::Error> {
+    ) -> StatusResult<()> {
         let status = TypingStatus::from_str_name(&status).unwrap_or(TypingStatus::NotTyping);
         self.backend
             .send_typing_status(chat_id, status, subscribers)
@@ -125,7 +125,7 @@ impl Status {
         Ok(())
     }
 
-    pub async fn subscribe_to_users(&self, user_ids: Vec<i64>) -> Result<(), anyhow::Error> {
+    pub async fn subscribe_to_users(&self, user_ids: Vec<i64>) -> StatusResult<()> {
         {
             let mut subscriptions = self.subscriptions.lock().await;
             for user_id in user_ids.iter() {
@@ -143,7 +143,7 @@ impl Status {
         Ok(())
     }
 
-    pub async fn unsubscribe_from_users(&self, user_ids: Vec<i64>) -> Result<(), anyhow::Error> {
+    pub async fn unsubscribe_from_users(&self, user_ids: Vec<i64>) -> StatusResult<()> {
         {
             let mut subscriptions = self.subscriptions.lock().await;
             subscriptions.retain(|id| !user_ids.contains(id));
@@ -155,7 +155,7 @@ impl Status {
 
         Ok(())
     }
-    async fn initialize_stream(&self) -> Result<(), anyhow::Error> {
+    async fn initialize_stream(&self) -> StatusResult<()> {
         self.backend.init_stream().await?;
 
         let app_handler = self.app_handler.clone();

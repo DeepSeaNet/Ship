@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use base64::{Engine, engine::general_purpose};
 use tauri::{AppHandle, Emitter};
 
@@ -249,7 +248,7 @@ pub async fn emit_voice_signaling_message(
 ) -> Result<(), tauri::Error> {
     let message: VoiceResponse = server_message
         .voice_response
-        .ok_or_else(|| anyhow!("No message"))?;
+        .ok_or_else(|| tauri::Error::Io(std::io::Error::other("No message")))?;
     let event_payload = VoiceEvent::SignalingMessage(message);
     app.emit("voice-event", event_payload)
 }

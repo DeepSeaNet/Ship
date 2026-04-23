@@ -1,3 +1,4 @@
+use crate::api::status::StatusResult;
 use crate::api::status::types::DisplayUserInfo;
 use sqlx::{Row, SqlitePool, sqlite::SqliteConnectOptions};
 use std::path::PathBuf;
@@ -8,7 +9,7 @@ pub struct UserManager {
 }
 
 impl UserManager {
-    pub async fn new(db_path: PathBuf) -> anyhow::Result<Self> {
+    pub async fn new(db_path: PathBuf) -> StatusResult<Self> {
         let db_url = format!("sqlite:{}", db_path.to_str().unwrap());
         let options = SqliteConnectOptions::from_str(&db_url)?.create_if_missing(true);
 
@@ -39,7 +40,7 @@ impl UserManager {
         Ok(Self { pool })
     }
 
-    pub async fn save_contact(&self, contact: DisplayUserInfo) -> anyhow::Result<()> {
+    pub async fn save_contact(&self, contact: DisplayUserInfo) -> StatusResult<()> {
         // Пытаемся обновить существующий контакт
         let rows_affected = sqlx::query(
             "UPDATE contacts SET username = ?, avatar = ?, trust_level = ? WHERE user_id = ?",
@@ -69,7 +70,7 @@ impl UserManager {
         Ok(())
     }
 
-    pub async fn get_contacts(&self) -> anyhow::Result<Vec<DisplayUserInfo>> {
+    pub async fn get_contacts(&self) -> StatusResult<Vec<DisplayUserInfo>> {
         let rows =
             sqlx::query("SELECT user_id, username, avatar, trust_level, created_at FROM contacts")
                 .fetch_all(&self.pool)
@@ -91,7 +92,7 @@ impl UserManager {
         Ok(contacts)
     }
 
-    pub async fn get_sync_metadata(&self, key: &str) -> anyhow::Result<Option<String>> {
+    pub async fn get_sync_metadata(&self, key: &str) -> StatusResult<Option<String>> {
         let val: Option<String> =
             sqlx::query_scalar("SELECT value FROM sync_metadata WHERE key = ?")
                 .bind(key)
@@ -100,7 +101,7 @@ impl UserManager {
         Ok(val)
     }
 
-    pub async fn set_sync_metadata(&self, key: &str, value: &str) -> anyhow::Result<()> {
+    pub async fn set_sync_metadata(&self, key: &str, value: &str) -> StatusResult<()> {
         sqlx::query("INSERT INTO sync_metadata (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
             .bind(key)
             .bind(value)

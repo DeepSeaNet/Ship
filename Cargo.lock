@@ -4800,7 +4800,6 @@ name = "ship"
 version = "0.2.0"
 dependencies = [
  "aes-gcm",
- "anyhow",
  "aws-lc-rs",
  "base64 0.22.1",
  "dirs",

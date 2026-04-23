@@ -106,7 +106,6 @@ async function processChunk(
 				processedBuffer = await cryptoManager.decrypt(originalData, senderId);
 			}
 		}
-		console.log("processedBuffer", processedBuffer);
 		chunk.data = processedBuffer.buffer as ArrayBuffer;
 		controller.enqueue(chunk);
 	} catch (error) {

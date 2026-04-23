@@ -28,6 +28,7 @@ use crate::api::status::connection::user_connection::user_service_proto::{
 use crate::api::status::connection::user_service_proto::UserStatusResponse;
 use crate::api::status::types::Avatar;
 use crate::api::status::types::DisplayUserInfo;
+use crate::api::status::{StatusError, StatusResult};
 use user_service_proto::user_status_request;
 
 #[derive(Clone)]
@@ -44,10 +45,10 @@ impl Backend {
         address: String,
         subscriptions: Arc<Mutex<Vec<i64>>>,
         account: Arc<Account>,
-    ) -> Result<Self, anyhow::Error> {
-        let uri = Uri::from_str(&address)?;
+    ) -> StatusResult<Self> {
+        let uri = Uri::from_str(&address).map_err(|e| StatusError::Internal(e.to_string()))?;
         let endpoint = create_client_endpoint()
-            .map_err(|e| anyhow::anyhow!("Failed to create endpoint: {}", e))?;
+            .map_err(|e| StatusError::Internal(format!("Failed to create endpoint: {}", e)))?;
         let connector = H3QuinnConnector::new(uri.clone(), "sea_status".to_string(), endpoint);
         let channel = H3Channel::new(connector, uri);
         let client = UserServiceClient::new(channel);
@@ -61,11 +62,12 @@ impl Backend {
         })
     }
 
-    pub async fn init_stream(&self) -> Result<(), anyhow::Error> {
+    pub async fn init_stream(&self) -> StatusResult<()> {
         let (tx, rx) = mpsc::channel::<UserStatusRequest>(100);
 
         let timestamp = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)?
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map_err(|e| StatusError::Internal(e.to_string()))?
             .as_secs();
         let subscriptions = self.subscriptions.lock().await.clone();
 
@@ -81,7 +83,7 @@ impl Backend {
             .account
             .sign_message(&hash)
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to sign: {}", e))?;
+            .map_err(|e| StatusError::Internal(format!("Failed to sign: {}", e)))?;
 
         let request = UserStatusRequest {
             message: Some(user_status_request::Message::InitStreamRequest(
@@ -96,7 +98,9 @@ impl Backend {
 
         if let Err(e) = tx.send(request).await {
             log::error!("Failed to send init message: {:?}", e);
-            return Err(anyhow::anyhow!("Failed to initialize stream"));
+            return Err(StatusError::Internal(
+                "Failed to initialize stream".to_string(),
+            ));
         }
 
         {
@@ -121,7 +125,7 @@ impl Backend {
         Ok(())
     }
 
-    pub async fn update_online_status(&self, status: OnlineStatus) -> Result<(), anyhow::Error> {
+    pub async fn update_online_status(&self, status: OnlineStatus) -> StatusResult<()> {
         let timestamp = SystemTime::now();
         let seconds = timestamp
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -138,7 +142,9 @@ impl Backend {
 
         let response = self.client.lock().await.update_activity(request).await?;
         if !response.into_inner().success {
-            return Err(anyhow::anyhow!("Failed to update online status"));
+            return Err(StatusError::Internal(
+                "Failed to update online status".to_string(),
+            ));
         }
         Ok(())
     }
@@ -154,7 +160,7 @@ impl Backend {
         Ok(response.into_inner())
     }
 
-    pub async fn get_user_info(&self, user_id: i64) -> Result<DisplayUserInfo, anyhow::Error> {
+    pub async fn get_user_info(&self, user_id: i64) -> StatusResult<DisplayUserInfo> {
         let request = GetUserInfoRequest { user_id };
 
         let response = self
@@ -186,7 +192,7 @@ impl Backend {
                 trust_level: 0,
             })
         } else {
-            Err(anyhow::anyhow!("User not found"))
+            Err(StatusError::UserNotFound)
         }
     }
 
@@ -374,7 +380,7 @@ impl Backend {
         &self,
         ids: Vec<i64>,
         timestamp: i64,
-    ) -> Result<Vec<DisplayUserInfo>, anyhow::Error> {
+    ) -> StatusResult<Vec<DisplayUserInfo>> {
         let request = GetUpdatedUsersRequest { ids, timestamp };
 
         let response = self
