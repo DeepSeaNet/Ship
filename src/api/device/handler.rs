@@ -128,12 +128,7 @@ impl GroupHandler {
         }
         // Upload a fresh key package after consuming one for the welcome join
         self.upload_key_packages().await?;
-        self.backend
-            .update_group_subscriptions(vec![group_id.to_vec()], vec![])
-            .await
-            .map_err(|e| {
-                GroupError::BackendError(format!("Failed to update group subscriptions: {}", e))
-            })?;
+
         log::info!("Joined group with ID: {:?}", group_id);
         Ok(group_id)
     }
@@ -258,15 +253,6 @@ impl GroupHandler {
                         new_epoch
                     );
                     let group_id = GroupId::new(group.group_id().to_vec());
-                    self.backend
-                        .update_group_subscriptions(vec![], vec![group_id.to_vec()])
-                        .await
-                        .map_err(|e| {
-                            GroupError::BackendError(format!(
-                                "Failed to update group subscriptions: {}",
-                                e
-                            ))
-                        })?;
                     self.groups.remove(&group_id).await?;
                     Ok(())
                 }
@@ -322,10 +308,18 @@ impl GroupHandler {
                                     );
                                 }
                                 self.backend
-                                    .ack_delivery(msg.message_id, self.user_id, self.device_id.clone(), msg.group_id)
+                                    .ack_delivery(
+                                        msg.message_id,
+                                        self.user_id,
+                                        self.device_id.clone(),
+                                        msg.group_id,
+                                    )
                                     .await
                                     .map_err(|e| {
-                                        GroupError::BackendError(format!("Failed to ack delivery: {}", e))
+                                        GroupError::BackendError(format!(
+                                            "Failed to ack delivery: {}",
+                                            e
+                                        ))
                                     })?;
                             }
                             group_microservice::stream_response::Response::Error(err) => {
@@ -345,8 +339,12 @@ impl GroupHandler {
                                     msg.success
                                 );
                                 if let Some(app_handle) = &self.app_handle {
-                                    emit_message_delivery_event(app_handle, msg.message_id, msg.success)
-                                        .await?;
+                                    emit_message_delivery_event(
+                                        app_handle,
+                                        msg.message_id,
+                                        msg.success,
+                                    )
+                                    .await?;
                                 }
                             }
                             group_microservice::stream_response::Response::SendWelcomeMessage(
@@ -358,12 +356,20 @@ impl GroupHandler {
                                     msg.success
                                 );
                                 if let Some(app_handle) = &self.app_handle {
-                                    emit_welcome_message_event(app_handle, msg.message_id, msg.success)
-                                        .await?;
+                                    emit_welcome_message_event(
+                                        app_handle,
+                                        msg.message_id,
+                                        msg.success,
+                                    )
+                                    .await?;
                                 }
                             }
                             group_microservice::stream_response::Response::WelcomeMessage(msg) => {
-                                log::info!("Received welcome message {} for user {}", msg.message_id, self.user_id);
+                                log::info!(
+                                    "Received welcome message {} for user {}",
+                                    msg.message_id,
+                                    self.user_id
+                                );
                                 if let Err(e) = async {
                                     let message = MlsMessage::from_bytes(&msg.welcome_message)
                                         .map_err(|e| {
@@ -371,10 +377,18 @@ impl GroupHandler {
                                         })?;
                                     self.join(&message).await?;
                                     self.backend
-                                        .ack_delivery(msg.message_id, self.user_id, self.device_id.clone(), Vec::new())
+                                        .ack_delivery(
+                                            msg.message_id,
+                                            self.user_id,
+                                            self.device_id.clone(),
+                                            Vec::new(),
+                                        )
                                         .await
                                         .map_err(|e| {
-                                            GroupError::BackendError(format!("Failed to ack delivery: {}", e))
+                                            GroupError::BackendError(format!(
+                                                "Failed to ack delivery: {}",
+                                                e
+                                            ))
                                         })
                                 }
                                 .await
@@ -384,9 +398,6 @@ impl GroupHandler {
                             }
                             group_microservice::stream_response::Response::AckDelivery(msg) => {
                                 log::info!("Ack delivery: {:?}", msg);
-                            }
-                            group_microservice::stream_response::Response::UpdateGroupSubscriptions(msg) => {
-                                log::info!("Update group subscriptions: {:?}", msg);
                             }
                         }
                     } else {

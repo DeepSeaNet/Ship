@@ -88,7 +88,6 @@ export function useGroups(currentUser?: User | null) {
 			if (group.group_config?.admins?.includes(userId)) return true;
 
 			const user_permissions = group.group_config?.permissions[userId];
-
 			if (user_permissions) {
 				return Boolean(user_permissions[permissionKey]);
 			}

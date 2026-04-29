@@ -288,17 +288,10 @@ impl Device {
 
         let signature = self.sign_tbs(&tbs).await?;
         let user_id = self.user_id();
-        let group_ids = self.groups.list_groups().await;
         self.backend
             .as_mut()
             .ok_or(GroupError::BackendError("Client is offline".to_string()))?
-            .init_stream(
-                user_id,
-                self.device_id.clone(),
-                signature,
-                tbs.date,
-                group_ids,
-            )
+            .init_stream(user_id, self.device_id.clone(), signature, tbs.date)
             .await
             .map_err(|e| {
                 GroupError::ConnectionError(format!("Stream initialization failed: {}", e))

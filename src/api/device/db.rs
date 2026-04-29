@@ -50,8 +50,8 @@ lazy_static::lazy_static! {
 }
 
 // Helper function to log timing
-fn log_operation_time(operation: &str, duration: Duration) {
-    log::info!("Operation '{}' took {:?}", operation, duration);
+fn log_operation_time(_operation: &str, _duration: Duration) {
+    //log::info!("Operation '{}' took {:?}", operation, duration);
 }
 
 impl GroupManager {

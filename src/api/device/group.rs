@@ -45,15 +45,6 @@ impl Device {
 
         log::debug!("Created group with ID: {:?}", group_id);
 
-        self.backend
-            .as_mut()
-            .ok_or(GroupError::BackendError("Client is offline".to_string()))?
-            .update_group_subscriptions(vec![group_id.to_vec()], vec![])
-            .await
-            .map_err(|e| {
-                GroupError::BackendError(format!("Failed to update group subscriptions: {}", e))
-            })?;
-
         Ok(group_id)
     }
 
@@ -344,7 +335,6 @@ impl Device {
                 GroupError::StorageError(format!("Failed to write group to storage: {}", e))
             })?;
 
-        log::debug!("Sending message to group {:?}", group_id);
         self.backend
             .as_ref()
             .ok_or(GroupError::BackendError("Client is offline".to_string()))?
@@ -358,7 +348,6 @@ impl Device {
             .save_message(&message, group_id.as_bytes())
             .await
             .map_err(|e| GroupError::StorageError(e.to_string()))?;
-        log::debug!("Sent message to group {:?}", group_id);
         Ok(())
     }
 }

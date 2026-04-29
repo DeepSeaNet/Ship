@@ -86,13 +86,13 @@ export const GroupSettingsModal = ({
 	onOpenChange,
 	group,
 }: GroupSettingsModalProps) => {
-	const {
+	const { contacts, currentUser } = useMessengerState();
+  	const {
 		updateGroupConfig,
 		removeUserFromGroup,
 		checkPermission,
 		updateMemberPermissions,
-	} = useGroups();
-	const { contacts } = useMessengerState();
+	} = useGroups(currentUser);
 	const { settings: globalNotifs, updateChatSetting } =
 		useNotificationSettings();
 

@@ -11,16 +11,16 @@
 	},
 	"dependencies": {
 		"@gravity-ui/icons": "^2.18.0",
-		"@heroui/react": "^3.0.2",
-		"@heroui/styles": "^3.0.2",
+		"@heroui/react": "^3.0.3",
+		"@heroui/styles": "^3.0.3",
 		"@ricky0123/vad-web": "^0.0.30",
 		"@tauri-apps/api": "^2.10.1",
 		"@tauri-apps/plugin-dialog": "^2.7.0",
 		"@tauri-apps/plugin-fs": "^2.5.0",
 		"@types/webrtc": "^0.0.47",
-		"mediasoup-client": "^3.18.7",
-		"next": "^16.2.3",
-		"postcss": "^8.5.9",
+		"mediasoup-client": "^3.19.0",
+		"next": "^16.2.4",
+		"postcss": "^8.5.12",
 		"qrcode": "^1.5.4",
 		"react": "^19.2.5",
 		"react-dom": "^19.2.5",
@@ -28,14 +28,14 @@
 		"react-icons": "^5.6.0"
 	},
 	"devDependencies": {
-		"@tailwindcss/postcss": "^4.2.2",
-		"@types/node": "^25",
+		"@tailwindcss/postcss": "^4.2.4",
+		"@types/node": "^25.6.0",
 		"@types/qrcode": "^1.5.6",
-		"@types/react": "^19",
-		"@types/react-dom": "^19",
-		"eslint": "^10",
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.3",
+		"eslint": "^10.2.1",
 		"eslint-config-next": "16.2.3",
-		"tailwindcss": "^4.2.2",
-		"typescript": "^6"
+		"tailwindcss": "^4.2.4",
+		"typescript": "^6.0.3"
 	}
 }

@@ -22,9 +22,8 @@ use tonic_h3::quinn::H3QuinnConnector;
 
 use crate::api::connection::endpoint::create_client_endpoint;
 use crate::api::device::connection::group_microservice::{
-    Device, GetDeviceKeyPackageRequest, StreamAckDeliveryRequest, UpdateGroupSubscriptionsRequest,
+    Device, GetDeviceKeyPackageRequest, StreamAckDeliveryRequest,
 };
-use crate::api::device::types::group::GroupId;
 
 use super::group_connection::group_microservice::StreamSendWelcomeMessageRequest;
 
@@ -74,13 +73,18 @@ impl Backend {
             key_package,
             signature,
         };
-        let _response = self
+        let response = self
             .client
             .lock()
             .await
             .register_group_device(request)
-            .await
-            .unwrap();
+            .await?;
+        let response = response.into_inner();
+        if !response.success {
+            return Err(Status::internal(
+                "Failed to register device: ".to_string() + &response.error,
+            ));
+        }
         Ok(())
     }
 
@@ -97,13 +101,18 @@ impl Backend {
             key_packages,
             signature,
         };
-        let _response = self
+        let response = self
             .client
             .lock()
             .await
             .upload_key_packages(request)
-            .await
-            .unwrap();
+            .await?;
+        let response = response.into_inner();
+        if !response.success {
+            return Err(Status::internal(
+                "Failed to upload key packages: ".to_string() + &response.error,
+            ));
+        }
         Ok(())
     }
 
@@ -114,9 +123,14 @@ impl Backend {
             .lock()
             .await
             .get_user_credential(request)
-            .await
-            .unwrap();
-        Ok(response.into_inner().user_credential)
+            .await?;
+        let response = response.into_inner();
+        if !response.success {
+            return Err(Status::internal(
+                "Failed to get user credential: ".to_string() + &response.error,
+            ));
+        }
+        Ok(response.user_credential)
     }
 
     pub async fn get_user_key_packages(
@@ -129,21 +143,26 @@ impl Backend {
             .lock()
             .await
             .get_user_key_packages(request)
-            .await
-            .unwrap();
-        Ok(response.into_inner().key_packages)
+            .await?;
+        let response = response.into_inner();
+        if !response.success {
+            return Err(Status::internal(
+                "Failed to get user key packages: ".to_string() + &response.error,
+            ));
+        }
+        Ok(response.key_packages)
     }
 
     pub async fn get_users_devices(&self, user_id: u64) -> Result<Vec<Device>, Status> {
         let request = GetUsersDevicesRequest { user_id };
-        let response = self
-            .client
-            .lock()
-            .await
-            .get_users_devices(request)
-            .await
-            .unwrap();
-        Ok(response.into_inner().devices)
+        let response = self.client.lock().await.get_users_devices(request).await?;
+        let response = response.into_inner();
+        if !response.success {
+            return Err(Status::internal(
+                "Failed to get users devices: ".to_string() + &response.error,
+            ));
+        }
+        Ok(response.devices)
     }
 
     pub async fn get_device_key_package(
@@ -157,63 +176,53 @@ impl Backend {
             .lock()
             .await
             .get_device_key_package(request)
-            .await
-            .unwrap();
-        Ok(response.into_inner().key_package)
+            .await?;
+        let response = response.into_inner();
+        if !response.success {
+            return Err(Status::internal(
+                "Failed to get device key package: ".to_string() + &response.error,
+            ));
+        }
+        Ok(response.key_package)
     }
 
-    // Новые методы для работы со стримом
-
-    /// Инициализирует стрим сообщений с сервером
     pub async fn init_stream(
         &self,
         user_id: u64,
         device_id: String,
         signature: Vec<u8>,
         date: u64,
-        group_ids: Vec<GroupId>,
     ) -> Result<(), Status> {
-        // Проверяем, что стрим еще не инициализирован
         if self.is_stream_active().await {
             log::warn!("Stream already initialized, closing existing stream");
             self.close_stream().await?;
         }
 
-        // Создаем постоянный канал для отправки сообщений в стрим
         let (stream_tx, stream_rx) = mpsc::channel::<StreamMessage>(100);
-        let group_ids = group_ids.iter().map(|id| id.to_vec()).collect();
-        // Создаем запрос на инициализацию стрима
         let init_request = InitGroupStreamRequest {
             user_id,
             device_id: device_id.clone(),
             date,
             signature,
-            group_ids,
         };
 
-        // Создаем сообщение для инициализации стрима
         let stream_init_message = StreamMessage {
             message: Some(
                 group_microservice::stream_message::Message::InitGroupStream(init_request),
             ),
         };
 
-        // Отправляем сообщение инициализации
         if let Err(e) = stream_tx.send(stream_init_message).await {
             log::error!("Failed to send init message: {:?}", e);
             return Err(Status::internal("Failed to initialize stream"));
         }
 
-        // Сохраняем отправитель для последующего использования
         {
             let mut tx_guard = self.stream_tx.lock().await;
             *tx_guard = Some(stream_tx.clone());
         }
-
-        // Создаем стрим с постоянным каналом
         let stream_req = Request::new(tokio_stream::wrappers::ReceiverStream::new(stream_rx));
 
-        // Открываем двусторонний стрим с сервером
         let stream = self
             .client
             .lock()
@@ -222,7 +231,6 @@ impl Backend {
             .await?
             .into_inner();
 
-        // Сохраняем стрим для получения ответов
         {
             let mut stream_guard = self.stream.lock().await;
             *stream_guard = Some(stream);
@@ -232,7 +240,6 @@ impl Backend {
         Ok(())
     }
 
-    /// Отправляет групповое сообщение через стрим
     pub async fn send_group_message(
         &self,
         message_id: u64,
@@ -240,7 +247,6 @@ impl Backend {
         members: Vec<u64>,
         message: Vec<u8>,
     ) -> Result<(), Status> {
-        // Создаем групповое сообщение
         let group_message = StreamMessageGroupMessage {
             message_id,
             group_id,
@@ -254,7 +260,6 @@ impl Backend {
             )),
         };
 
-        // Отправляем сообщение через существующий стрим, если он доступен
         if let Some(tx) = self.stream_tx.lock().await.as_ref() {
             if let Err(e) = tx.send(stream_message).await {
                 log::error!(
@@ -339,46 +344,14 @@ impl Backend {
         }
     }
 
-    pub async fn update_group_subscriptions(
-        &self,
-        add_group_ids: Vec<Vec<u8>>,
-        remove_group_ids: Vec<Vec<u8>>,
-    ) -> Result<(), Status> {
-        let request = UpdateGroupSubscriptionsRequest {
-            add_group_ids,
-            remove_group_ids,
-        };
-        let stream_message = StreamMessage {
-            message: Some(
-                group_microservice::stream_message::Message::UpdateGroupSubscriptions(request),
-            ),
-        };
-        if let Some(tx) = self.stream_tx.lock().await.as_ref() {
-            if let Err(e) = tx.send(stream_message).await {
-                log::error!(
-                    "Failed to send update group subscriptions through existing stream: {:?}",
-                    e
-                );
-                return Err(Status::internal("Failed to send message"));
-            }
-            return Ok(());
-        }
-        log::error!("No stream to send message");
-        Err(Status::internal("No stream to send message"))
-    }
-
-    /// Закрывает активный стрим
     pub async fn close_stream(&self) -> Result<(), Status> {
-        // Очищаем отправитель сообщений
         *self.stream_tx.lock().await = None;
 
-        // Очищаем стрим
         *self.stream.lock().await = None;
 
         Ok(())
     }
 
-    // Вспомогательный метод для проверки активности стрима
     pub async fn is_stream_active(&self) -> bool {
         self.stream_tx.lock().await.is_some()
     }
