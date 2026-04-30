@@ -93,8 +93,12 @@ impl VoiceHandler {
                         d.voice_id,
                         d.data.len()
                     );
-                    self.process_voice_data(UserId::from_bytes(&d.user_id), d.voice_id.clone(), d.data.clone())
-                        .await;
+                    self.process_voice_data(
+                        UserId::from_bytes(&d.user_id),
+                        d.voice_id.clone(),
+                        d.data.clone(),
+                    )
+                    .await;
                     return; // voice data is not re-emitted as a signaling message
                 }
 

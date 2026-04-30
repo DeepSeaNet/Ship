@@ -750,7 +750,7 @@ pub fn get_default_db_path(user_id: UserId) -> std::path::PathBuf {
         let mut path = dirs::home_dir().expect("Could not find home directory");
         path.push(".ship");
         std::fs::create_dir_all(&path).expect("Could not create .ship directory");
-        path.push(format!("group_{}.db", user_id.to_string()));
+        path.push(format!("group_{}.db", user_id));
         path
     }
     #[cfg(target_os = "ios")]

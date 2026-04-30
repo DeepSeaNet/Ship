@@ -4,7 +4,6 @@ use super::config::RatchetConfig;
 use super::constants::AES_KEY_SIZE;
 use crate::api::account::UserId;
 
-
 /// MLS receiver ratchet (RFC 9420 §9.1).
 ///
 /// Mirrors SenderRatchet on the receiving side.  Ratchet state is derived

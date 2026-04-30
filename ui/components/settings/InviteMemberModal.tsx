@@ -133,70 +133,72 @@ export function InviteMemberModal({
 							</div>
 
 							{/* Invite by ID */}
-						{/* Invite by ID */}
-              {inviteMethod === "id" ? (
-                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200 w-full">
-                  <TextField className="w-full">
-                    <Label className="mb-1.5 text-sm font-medium">Member ID</Label>
-                    <div className="relative w-full">
-                      <Input
-                        placeholder="64-character hex string"
-                        value={invitingUserId}
-                        onChange={(e) =>
-                          setInvitingUserId(e.target.value.trim())
-                        }
-                        variant="secondary"
-                        // h-12 увеличивает высоту, w-full растягивает
-                        className={`w-full h-12 font-mono text-sm pr-20 ${
-                          invitingUserId
-                            ? isIdValid
-                              ? "border-success/50"
-                              : "border-danger/50"
-                            : ""
-                        }`}
-                      />
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onPress={handlePaste}
-                        // Центрируем кнопку Paste в более высоком поле
-                        className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 px-3 text-xs text-accent bg-background/50 hover:bg-background shadow-sm"
-                      >
-                        Paste
-                      </Button>
-                    </div>
-                    {invitingUserId && !isIdValid && (
-                      <p className="text-xs text-danger mt-1.5 ml-1">
-                        Must be 64 hexadecimal characters
-                      </p>
-                    )}
-                  </TextField>
-                </div>
-              ) : (
-                /* Contact list */
-                <div className="flex flex-col min-h-0 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200 w-full">
-                  <TextField className="w-full">
-                    <div className="relative w-full">
-                      <Magnifier className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
-                      <Input
-                        placeholder="Search contacts..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        variant="secondary"
-                        // Увеличенная высота h-12 и отступ под иконку
-                        className="w-full h-12 pl-10 pr-10 text-sm"
-                      />
-                      {searchQuery && (
-                        <button
-                          type="button"
-                          onClick={() => setSearchQuery("")}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center hover:bg-surface rounded-full transition-colors"
-                        >
-                          <Xmark className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </TextField>
+							{/* Invite by ID */}
+							{inviteMethod === "id" ? (
+								<div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200 w-full">
+									<TextField className="w-full">
+										<Label className="mb-1.5 text-sm font-medium">
+											Member ID
+										</Label>
+										<div className="relative w-full">
+											<Input
+												placeholder="64-character hex string"
+												value={invitingUserId}
+												onChange={(e) =>
+													setInvitingUserId(e.target.value.trim())
+												}
+												variant="secondary"
+												// h-12 увеличивает высоту, w-full растягивает
+												className={`w-full h-12 font-mono text-sm pr-20 ${
+													invitingUserId
+														? isIdValid
+															? "border-success/50"
+															: "border-danger/50"
+														: ""
+												}`}
+											/>
+											<Button
+												size="sm"
+												variant="ghost"
+												onPress={handlePaste}
+												// Центрируем кнопку Paste в более высоком поле
+												className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 px-3 text-xs text-accent bg-background/50 hover:bg-background shadow-sm"
+											>
+												Paste
+											</Button>
+										</div>
+										{invitingUserId && !isIdValid && (
+											<p className="text-xs text-danger mt-1.5 ml-1">
+												Must be 64 hexadecimal characters
+											</p>
+										)}
+									</TextField>
+								</div>
+							) : (
+								/* Contact list */
+								<div className="flex flex-col min-h-0 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200 w-full">
+									<TextField className="w-full">
+										<div className="relative w-full">
+											<Magnifier className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+											<Input
+												placeholder="Search contacts..."
+												value={searchQuery}
+												onChange={(e) => setSearchQuery(e.target.value)}
+												variant="secondary"
+												// Увеличенная высота h-12 и отступ под иконку
+												className="w-full h-12 pl-10 pr-10 text-sm"
+											/>
+											{searchQuery && (
+												<button
+													type="button"
+													onClick={() => setSearchQuery("")}
+													className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center hover:bg-surface rounded-full transition-colors"
+												>
+													<Xmark className="w-4 h-4" />
+												</button>
+											)}
+										</div>
+									</TextField>
 
 									<div className="max-h-[260px] overflow-y-auto space-y-0.5 -mx-1 px-1">
 										{filteredContacts.length === 0 ? (
@@ -213,8 +215,9 @@ export function InviteMemberModal({
 											</div>
 										) : (
 											filteredContacts.map((contact) => {
-												const isMember =
-													group.group_config?.members?.includes(contact.id);
+												const isMember = group.group_config?.members?.includes(
+													contact.id,
+												);
 												const isCurrentlyCopied = copiedId === contact.id;
 
 												return (

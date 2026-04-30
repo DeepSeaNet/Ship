@@ -106,7 +106,10 @@ export function useGroups(currentUser?: User | null) {
 	const inviteUserToGroup = useCallback(
 		async (groupId: string, userId: string) => {
 			try {
-				const invite_result = await invokeInviteUserToGroup({ userId, groupId });
+				const invite_result = await invokeInviteUserToGroup({
+					userId,
+					groupId,
+				});
 				console.log("Invite result:", invite_result);
 				return true;
 			} catch (err) {

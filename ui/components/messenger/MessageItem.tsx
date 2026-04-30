@@ -62,13 +62,13 @@ function MediaPreview({
 	if (isImage && message.media) {
 		return (
 			<div className="mb-2 max-w-full overflow-hidden rounded-xl bg-accent/5">
-        <Image
-          src={message.media}
-          alt={fileName}
-          width={300}
-          height={300}
-          className="max-h-[300px] w-full h-auto object-contain cursor-zoom-in rounded-xl"
-        />
+				<Image
+					src={message.media}
+					alt={fileName}
+					width={300}
+					height={300}
+					className="max-h-[300px] w-full h-auto object-contain cursor-zoom-in rounded-xl"
+				/>
 			</div>
 		);
 	}

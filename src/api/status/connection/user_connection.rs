@@ -193,7 +193,7 @@ impl Backend {
             };
             let online_status = user.online_status();
             Ok(DisplayUserInfo {
-                user_id: UserId::from_bytes(&*user.user_id),
+                user_id: UserId::from_bytes(&user.user_id),
                 username: user.username,
                 avatar: user.avatar_url,
                 status: online_status.as_str_name().to_string(),
@@ -407,7 +407,7 @@ impl Backend {
                 let online_status =
                     OnlineStatus::try_from(user.online_status).unwrap_or(OnlineStatus::Offline);
                 DisplayUserInfo {
-                    user_id: UserId::from_bytes(&*user.user_id),
+                    user_id: UserId::from_bytes(&user.user_id),
                     username: user.username,
                     avatar: user.avatar_url,
                     status: online_status.as_str_name().to_string(),

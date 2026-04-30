@@ -48,7 +48,7 @@ impl UserManager {
         .bind(&contact.username)
         .bind(&contact.avatar)
         .bind(contact.trust_level)
-        .bind(&contact.user_id.to_bytes())
+        .bind(contact.user_id.to_bytes())
         .execute(&self.pool)
         .await?
         .rows_affected();
@@ -57,7 +57,7 @@ impl UserManager {
             sqlx::query(
                 "INSERT INTO contacts (user_id, username, avatar, trust_level, created_at) VALUES (?, ?, ?, ?, ?)",
             )
-            .bind(&contact.user_id.to_bytes())
+            .bind(contact.user_id.to_bytes())
             .bind(&contact.username)
             .bind(&contact.avatar)
             .bind(contact.trust_level)
@@ -116,7 +116,7 @@ pub fn get_default_db_path(user_id: &UserId) -> std::path::PathBuf {
         let mut path = dirs::home_dir().expect("Could not find home directory");
         path.push(".ship");
         std::fs::create_dir_all(&path).expect("Could not create .ship directory");
-        path.push(format!("contacts_{}.db", user_id.to_string()));
+        path.push(format!("contacts_{}.db", user_id));
         path
     }
     #[cfg(target_os = "ios")]

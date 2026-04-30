@@ -45,10 +45,10 @@ function isVp8Frame(metadata: RTCEncodedVideoFrameMetadata): boolean {
 function resolveSenderId(
 	options: Record<string, unknown>,
 	metadata: RTCEncodedVideoFrameMetadata | RTCEncodedAudioFrameMetadata,
-): bigint {
+): string {
 	// 1. Explicit senderId in transform options (preferred).
 	if (options.senderId !== undefined) {
-		return BigInt(options.senderId as number);
+		return options.senderId as string;
 	}
 
 	throw new Error(

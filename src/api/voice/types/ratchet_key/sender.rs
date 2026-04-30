@@ -5,7 +5,6 @@ use std::convert::TryInto;
 use super::constants::{AES_KEY_SIZE, HASH_LEN};
 use crate::api::account::UserId;
 
-
 /// MLS sender ratchet (RFC 9420 §9.1).
 ///
 /// Per ratchet step:

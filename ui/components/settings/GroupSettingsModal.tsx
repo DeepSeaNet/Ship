@@ -87,7 +87,7 @@ export const GroupSettingsModal = ({
 	group,
 }: GroupSettingsModalProps) => {
 	const { contacts, currentUser } = useMessengerState();
-  	const {
+	const {
 		updateGroupConfig,
 		removeUserFromGroup,
 		checkPermission,
@@ -593,10 +593,7 @@ export const GroupSettingsModal = ({
 																		size="sm"
 																		className="text-danger hover:bg-danger/10"
 																		onPress={() =>
-																			removeUserFromGroup(
-																				group.id,
-																				memberId,
-																			)
+																			removeUserFromGroup(group.id, memberId)
 																		}
 																	>
 																		<TrashBin className="w-4 h-4" />

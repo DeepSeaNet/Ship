@@ -326,7 +326,7 @@ impl GroupHandler {
                                 log::error!("Error: {}", err.error);
                             }
                             group_microservice::stream_response::Response::InitGroupStream(
-                                init,
+                                _init,
                             ) => {
                                 log::info!("Stream initialized");
                             }

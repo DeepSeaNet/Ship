@@ -891,14 +891,14 @@ pub async fn update_group_config(
             .await
             .map_err(|e| e.to_string())?;
 
-        let avatar = new_config
+        let _avatar = new_config
             .avatar
             .clone()
             .map(|avatar| general_purpose::STANDARD.encode(avatar));
 
         let users_permisions = &new_config.permissions;
         let default_permissions = &new_config.default_permissions;
-        let user_permissions = users_permisions
+        let _user_permissions = users_permisions
             .get(&user_id)
             .unwrap_or(default_permissions);
         emit_new_group_config(&app_handle, &group_id, &new_config).await?;

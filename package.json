@@ -10,7 +10,6 @@
 		"dev": "pnpm --filter ship-ui dev",
 		"build": "pnpm --filter ship-ui build",
 		"lint": "pnpx @biomejs/biome lint --write",
-		"lint:fix": "pnpm --filter ship-ui lint:fix",
 		"ts": "pnpm --filter ship-ui ts",
 		"check": "pnpx @biomejs/biome check --write",
 		"fmt": "pnpx @biomejs/biome format --write"

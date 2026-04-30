@@ -8,7 +8,6 @@ import { createMediaUrl } from "./helper";
 import type {
 	Chat,
 	Group,
-	GroupConfig,
 	Message,
 	UIState,
 	User,
@@ -203,7 +202,7 @@ export function useListener({
 						const groupId = groupData.group_id;
 						const groupConfig = groupData.group_config;
 						const avatar = groupData.avatar;
-            console.log(groupConfig)
+						console.log(groupConfig);
 						actions.setGroups((prevGroups) =>
 							prevGroups.map((g) => {
 								if (String(g.id) === String(groupId)) {
@@ -217,7 +216,7 @@ export function useListener({
 								return g;
 							}),
 						);
-            
+
 						actions.setChats((prevChats) =>
 							prevChats.map((c) => {
 								if (c.isGroup && String(c.id) === String(groupId)) {

@@ -19,7 +19,7 @@ export interface VoiceKeysPayload {
 	/** Current 32-byte ratchet secret for the sender. */
 	sender_secret: number[];
 	sender_public_key: number[];
-	sender_user_id: number;
+	sender_user_id: string;
 	sender_epoch: number;
 	sender_generation: number;
 	group_epoch: number;
@@ -27,7 +27,7 @@ export interface VoiceKeysPayload {
 }
 
 export interface ReceiverKeyInfo {
-	user_id: number;
+	user_id: string;
 	public_key: number[];
 	/** epoch (string) → 16-byte MLS-exported base secret (number[]). */
 	epoch_secrets: Record<string, number[]>;
@@ -38,7 +38,7 @@ export interface ReceiverKeyInfo {
 
 export class GroupCryptoManager {
 	private senderRatchet: SenderCryptoRatchet | null = null;
-	private receiverRatchets: Map<bigint, ReceiverCryptoRatchet> = new Map();
+	private receiverRatchets: Map<string, ReceiverCryptoRatchet> = new Map();
 	private initialized = false;
 
 	// ── Key material ingestion ────────────────────────────────────────────────
@@ -66,15 +66,14 @@ export class GroupCryptoManager {
 		// Rebuild receiver ratchets.
 		this.receiverRatchets.clear();
 		for (const rx of payload.receivers) {
-			const senderId = BigInt(rx.user_id);
-			const receiver = new ReceiverCryptoRatchet(senderId);
+			const receiver = new ReceiverCryptoRatchet(rx.user_id);
 			for (const [epochStr, secretArr] of Object.entries(rx.epoch_secrets)) {
 				receiver.addEpochSecret(
 					parseInt(epochStr, 10),
 					new Uint8Array(secretArr),
 				);
 			}
-			this.receiverRatchets.set(senderId, receiver);
+			this.receiverRatchets.set(rx.user_id, receiver);
 		}
 
 		this.initialized = true;
@@ -95,7 +94,7 @@ export class GroupCryptoManager {
 	 * `senderId` must be supplied by the caller from the SSRC → user_id map
 	 * maintained by the RTP / voice gateway layer.
 	 */
-	async decrypt(data: Uint8Array, senderId: bigint): Promise<Uint8Array> {
+	async decrypt(data: Uint8Array, senderId: string): Promise<Uint8Array> {
 		const receiver = this.receiverRatchets.get(senderId);
 		if (!receiver)
 			throw new Error(`No receiver ratchet for sender ${senderId}`);

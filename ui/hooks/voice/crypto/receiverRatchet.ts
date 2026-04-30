@@ -35,10 +35,10 @@ export class ReceiverCryptoRatchet {
 	private currentEpoch: number;
 	private epochStates: Map<number, EpochState> = new Map();
 	private epochBaseSecrets: Map<number, Uint8Array> = new Map();
-	private senderId: bigint;
+	private senderId: string;
 	private maxPreviousEpochs: number;
 
-	constructor(senderId: bigint, maxPreviousEpochs = DEFAULT_MAX_EPOCHS) {
+	constructor(senderId: string, maxPreviousEpochs = DEFAULT_MAX_EPOCHS) {
 		this.senderId = senderId;
 		this.maxPreviousEpochs = maxPreviousEpochs;
 		this.currentEpoch = 0;
@@ -168,7 +168,7 @@ export class ReceiverCryptoRatchet {
 		return aesGcmDecrypt(key, wireNonce, ciphertext, truncatedTag);
 	}
 
-	getSenderId(): bigint {
+	getSenderId(): string {
 		return this.senderId;
 	}
 }
