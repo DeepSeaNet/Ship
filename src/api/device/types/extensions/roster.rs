@@ -32,6 +32,7 @@ impl MlsCodecExtension for RosterExtension {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::account::UserId;
     use crate::api::device::types::config::cipher_suite;
     use crate::api::device::types::custom_mls::credentials::{AccountCredential, AccountId};
     use mls_rs::CipherSuiteProvider;
@@ -43,12 +44,11 @@ mod tests {
             .signature_key_generate()
             //.await
             .expect("Failed to generate signature key");
-
+        let account_id = AccountId {
+            user_id: UserId::from_pubkey(public_key.clone()),
+        };
         AccountCredential {
-            account_id: AccountId {
-                user_id: 1,
-                public_address: name.to_string(),
-            },
+            account_id,
             public_key,
             cert: vec![],
         }
@@ -73,16 +73,6 @@ mod tests {
 
         let retrieved_roster = retrieved.unwrap();
         assert_eq!(retrieved_roster.roster.len(), 3);
-
-        // Verify all users are present
-        let user_names: Vec<&String> = retrieved_roster
-            .roster
-            .iter()
-            .map(|u| &u.account_id.public_address)
-            .collect();
-        assert!(user_names.contains(&&"Alice".to_string()));
-        assert!(user_names.contains(&&"Bob".to_string()));
-        assert!(user_names.contains(&&"Charlie".to_string()));
     }
 
     #[tokio::test]
@@ -101,7 +91,6 @@ mod tests {
 
         // Verify the data is preserved
         assert_eq!(decoded.roster.len(), 1);
-        assert_eq!(decoded.roster[0].account_id.public_address, "Test User");
         // Note: We can't directly compare public keys, but we can verify the name
     }
 
@@ -129,16 +118,6 @@ mod tests {
 
         let retrieved_roster = retrieved.unwrap();
         assert_eq!(retrieved_roster.roster.len(), 3);
-
-        // Verify we have the admin and regular users
-        let user_names: Vec<&String> = retrieved_roster
-            .roster
-            .iter()
-            .map(|u| &u.account_id.public_address)
-            .collect();
-        assert!(user_names.contains(&&"Admin".to_string()));
-        assert!(user_names.contains(&&"User1".to_string()));
-        assert!(user_names.contains(&&"User2".to_string()));
 
         println!("Roster extension test completed: {:?}", retrieved_roster);
     }

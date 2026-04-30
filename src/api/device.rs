@@ -24,7 +24,7 @@ use std::{sync::Arc, time::SystemTime};
 use tauri::AppHandle;
 
 use crate::api::{
-    account::Account,
+    account::{Account, UserId},
     device::{
         connection::{Backend, group_microservice::Device as SDevice},
         handler::GroupHandler,
@@ -57,7 +57,7 @@ pub struct Device {
     pub groups: GroupStorage,
     pub backend: Option<Backend>,
     pub app_handle: Option<AppHandle>,
-    pub(super) contacts_parsed_cache: Cache<u64, AccountCredential>,
+    pub(super) contacts_parsed_cache: Cache<UserId, AccountCredential>,
 }
 
 impl Device {
@@ -135,11 +135,7 @@ impl Device {
         let identity_bytes = self.identity.mls_encode_to_vec()?;
         self.groups
             .messages
-            .save_user(
-                self.user_id() as i64,
-                &self.device_id.clone(),
-                &identity_bytes,
-            )
+            .save_user(&self.user_id(), &self.device_id.clone(), &identity_bytes)
             .await
             .map_err(|e| GroupError::StorageError(format!("Failed to save user to db: {}", e)))?;
 
@@ -155,7 +151,7 @@ impl Device {
         let groups = GroupStorage::new(db_path).await?;
         let (device_id, identity_bytes) = groups
             .messages
-            .load_user(account.credential.account_id.user_id as i64)
+            .load_user(&account.credential.account_id.user_id)
             .await
             .map_err(|e| GroupError::StorageError(format!("Failed to load user from db: {}", e)))?;
         let mut group_user = Self::from_bytes(
@@ -185,7 +181,7 @@ impl Device {
 
     /// Get the user ID for this account
     #[inline]
-    pub fn user_id(&self) -> u64 {
+    pub fn user_id(&self) -> UserId {
         self.account.credential.account_id.user_id
     }
 
@@ -338,7 +334,7 @@ impl Device {
 
         let signing_identity = SigningIdentity::new(mls_credential, identity.public_key.clone());
         let path = get_default_db_path(
-            identity.credential.device_id.user_id,
+            &identity.credential.device_id.user_id,
             &identity.credential.device_id.device_id,
         );
         let sqlite_storage = SqLiteDataStorageEngine::new(FileConnectionStrategy::new(&path))
@@ -383,12 +379,12 @@ impl Device {
     /// Retrieve and cache an account credential for a user
     pub(super) async fn get_contact(
         &mut self,
-        user_id: u64,
+        user_id: UserId,
     ) -> Result<AccountCredential, GroupError> {
         if let Some(cached) = self.contacts_parsed_cache.get(&user_id).await {
             return Ok(cached);
         }
-        let contact = self.groups.messages.get_contact(user_id as i64).await?;
+        let contact = self.groups.messages.get_contact(&user_id).await?;
         let parsed = match contact {
             Some(user_credential) => AccountCredential::mls_decode(&mut &*user_credential)?,
             None => {
@@ -403,7 +399,7 @@ impl Device {
                     })?;
                 self.groups
                     .messages
-                    .save_contact(user_id as i64, &user_credential)
+                    .save_contact(&user_id, &user_credential)
                     .await?;
                 AccountCredential::mls_decode(&mut &*user_credential)?
             }
@@ -430,13 +426,13 @@ impl Device {
 }
 
 /// Build default path for the SQLite storage file for a device
-pub fn get_default_db_path(account_id: u64, device_id: &str) -> std::path::PathBuf {
+pub fn get_default_db_path(user_id: &UserId, device_id: &str) -> std::path::PathBuf {
     #[cfg(not(target_os = "ios"))]
     {
         let mut path = dirs::home_dir().expect("Could not find home directory");
         path.push(".ship/group");
         std::fs::create_dir_all(&path).expect("Could not create .ship directory");
-        path.push(format!("group_{}_{}.db", account_id, device_id));
+        path.push(format!("group_{}_{}.db", user_id.to_string(), device_id));
         path
     }
     #[cfg(target_os = "ios")]
@@ -444,7 +440,7 @@ pub fn get_default_db_path(account_id: u64, device_id: &str) -> std::path::PathB
         let mut path = dirs::document_dir().expect("Could not find home directory");
         path.push(".ship/group");
         std::fs::create_dir_all(&path).expect("Could not create .ship directory");
-        path.push(format!("group_{}_{}.db", account_id, device_id));
+        path.push(format!("group_{}_{}.db", user_id.to_string(), device_id));
         path
     }
 }

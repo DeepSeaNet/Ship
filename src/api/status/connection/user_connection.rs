@@ -16,6 +16,7 @@ pub mod user_service_proto {
 }
 
 use crate::api::account::Account;
+use crate::api::account::UserId;
 use crate::api::connection::endpoint::create_client_endpoint;
 use crate::api::status::connection::user_connection::user_service_proto::{
     GetUpdatedUsersRequest, GetUserActivityRequest, GetUserActivityResponse, GetUserInfoRequest,
@@ -36,14 +37,15 @@ pub struct Backend {
     pub client: Arc<Mutex<UserServiceClient<H3Channel<H3QuinnConnector>>>>,
     pub stream_tx: Arc<Mutex<Option<mpsc::Sender<UserStatusRequest>>>>,
     pub stream: Arc<Mutex<Option<Streaming<UserStatusResponse>>>>,
-    subscriptions: Arc<Mutex<Vec<i64>>>,
+    user_id: UserId,
+    subscriptions: Arc<Mutex<Vec<UserId>>>,
     account: Arc<Account>,
 }
 
 impl Backend {
     pub fn new(
         address: String,
-        subscriptions: Arc<Mutex<Vec<i64>>>,
+        subscriptions: Arc<Mutex<Vec<UserId>>>,
         account: Arc<Account>,
     ) -> StatusResult<Self> {
         let uri = Uri::from_str(&address).map_err(|e| StatusError::Internal(e.to_string()))?;
@@ -57,6 +59,7 @@ impl Backend {
             client: Arc::new(Mutex::new(client)),
             stream_tx: Arc::new(Mutex::new(None)),
             stream: Arc::new(Mutex::new(None)),
+            user_id: account.user_id,
             subscriptions,
             account,
         })
@@ -73,10 +76,10 @@ impl Backend {
 
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
-        hasher.update((self.account.user_id).to_be_bytes());
+        hasher.update(self.account.user_id.to_bytes());
         hasher.update(timestamp.to_be_bytes());
-        for &sub_id in &subscriptions {
-            hasher.update((sub_id as u64).to_be_bytes());
+        for sub_id in subscriptions.clone() {
+            hasher.update(sub_id.to_bytes());
         }
         let hash = hasher.finalize();
         let signature = self
@@ -88,9 +91,9 @@ impl Backend {
         let request = UserStatusRequest {
             message: Some(user_status_request::Message::InitStreamRequest(
                 InitStreamRequest {
-                    user_id: self.account.user_id as i64,
+                    user_id: self.account.user_id.to_bytes(),
                     timestamp: timestamp as i64,
-                    subscribe_to_users: subscriptions,
+                    subscribe_to_users: subscriptions.iter().map(|id| id.to_bytes()).collect(),
                     signature,
                 },
             )),
@@ -135,7 +138,7 @@ impl Backend {
         let timestamp = prost_types::Timestamp { seconds, nanos: 0 };
 
         let request = UpdateActivityRequest {
-            user_id: self.account.user_id as i64,
+            user_id: self.account.user_id.to_bytes(),
             status: status as i32,
             last_seen: Some(timestamp),
         };
@@ -148,8 +151,13 @@ impl Backend {
         }
         Ok(())
     }
-    pub async fn get_user_activity(&self, user_id: i64) -> Result<GetUserActivityResponse, Status> {
-        let request = GetUserActivityRequest { user_id };
+    pub async fn get_user_activity(
+        &self,
+        user_id: UserId,
+    ) -> Result<GetUserActivityResponse, Status> {
+        let request = GetUserActivityRequest {
+            user_id: user_id.to_bytes(),
+        };
 
         let response = self
             .client
@@ -160,8 +168,10 @@ impl Backend {
         Ok(response.into_inner())
     }
 
-    pub async fn get_user_info(&self, user_id: i64) -> StatusResult<DisplayUserInfo> {
-        let request = GetUserInfoRequest { user_id };
+    pub async fn get_user_info(&self, user_id: UserId) -> StatusResult<DisplayUserInfo> {
+        let request = GetUserInfoRequest {
+            user_id: user_id.to_bytes(),
+        };
 
         let response = self
             .client
@@ -183,9 +193,9 @@ impl Backend {
             };
             let online_status = user.online_status();
             Ok(DisplayUserInfo {
-                user_id: user.user_id,
+                user_id: UserId::from_bytes(&*user.user_id),
                 username: user.username,
-                avatar: format!("http://{}", user.avatar_url),
+                avatar: user.avatar_url,
                 status: online_status.as_str_name().to_string(),
                 last_seen,
                 created_at,
@@ -198,7 +208,6 @@ impl Backend {
 
     pub async fn update_username(
         &self,
-        user_id: i64,
         new_username: String,
     ) -> Result<UpdateUsernameResponse, Status> {
         let timestamp = SystemTime::now()
@@ -208,7 +217,7 @@ impl Backend {
 
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
-        hasher.update((user_id as u64).to_be_bytes());
+        hasher.update(self.user_id.to_bytes());
         hasher.update((timestamp as u64).to_be_bytes());
         hasher.update(new_username.as_bytes());
         let hash = hasher.finalize();
@@ -220,7 +229,7 @@ impl Backend {
             .map_err(|e| Status::internal(format!("Failed to sign username update: {}", e)))?;
 
         let request = UpdateUsernameRequest {
-            user_id,
+            user_id: self.user_id.to_bytes(),
             new_username,
             timestamp,
             signature,
@@ -230,11 +239,7 @@ impl Backend {
         Ok(response.into_inner())
     }
 
-    pub async fn update_avatar(
-        &self,
-        user_id: i64,
-        avatar: Avatar,
-    ) -> Result<UpdateAvatarResponse, Status> {
+    pub async fn update_avatar(&self, avatar: Avatar) -> Result<UpdateAvatarResponse, Status> {
         let timestamp = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
@@ -242,7 +247,7 @@ impl Backend {
 
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
-        hasher.update((user_id as u64).to_be_bytes());
+        hasher.update(self.user_id.to_bytes());
         hasher.update((timestamp as u64).to_be_bytes());
         hasher.update(avatar.avatar_hash.as_bytes());
         hasher.update((avatar.file_size as u32).to_be_bytes());
@@ -258,7 +263,7 @@ impl Backend {
             .map_err(|e| Status::internal(format!("Failed to sign avatar update: {}", e)))?;
 
         let request = UpdateAvatarRequest {
-            user_id,
+            user_id: self.user_id.to_bytes(),
             image_data: avatar.avatar_data,
             avatar_hash: avatar.avatar_hash,
             file_size: avatar.file_size,
@@ -286,7 +291,7 @@ impl Backend {
 
         let timestamp = prost_types::Timestamp { seconds, nanos: 0 };
         let request = MarkMessageReadRequest {
-            user_id: self.account.user_id as i64,
+            user_id: self.user_id.to_bytes(),
             message_id,
             chat_id,
             read_at: Some(timestamp),
@@ -300,7 +305,7 @@ impl Backend {
         &self,
         chat_id: String,
         status: TypingStatus,
-        subscribers: Vec<i64>,
+        subscribers: Vec<UserId>,
     ) -> Result<(), Status> {
         let timestamp = SystemTime::now();
         let seconds = timestamp
@@ -311,11 +316,11 @@ impl Backend {
         let timestamp = prost_types::Timestamp { seconds, nanos: 0 };
 
         let request = TypingStatusRequest {
-            user_id: self.account.user_id as i64,
+            user_id: self.user_id.to_bytes(),
             chat_id,
             status: status as i32,
             timestamp: Some(timestamp),
-            subscribers,
+            subscribers: subscribers.iter().map(|id| id.to_bytes()).collect(),
         };
 
         let status_request = UserStatusRequest {
@@ -336,7 +341,7 @@ impl Backend {
 
         // Создаем запрос статуса для стрима
         let online_request = OnlineStatusRequest {
-            user_id: self.account.user_id as i64,
+            user_id: self.user_id.to_bytes(),
             status: status as i32,
             timestamp: Some(timestamp),
         };
@@ -352,7 +357,7 @@ impl Backend {
         self.send_to_stream(status_request).await
     }
 
-    pub async fn subscribe_to_users(&self, user_ids: Vec<i64>) -> Result<(), Status> {
+    pub async fn subscribe_to_users(&self, user_ids: Vec<UserId>) -> Result<(), Status> {
         let timestamp = SystemTime::now();
         let seconds = timestamp
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -362,8 +367,8 @@ impl Backend {
         let timestamp = prost_types::Timestamp { seconds, nanos: 0 };
 
         let request = UpdateUserSubscriptionRequest {
-            user_id: self.account.user_id as i64,
-            subscribe_to_users: user_ids,
+            user_id: self.user_id.to_bytes(),
+            subscribe_to_users: user_ids.iter().map(|id| id.to_bytes()).collect(),
             timestamp: timestamp.seconds,
         };
 
@@ -378,10 +383,13 @@ impl Backend {
 
     pub async fn get_updated_users(
         &self,
-        ids: Vec<i64>,
+        ids: Vec<UserId>,
         timestamp: i64,
     ) -> StatusResult<Vec<DisplayUserInfo>> {
-        let request = GetUpdatedUsersRequest { ids, timestamp };
+        let request = GetUpdatedUsersRequest {
+            ids: ids.iter().map(|id| id.to_bytes()).collect(),
+            timestamp,
+        };
 
         let response = self
             .client
@@ -399,9 +407,9 @@ impl Backend {
                 let online_status =
                     OnlineStatus::try_from(user.online_status).unwrap_or(OnlineStatus::Offline);
                 DisplayUserInfo {
-                    user_id: user.user_id,
+                    user_id: UserId::from_bytes(&*user.user_id),
                     username: user.username,
-                    avatar: format!("http://{}", user.avatar_url),
+                    avatar: user.avatar_url,
                     status: online_status.as_str_name().to_string(),
                     last_seen,
                     created_at,

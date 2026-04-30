@@ -18,7 +18,6 @@ export const loginWithAccount = async (
 		}
 		localStorage.setItem("userId", account.user_id.toString());
 		localStorage.setItem("username", account.username);
-		localStorage.setItem("publicAddress", account.public_address);
 		localStorage.setItem("serverAddress", account.server_address);
 		localStorage.setItem("avatarUrl", account.avatar_url || "");
 		//localStorage.setItem('serverPubKey', account.server_pub_key.toString())

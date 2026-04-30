@@ -1,5 +1,8 @@
-use crate::api::device::types::extensions::group_config::{
-    DateTime, GroupConfig, JoinMode, Permissions, Visibility,
+use crate::api::{
+    account::UserId,
+    device::types::extensions::group_config::{
+        DateTime, GroupConfig, JoinMode, Permissions, Visibility,
+    },
 };
 use std::collections::BTreeMap;
 
@@ -10,7 +13,7 @@ pub struct GroupConfigBuilder {
     // Required fields
     group_id: u64,
     group_name: String,
-    creator_id: u64,
+    creator_id: UserId,
 
     // Optional configuration fields
     visibility: Option<Visibility>,
@@ -31,12 +34,12 @@ pub struct GroupConfigBuilder {
     allow_links: Option<bool>,
 
     // Member management
-    additional_members: Vec<u64>,
-    additional_admins: Vec<u64>,
-    custom_permissions: BTreeMap<u64, Permissions>,
+    additional_members: Vec<UserId>,
+    additional_admins: Vec<UserId>,
+    custom_permissions: BTreeMap<UserId, Permissions>,
     default_member_permissions: Option<Permissions>,
-    banned_users: Vec<u64>,
-    muted_users: BTreeMap<u64, DateTime>,
+    banned_users: Vec<UserId>,
+    muted_users: BTreeMap<UserId, DateTime>,
 }
 
 impl GroupConfigBuilder {
@@ -46,7 +49,7 @@ impl GroupConfigBuilder {
     /// * `group_id` - Unique identifier for the group
     /// * `group_name` - Display name for the group
     /// * `creator_id` - User ID of the group creator
-    pub fn new(group_id: u64, group_name: String, creator_id: u64) -> Self {
+    pub fn new(group_id: u64, group_name: String, creator_id: UserId) -> Self {
         Self {
             group_id,
             group_name,

@@ -9,16 +9,19 @@ use super::constants::AES_KEY_SIZE;
 use super::error::RatchetError;
 use super::receiver::ReceiverRatchet;
 use super::sender::SenderRatchet;
-use crate::api::voice::{
-    MlsGroup,
-    types::{EXPORT_SECRET_LABEL, EXPORT_SECRET_LENGTH},
+use crate::api::{
+    account::UserId,
+    voice::{
+        MlsGroup,
+        types::{EXPORT_SECRET_LABEL, EXPORT_SECRET_LENGTH},
+    },
 };
 
 // ── Key-material export types ─────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ReceiverKeyInfo {
-    pub user_id: u64,
+    pub user_id: UserId,
     pub public_key: Vec<u8>,
     /// epoch → raw MLS-exported base secret (16 bytes).
     pub epoch_secrets: HashMap<u32, Vec<u8>>,
@@ -32,7 +35,7 @@ pub struct VoiceKeysPayload {
     /// after that it reconstructs from this 32-byte value + generation.
     pub sender_secret: Vec<u8>,
     pub sender_public_key: Vec<u8>,
-    pub sender_user_id: u64,
+    pub sender_user_id: UserId,
     pub sender_epoch: u32,
     /// Generation the TypeScript ratchet should start from.
     pub sender_generation: u32,
@@ -44,8 +47,9 @@ pub struct VoiceKeysPayload {
 
 pub struct GroupRatchetManager {
     sender_ratchet: Arc<RwLock<SenderRatchet>>,
-    receiver_ratchets: Arc<RwLock<HashMap<u64, Arc<RwLock<ReceiverRatchet>>>>>,
+    receiver_ratchets: Arc<RwLock<HashMap<UserId, Arc<RwLock<ReceiverRatchet>>>>>,
     config: RatchetConfig,
+
     group_epoch: u64,
 }
 
@@ -53,7 +57,7 @@ impl GroupRatchetManager {
     pub fn new(
         sender_base_secret: [u8; AES_KEY_SIZE],
         public_key: Vec<u8>,
-        user_id: u64,
+        user_id: UserId,
         config: Option<RatchetConfig>,
         group_epoch: u64,
     ) -> Self {
@@ -71,7 +75,7 @@ impl GroupRatchetManager {
 
     pub async fn add_participant(
         &self,
-        user_id: u64,
+        user_id: UserId,
         public_key: Vec<u8>,
         base_secret: Option<[u8; AES_KEY_SIZE]>,
     ) -> Result<(), RatchetError> {
@@ -117,7 +121,7 @@ impl GroupRatchetManager {
 
     pub async fn update_receiver_epoch_secret(
         &self,
-        user_id: u64,
+        user_id: UserId,
         epoch: u64,
         secret: [u8; AES_KEY_SIZE],
     ) -> Result<(), RatchetError> {
@@ -153,7 +157,7 @@ impl GroupRatchetManager {
     pub async fn update_voice_ratchet(
         &mut self,
         voice: &MlsGroup,
-        local_user_id: u64,
+        local_user_id: UserId,
     ) -> Result<(), RatchetError> {
         let group_epoch = voice.context().epoch;
         log::info!(
@@ -164,7 +168,7 @@ impl GroupRatchetManager {
 
         self.update_group_epoch(group_epoch).await;
 
-        let sender_secret = self.export_secret(voice, &local_user_id.to_le_bytes())?;
+        let sender_secret = self.export_secret(voice, &local_user_id.to_bytes())?;
         self.update_sender_epoch(&sender_secret, group_epoch).await;
 
         for member in voice.roster().members() {
@@ -175,12 +179,8 @@ impl GroupRatchetManager {
                 .unwrap()
                 .clone();
             let id_bytes = credential.identifier;
-            let member_id = u64::from_le_bytes(
-                id_bytes
-                    .clone()
-                    .try_into()
-                    .map_err(|_| RatchetError::ExportError("Invalid member ID".into()))?,
-            );
+            let member_id = UserId::from_bytes(&id_bytes);
+
             log::debug!(
                 "update_voice_ratchet: member={} epoch={}",
                 member_id,

@@ -36,6 +36,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tauri_typegen::BuildSystem::generate_at_build_time()
         .expect("Failed to generate TypeScript bindings");
 
+    // Append UserId type definition to the generated file
+    {
+        use std::io::Write;
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .open("ui/hooks/generated/types.ts")?;
+        writeln!(file, "\nexport type UserId = string;")?;
+    }
+
     tauri_build::build();
 
     Ok(())

@@ -1,4 +1,4 @@
-use crate::api::device::types::message::GroupTextMessage;
+use crate::api::{account::UserId, device::types::message::GroupTextMessage};
 use std::str::FromStr;
 use tauri::AppHandle;
 use tauri_plugin_fs::{FilePath, FsExt};
@@ -49,7 +49,7 @@ impl MessageBuilder {
         self,
         message_id: i64,
         app_handle: &AppHandle,
-        sender_id: i64,
+        sender_id: UserId,
     ) -> Result<GroupTextMessage, String> {
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

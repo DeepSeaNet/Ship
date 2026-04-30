@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 use tokio::sync::Mutex;
 
-use crate::api::account::Account;
+use crate::api::account::{Account, UserId};
 use crate::api::status::connection::Backend;
 use crate::api::status::connection::user_service_proto::user_status_response;
 use crate::api::status::connection::user_service_proto::{OnlineStatus, TypingStatus};
@@ -24,7 +24,7 @@ pub struct Status {
     account: Arc<Account>,
     online_status: Arc<RwLock<OnlineStatus>>,
     backend: Backend,
-    subscriptions: Arc<Mutex<Vec<i64>>>,
+    subscriptions: Arc<Mutex<Vec<UserId>>>,
     user_manager: UserManager,
     app_handler: Option<tauri::AppHandle>,
 }
@@ -37,7 +37,7 @@ impl Status {
         let addr = account.server_address.clone();
 
         let subscriptions = Arc::new(Mutex::new(Vec::new()));
-        let user_manager = UserManager::new(get_default_db_path(account.user_id)).await?;
+        let user_manager = UserManager::new(get_default_db_path(&account.user_id)).await?;
         let client = Self {
             account: account.clone(),
             online_status: Arc::new(RwLock::new(OnlineStatus::Online)),
@@ -59,7 +59,7 @@ impl Status {
         *online_status = status;
         Ok(())
     }
-    pub async fn get_user_status(&self, user_id: i64) -> StatusResult<DisplayUserStatus> {
+    pub async fn get_user_status(&self, user_id: UserId) -> StatusResult<DisplayUserStatus> {
         let response = self.backend.get_user_activity(user_id).await?;
         let status = response.online_status();
         let last_seen = if let Some(last_seen) = response.last_seen {
@@ -69,14 +69,14 @@ impl Status {
         };
         let user_status = DisplayUserStatus {
             status: status.as_str_name().to_string(),
-            user_id: response.user_id,
+            user_id: UserId::from_bytes(&response.user_id),
             last_seen,
             is_online: response.is_online,
         };
 
         Ok(user_status)
     }
-    pub async fn get_user_info(&self, user_id: i64) -> StatusResult<DisplayUserInfo> {
+    pub async fn get_user_info(&self, user_id: UserId) -> StatusResult<DisplayUserInfo> {
         let response = self.backend.get_user_info(user_id).await?;
         self.user_manager.save_contact(response.clone()).await?;
         Ok(response)
@@ -86,24 +86,18 @@ impl Status {
         self.user_manager.get_contacts().await
     }
     pub async fn update_username(&self, new_username: String) -> StatusResult<bool> {
-        let response = self
-            .backend
-            .update_username(self.account.user_id as i64, new_username.clone())
-            .await?;
+        let response = self.backend.update_username(new_username.clone()).await?;
 
         Ok(response.success)
     }
 
     pub async fn update_avatar(&self, avatar: Avatar) -> StatusResult<UpdateUserAvatarResponse> {
-        let response = self
-            .backend
-            .update_avatar(self.account.user_id as i64, avatar)
-            .await?;
+        let response = self.backend.update_avatar(avatar).await?;
 
         if !response.success {
             return Err(StatusError::AvatarUpdateFailed);
         }
-        let avatar_url = format!("http://{}", response.user.unwrap().avatar_url);
+        let avatar_url = response.user.unwrap().avatar_url;
         let update_avatar_response = UpdateUserAvatarResponse {
             success: response.success,
             avatar_url: avatar_url.clone(),
@@ -116,7 +110,7 @@ impl Status {
         &self,
         chat_id: String,
         status: String,
-        subscribers: Vec<i64>,
+        subscribers: Vec<UserId>,
     ) -> StatusResult<()> {
         let status = TypingStatus::from_str_name(&status).unwrap_or(TypingStatus::NotTyping);
         self.backend
@@ -125,7 +119,7 @@ impl Status {
         Ok(())
     }
 
-    pub async fn subscribe_to_users(&self, user_ids: Vec<i64>) -> StatusResult<()> {
+    pub async fn subscribe_to_users(&self, user_ids: Vec<UserId>) -> StatusResult<()> {
         {
             let mut subscriptions = self.subscriptions.lock().await;
             for user_id in user_ids.iter() {
@@ -143,7 +137,7 @@ impl Status {
         Ok(())
     }
 
-    pub async fn unsubscribe_from_users(&self, user_ids: Vec<i64>) -> StatusResult<()> {
+    pub async fn unsubscribe_from_users(&self, user_ids: Vec<UserId>) -> StatusResult<()> {
         {
             let mut subscriptions = self.subscriptions.lock().await;
             subscriptions.retain(|id| !user_ids.contains(id));
@@ -184,7 +178,7 @@ impl Status {
                                         app,
                                         DisplayUserStatus {
                                             status: online_status.as_str_name().to_string(),
-                                            user_id: status.user_id,
+                                            user_id: UserId::from_bytes(&status.user_id),
                                             last_seen,
                                             is_online: online_status != OnlineStatus::Offline,
                                         },
@@ -200,7 +194,7 @@ impl Status {
                                 let _ = emit_user_typing_status_event(
                                     app,
                                     DisplayUserTypingStatus {
-                                        user_id: status.user_id,
+                                        user_id: UserId::from_bytes(&status.user_id),
                                         chat_id: status.chat_id,
                                         status: typing_status.as_str_name().to_string(),
                                     },
@@ -233,7 +227,7 @@ impl Status {
             .await?;
 
         let contacts = self.user_manager.get_contacts().await?;
-        let ids: Vec<i64> = contacts.iter().map(|c| c.user_id).collect();
+        let ids: Vec<UserId> = contacts.iter().map(|c| c.user_id).collect();
         let last_sync = self
             .user_manager
             .get_sync_metadata("last_contacts_sync")

@@ -23,14 +23,14 @@ use super::types::message::UserGroupMessage;
 use super::mls_client::MlsClient;
 use super::types::errors::GroupError;
 use super::types::group::{GroupId, GroupStorage};
-use crate::api::account::Account;
+use crate::api::account::{Account, UserId};
 use crate::commands::events::{
     emit_join_group_event, emit_message_delivery_event, emit_new_group_config,
     emit_text_message_event, emit_welcome_message_event,
 };
 
 pub struct GroupHandler {
-    pub user_id: u64,
+    pub user_id: UserId,
     pub client: MlsClient,
     pub groups: GroupStorage,
     pub backend: Backend,
@@ -42,7 +42,7 @@ pub struct GroupHandler {
 
 impl GroupHandler {
     pub fn new(
-        user_id: u64,
+        user_id: UserId,
         client: MlsClient,
         groups: GroupStorage,
         backend: Backend,
@@ -328,7 +328,7 @@ impl GroupHandler {
                             group_microservice::stream_response::Response::InitGroupStream(
                                 init,
                             ) => {
-                                log::info!("Stream initialized for user {}", init.user_id);
+                                log::info!("Stream initialized");
                             }
                             group_microservice::stream_response::Response::SendGroupMessage(
                                 msg,
@@ -366,7 +366,7 @@ impl GroupHandler {
                             }
                             group_microservice::stream_response::Response::WelcomeMessage(msg) => {
                                 log::info!(
-                                    "Received welcome message {} for user {}",
+                                    "Received welcome message {} for user {:#?}",
                                     msg.message_id,
                                     self.user_id
                                 );

@@ -1,10 +1,12 @@
 use zerocopy::{FromBytes, Immutable, IntoBytes, KnownLayout};
 
+use crate::api::account::UserId;
+
 #[derive(IntoBytes, FromBytes, Clone, Copy, Immutable, KnownLayout)]
 #[repr(C)]
 pub struct GroupTextMessageHeader {
     pub message_id: i64,
-    pub sender_id: i64,
+    pub sender_id: [u8; 32],
     pub date: i64,
     pub group_id_len: u64,
     pub text_len: u64,
@@ -19,7 +21,7 @@ pub struct GroupTextMessageHeader {
 pub struct GroupTextMessage {
     pub message_id: i64,
     pub group_id: String,
-    pub sender_id: i64,
+    pub sender_id: UserId,
     pub date: i64,
     pub text: String,
     pub media: Option<Vec<u8>>,
@@ -42,7 +44,7 @@ impl GroupTextMessage {
 
         let header = GroupTextMessageHeader {
             message_id: self.message_id,
-            sender_id: self.sender_id,
+            sender_id: self.sender_id.as_array(),
             date: self.date,
             group_id_len: group_id_bytes.len() as u64,
             text_len: text_bytes.len() as u64,
@@ -116,7 +118,7 @@ impl GroupTextMessage {
         Ok(GroupTextMessage {
             message_id: header.message_id,
             group_id,
-            sender_id: header.sender_id,
+            sender_id: UserId::from_bytes(&header.sender_id),
             date: header.date,
             text,
             media,

@@ -15,10 +15,9 @@ use tauri::Manager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoginResponse {
-    pub user_id: u64,
+    pub user_id: String,
     pub username: String,
     pub avatar_url: Option<String>,
-    pub public_address: String,
     pub server_address: String,
     pub server_pub_key: Option<Vec<u8>>,
 }
@@ -26,8 +25,7 @@ pub struct LoginResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountInfo {
     pub username: String,
-    pub user_id: u64,
-    pub public_address: String,
+    pub user_id: String,
     pub server_address: String,
     pub avatar_url: Option<String>,
 }
@@ -96,10 +94,9 @@ pub async fn login(app_handle: AppHandle, username: String) -> Result<LoginRespo
     };
 
     Ok(LoginResponse {
-        user_id: account.credential.account_id.user_id,
+        user_id: account.credential.account_id.user_id.to_string(),
         username: account.username.clone(),
         avatar_url: account.avatar_url.clone(),
-        public_address: account.public_address.clone(),
         server_address: account.server_address.clone(),
         server_pub_key: account.server_public_key.clone(),
     })
@@ -166,7 +163,7 @@ pub async fn import_account(
     app_handle: AppHandle,
     exported_account: String,
     key: String,
-) -> Result<u64, String> {
+) -> Result<String, String> {
     let exported = ExportedAccount::decrypt(&exported_account, &key)?;
 
     let account = Account::from_mls_bytes(&mut &*exported.account).map_err(|e| e.to_string())?;
@@ -179,7 +176,7 @@ pub async fn import_account(
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok(account.user_id)
+    Ok(account.user_id.to_string())
 }
 
 #[tauri::command]
@@ -203,8 +200,7 @@ pub async fn get_account_list() -> Result<Vec<AccountInfo>, String> {
         .into_iter()
         .map(|account| AccountInfo {
             username: account.username,
-            user_id: account.user_id,
-            public_address: account.public_address,
+            user_id: account.user_id.to_string(),
             server_address: account.server_address,
             avatar_url: account.avatar_url,
         })

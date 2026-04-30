@@ -3,6 +3,8 @@ use sha2::Sha256;
 use std::convert::TryInto;
 
 use super::constants::{AES_KEY_SIZE, HASH_LEN};
+use crate::api::account::UserId;
+
 
 /// MLS sender ratchet (RFC 9420 §9.1).
 ///
@@ -19,7 +21,7 @@ pub struct SenderRatchet {
     secret: [u8; HASH_LEN],
     generation: u32,
     pub public_key: Vec<u8>,
-    pub user_id: u64,
+    pub user_id: UserId,
 }
 
 impl SenderRatchet {
@@ -28,7 +30,7 @@ impl SenderRatchet {
     pub fn new(
         base_secret: &[u8; AES_KEY_SIZE],
         public_key: Vec<u8>,
-        user_id: u64,
+        user_id: UserId,
         group_epoch: u64,
     ) -> Self {
         let secret = expand_with_label(base_secret, "init", &[], HASH_LEN)
@@ -61,7 +63,7 @@ impl SenderRatchet {
     pub fn public_key(&self) -> &[u8] {
         &self.public_key
     }
-    pub fn user_id(&self) -> u64 {
+    pub fn user_id(&self) -> UserId {
         self.user_id
     }
     /// Current ratchet secret — exported to TypeScript for ratchet reconstruction.

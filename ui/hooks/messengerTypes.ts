@@ -102,11 +102,10 @@ export interface MessengerContextType {
 		messageId: string,
 		status: Message["status"],
 	) => void;
-	updateMessageId: (chatId: string, oldId: string, newId: string) => void;
 	editMessage: (chatId: string, messageId: string, newContent: string) => void;
 	markChatAsLoaded: (chatId: string) => void;
 	upsertUser: (user: Partial<User> & { id: string }) => void;
-	getUserInfo: (userId: string | number) => Promise<User | null>;
+	getUserInfo: (userId: string) => Promise<User | null>;
 	manageTrustFactor: (userId: string, factor: number) => Promise<boolean>;
 	addContact: (userId: string) => Promise<User>;
 	contactsError: string | null;

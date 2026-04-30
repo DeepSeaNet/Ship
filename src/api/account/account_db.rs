@@ -1,4 +1,4 @@
-use crate::api::account::{AccountError, AccountResult};
+use crate::api::account::{AccountError, AccountResult, types::UserId};
 use dirs;
 use mls_rs_codec::MlsEncode;
 use sqlx::{Row, SqlitePool, sqlite::SqliteConnectOptions};
@@ -20,9 +20,8 @@ impl AccountManager {
         // Create the accounts table with new MLS fields
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS accounts (
-                user_id INTEGER PRIMARY KEY,
+                user_id BLOB PRIMARY KEY,
                 username TEXT NOT NULL UNIQUE,
-                public_address TEXT NOT NULL,
                 server_address TEXT NOT NULL,
                 server_public_key BLOB,
                 avatar_url TEXT,
@@ -40,10 +39,6 @@ impl AccountManager {
             .execute(&pool)
             .await?;
 
-        sqlx::query("CREATE INDEX IF NOT EXISTS idx_public_address ON accounts(public_address)")
-            .execute(&pool)
-            .await?;
-
         Ok(AccountManager { pool })
     }
 
@@ -58,12 +53,11 @@ impl AccountManager {
 
         sqlx::query(
             "INSERT OR REPLACE INTO accounts 
-             (user_id, username, public_address, server_address, server_public_key, avatar_url, mls_credential, mls_signer, created_at, updated_at) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)"
+             (user_id, username, server_address, server_public_key, avatar_url, mls_credential, mls_signer, created_at, updated_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)"
         )
-        .bind(account.user_id as i64)
+        .bind(account.user_id.to_bytes())
         .bind(&account.username)
-        .bind(&account.public_address)
         .bind(&account.server_address)
         .bind(&account.server_public_key)
         .bind(&account.avatar_url)
@@ -81,7 +75,7 @@ impl AccountManager {
         use mls_rs_core::crypto::SignatureSecretKey;
 
         let result = sqlx::query(
-            "SELECT user_id, username, public_address, server_address, server_public_key, avatar_url, mls_credential, mls_signer
+            "SELECT user_id, username, server_address, server_public_key, avatar_url, mls_credential, mls_signer
              FROM accounts WHERE username = ?"
         )
         .bind(username)
@@ -97,11 +91,10 @@ impl AccountManager {
                     .map_err(AccountError::Codec)?;
 
                 let signer = SignatureSecretKey::new(mls_signer_bytes);
-
+                let user_id = UserId::from_bytes(row.get("user_id"));
                 Ok(Some(Account {
-                    user_id: row.get("user_id"),
+                    user_id,
                     username: row.get("username"),
-                    public_address: row.get("public_address"),
                     server_address: row.get("server_address"),
                     server_public_key: row.get("server_public_key"),
                     avatar_url: row.get("avatar_url"),
@@ -144,7 +137,7 @@ impl AccountManager {
         use mls_rs_core::crypto::SignatureSecretKey;
 
         let rows = sqlx::query(
-            "SELECT user_id, username, public_address, server_address, server_public_key, avatar_url, mls_credential, mls_signer
+            "SELECT user_id, username, server_address, server_public_key, avatar_url, mls_credential, mls_signer
              FROM accounts ORDER BY username"
         )
         .fetch_all(&self.pool)
@@ -159,11 +152,10 @@ impl AccountManager {
                 .map_err(AccountError::Codec)?;
 
             let signer = SignatureSecretKey::new(mls_signer_bytes);
-
+            let user_id = UserId::from_bytes(row.get("user_id"));
             accounts.push(Account {
-                user_id: row.get("user_id"),
+                user_id,
                 username: row.get("username"),
-                public_address: row.get("public_address"),
                 server_address: row.get("server_address"),
                 server_public_key: row.get("server_public_key"),
                 avatar_url: row.get("avatar_url"),

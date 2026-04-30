@@ -1,16 +1,18 @@
 use serde::{Deserialize, Serialize};
 
+use crate::api::account::UserId;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DisplayUserStatus {
     pub status: String,
-    pub user_id: i64,
+    pub user_id: UserId,
     pub last_seen: i64,
     pub is_online: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DisplayUserInfo {
-    pub user_id: i64,
+    pub user_id: UserId,
     pub username: String,
     pub avatar: String,
     pub status: String,
@@ -21,7 +23,7 @@ pub struct DisplayUserInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DisplayUserTypingStatus {
-    pub user_id: i64,
+    pub user_id: UserId,
     pub chat_id: String,
     pub status: String,
 }

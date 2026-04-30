@@ -167,53 +167,65 @@ export function useListener({
 						break;
 					}
 
-					case "join_group":
+					case "join_group": {
+						const groupData = payload.data;
+						const groupId = groupData.group_id;
+						const groupConfig = groupData.group_config;
+						const avatar = groupData.avatar;
+						const newGroup: Group = {
+							id: groupId,
+							name: groupConfig.name,
+							avatar: createMediaUrl(avatar),
+							unreadCount: 0,
+							isGroup: true,
+							group_config: mapGroupConfig(groupConfig),
+							loaded: false,
+						};
+
 						actions.setGroups((prevGroups) => {
-							const groupData = payload.data;
-							const groupId = groupData.group_id;
-							const groupConfig = groupData.group_config;
-							const avatar = groupData.avatar;
-							const group: Group = {
-								id: groupId,
-								name: groupConfig.name,
-								avatar: createMediaUrl(avatar),
-								unreadCount: 0,
-								isGroup: true,
-								group_config: mapGroupConfig(groupConfig),
-							};
-							return [...prevGroups, group];
+							if (prevGroups.some((g) => String(g.id) === String(groupId))) {
+								return prevGroups;
+							}
+							return [...prevGroups, newGroup];
+						});
+
+						actions.setChats((prevChats) => {
+							if (prevChats.some((c) => String(c.id) === String(groupId))) {
+								return prevChats;
+							}
+							return [newGroup, ...prevChats];
 						});
 						break;
+					}
 
 					case "group_config_updated": {
 						const groupData = payload.data;
 						const groupId = groupData.group_id;
-
+						const groupConfig = groupData.group_config;
+						const avatar = groupData.avatar;
+            console.log(groupConfig)
 						actions.setGroups((prevGroups) =>
 							prevGroups.map((g) => {
 								if (String(g.id) === String(groupId)) {
 									return {
 										...g,
-										name: groupData.group_config.name ?? g.name,
-										avatar: createMediaUrl(groupData.avatar) ?? g.avatar,
-										group_config: mapGroupConfig(groupData.group_config),
+										name: groupConfig.name || g.name,
+										avatar: createMediaUrl(avatar) || g.avatar,
+										group_config: mapGroupConfig(groupConfig),
 									};
 								}
 								return g;
 							}),
 						);
-
+            
 						actions.setChats((prevChats) =>
 							prevChats.map((c) => {
 								if (c.isGroup && String(c.id) === String(groupId)) {
 									return {
 										...c,
-										name: groupData.group_config.name ?? c.name,
-										avatar: createMediaUrl(groupData.avatar) ?? c.avatar,
-										group_config: {
-											...c.group_config,
-											...groupData,
-										} as GroupConfig,
+										name: groupConfig.name || c.name,
+										avatar: createMediaUrl(avatar) || c.avatar,
+										group_config: mapGroupConfig(groupConfig),
 									};
 								}
 								return c;

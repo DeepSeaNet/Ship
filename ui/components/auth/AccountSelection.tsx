@@ -134,7 +134,7 @@ export function AccountSelection({
 													{account.username}
 												</Label>
 												<Description className="truncate text-xs text-muted">
-													{account.public_address}@{account.server_address}
+													{account.user_id}@{account.server_address}
 												</Description>
 											</div>
 											<ListBox.ItemIndicator />

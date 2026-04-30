@@ -80,9 +80,7 @@ export function useMessages(chatId: string | null) {
 				await Promise.all(
 					missingUserIds.map(async (id) => {
 						try {
-							const userInfo = await getUserInfo({
-								userId: parseInt(id, 10),
-							});
+							const userInfo = await getUserInfo({ userId: id });
 							if (userInfo) {
 								upsertUser({
 									id,

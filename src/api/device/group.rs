@@ -1,18 +1,21 @@
 use mls_rs::{MlsMessage, group::proposal::MlsCustomProposal};
 use mls_rs_codec::{MlsDecode, MlsEncode};
 
-use crate::api::device::{
-    Device,
-    types::{
-        config::CREDENTIAL_V1,
-        custom_mls::credentials::DeviceCredential,
-        errors::GroupError,
-        extensions::{
-            group_config::{GroupConfig, group_extension::UpdateGroupConfigProposal},
-            roster::proposals::RemoveUserProposal,
+use crate::api::{
+    account::UserId,
+    device::{
+        Device,
+        types::{
+            config::CREDENTIAL_V1,
+            custom_mls::credentials::DeviceCredential,
+            errors::GroupError,
+            extensions::{
+                group_config::{GroupConfig, group_extension::UpdateGroupConfigProposal},
+                roster::proposals::RemoveUserProposal,
+            },
+            group::{GroupId, MlsGroup},
+            message::UserGroupMessage,
         },
-        group::{GroupId, MlsGroup},
-        message::UserGroupMessage,
     },
 };
 
@@ -185,7 +188,7 @@ impl Device {
     /// Validates against ban list and existing membership, fetches the user's
     /// account credential and device key packages, builds the invite commit,
     /// sends commit to the group and welcome to the invited user.
-    pub async fn invite(&mut self, group_id: &GroupId, user_id: u64) -> Result<(), GroupError> {
+    pub async fn invite(&mut self, group_id: &GroupId, user_id: UserId) -> Result<(), GroupError> {
         let config = self.get_group_config(group_id).await?;
         if config.banned.contains(&user_id) {
             return Err(GroupError::ConfigError(
@@ -199,7 +202,6 @@ impl Device {
         }
 
         let user_credential = self.get_contact(user_id).await?;
-
         let devices = self
             .backend
             .as_mut()
@@ -223,7 +225,7 @@ impl Device {
         self.apply_and_store_commit(&mut group).await?;
 
         log::info!(
-            "Successfully invited user {} to group {:?}",
+            "Successfully invited user {:#?} to group {:?}",
             user_id,
             group_id
         );
@@ -234,7 +236,7 @@ impl Device {
     ///
     /// Removes all devices belonging to `user_id` and updates membership
     /// in the group configuration, then sends and applies the commit.
-    pub async fn remove_user(&self, group_id: &GroupId, user_id: u64) -> Result<(), GroupError> {
+    pub async fn remove_user(&self, group_id: &GroupId, user_id: UserId) -> Result<(), GroupError> {
         let group_arc = self.groups.get(group_id).await?;
         let mut group = group_arc.write().await;
 
@@ -244,7 +246,7 @@ impl Device {
         self.apply_and_store_commit(&mut group).await?;
 
         log::info!(
-            "Successfully removed user {} from group {:?}",
+            "Successfully removed user {:#?} from group {:?}",
             user_id,
             group_id
         );

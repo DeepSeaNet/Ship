@@ -307,7 +307,7 @@ export const GroupSettingsModal = ({
 		// Note: Owner cannot be changed via this UI normally.
 		const success = await updateMemberPermissions(
 			group.id,
-			parseInt(memberToEdit, 10),
+			memberToEdit,
 			memberPermissions,
 			memberRole !== "Custom" && memberRole !== "Owner"
 				? memberRole.toLowerCase()
@@ -595,7 +595,7 @@ export const GroupSettingsModal = ({
 																		onPress={() =>
 																			removeUserFromGroup(
 																				group.id,
-																				parseInt(memberId, 10),
+																				memberId,
 																			)
 																		}
 																	>

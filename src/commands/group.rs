@@ -6,6 +6,7 @@ use tauri::AppHandle;
 use tauri::Emitter;
 use tokio::sync::RwLock;
 
+use crate::api::account::UserId;
 use crate::api::device::Device;
 use crate::api::device::types::extensions::group_config;
 use crate::api::device::types::{
@@ -14,6 +15,8 @@ use crate::api::device::types::{
     message::UserGroupMessage,
     message_builder::MessageBuilder,
 };
+use crate::commands::events::GroupConfigUpdatedData;
+use crate::commands::events::SystemEvent;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupActionResponse {
@@ -26,7 +29,7 @@ pub struct GroupMessageResponse {
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chat_id: Option<String>,
-    pub sender_id: i64,
+    pub sender_id: String,
     pub content: String,
     pub timestamp: i64,
     pub media: bool,
@@ -89,38 +92,24 @@ pub struct UpdatePermissions {
 
 type SafeGroupUser = Arc<RwLock<Option<Device>>>;
 
-pub fn format_group_config(
+pub async fn emit_new_group_config(
+    app: &AppHandle,
+    group_id: &GroupId,
     group_config: &GroupConfig,
-    group_id: GroupId,
-    user_id: u64,
-) -> serde_json::Value {
+) -> Result<(), String> {
     let avatar = group_config
         .avatar
         .clone()
         .map(|avatar| general_purpose::STANDARD.encode(avatar));
+    let event_payload = SystemEvent::GroupConfigUpdated(GroupConfigUpdatedData {
+        group_id: group_id.to_string(),
+        group_config,
+        avatar: &avatar,
+    });
 
-    let users_permisions = &group_config.permissions;
-    let default_permissions = &group_config.default_permissions;
-    let user_permissions = users_permisions
-        .get(&user_id)
-        .unwrap_or(default_permissions);
-
-    serde_json::json!({
-        "type": "group_config_updated",
-        "data": {
-            "group_id": group_id.to_string(),
-            "group_name": group_config.name,
-            "description": group_config.description,
-            "avatar": avatar,
-            "owner_id": group_config.creator_id,
-            "admins": group_config.admins,
-            "members": group_config.members,
-            "created_at": group_config.created_at.timestamp,
-            "user_permissions": user_permissions,
-            "users_permisions": users_permisions,
-            "default_permissions": default_permissions,
-        }
-    })
+    app.emit("server-event", event_payload)
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -281,7 +270,7 @@ pub async fn get_groups(
                     chat_id: None,
                     content: message.text,
                     timestamp: message.date,
-                    sender_id: message.sender_id,
+                    sender_id: message.sender_id.to_string(),
                     media: message.media.is_some(),
                     media_name: message.media_name,
                     media_data,
@@ -316,24 +305,22 @@ pub async fn get_groups(
 #[tauri::command]
 pub async fn invite_to_group(
     app_handle: AppHandle,
-    user_id: u64,
+    user_id: String,
     group_id: String,
     group_user_state: tauri::State<'_, SafeGroupUser>,
 ) -> Result<GroupActionResponse, String> {
     let mut group_user = group_user_state.write().await;
     let group_id = GroupId::from_string(&group_id).map_err(|e| e.to_string())?;
+    let user_id: UserId = user_id.parse()?;
     if let Some(user) = group_user.as_mut() {
         match user.invite(&group_id, user_id).await {
             Ok(_) => {
                 // Emit updated config
-                if let Ok(group_config) = user.get_group_config(&group_id).await {
-                    app_handle
-                        .emit(
-                            "server-event",
-                            format_group_config(&group_config, group_id, user.user_id()),
-                        )
-                        .unwrap();
-                }
+                let group_config = user
+                    .get_group_config(&group_id)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                emit_new_group_config(&app_handle, &group_id, &group_config).await?;
 
                 Ok(GroupActionResponse {
                     success: true,
@@ -353,7 +340,7 @@ pub async fn invite_to_group(
 #[tauri::command]
 pub async fn remove_from_group(
     app_handle: AppHandle,
-    user_id: u64,
+    user_id: String,
     group_id: String,
     group_user_state: tauri::State<'_, SafeGroupUser>,
 ) -> Result<GroupActionResponse, String> {
@@ -361,6 +348,7 @@ pub async fn remove_from_group(
     let mut group_user = group_user_state.write().await;
     let group_id_str = group_id.clone();
     let group_id = GroupId::from_string(&group_id).map_err(|e| e.to_string())?;
+    let user_id: UserId = user_id.parse()?;
 
     if let Some(user) = group_user.as_mut() {
         if user.user_id() == user_id {
@@ -384,14 +372,11 @@ pub async fn remove_from_group(
             match user.remove_user(&group_id, user_id).await {
                 Ok(_) => {
                     // Emit updated config
-                    if let Ok(group_config) = user.get_group_config(&group_id).await {
-                        app_handle
-                            .emit(
-                                "server-event",
-                                format_group_config(&group_config, group_id, user_id),
-                            )
-                            .unwrap();
-                    }
+                    let group_config = user
+                        .get_group_config(&group_id)
+                        .await
+                        .map_err(|e| e.to_string())?;
+                    emit_new_group_config(&app_handle, &group_id, &group_config).await?;
 
                     Ok(GroupActionResponse {
                         success: true,
@@ -452,8 +437,7 @@ pub async fn send_group_message(
                     return;
                 }
             };
-            let message = match builder.build(message_id as i64, &app_handle, user.user_id() as i64)
-            {
+            let message = match builder.build(message_id as i64, &app_handle, user.user_id()) {
                 Ok(msg) => msg,
                 Err(e) => {
                     log::error!("Failed to build message: {}", e);
@@ -524,7 +508,7 @@ pub async fn get_group_messages(
                             GroupMessageResponse {
                                 id: text_message.message_id.to_string(),
                                 chat_id: Some(group_id.to_string()),
-                                sender_id: text_message.sender_id,
+                                sender_id: text_message.sender_id.to_string(),
                                 content: text_message.text,
                                 timestamp: text_message.date,
                                 media: text_message.media.is_some(),
@@ -690,13 +674,14 @@ pub async fn get_group_media_cache_size(
 pub async fn update_member_permissions(
     app_handle: AppHandle,
     group_id: String,
-    member_id: u64,
+    member_id: String,
     permissions: UpdatePermissions,
     role: Option<String>,
     group_user_state: tauri::State<'_, SafeGroupUser>,
 ) -> Result<GroupActionResponse, String> {
     let group_user = group_user_state.read().await;
     let group_id = GroupId::from_string(&group_id).map_err(|e| e.to_string())?;
+    let member_id: UserId = member_id.parse()?;
     if let Some(user) = group_user.as_ref() {
         let group_config = user
             .get_group_config(&group_id)
@@ -761,8 +746,11 @@ pub async fn update_member_permissions(
             .await
             .map_err(|e| e.to_string())?;
 
-        let event_payload = format_group_config(&group_config, group_id, user_id);
-        app_handle.emit("server-event", event_payload).unwrap();
+        let group_config = user
+            .get_group_config(&group_id)
+            .await
+            .map_err(|e| e.to_string())?;
+        emit_new_group_config(&app_handle, &group_id, &group_config).await?;
 
         Ok(GroupActionResponse {
             success: true,
@@ -913,26 +901,7 @@ pub async fn update_group_config(
         let user_permissions = users_permisions
             .get(&user_id)
             .unwrap_or(default_permissions);
-        let event_payload = serde_json::json!({
-            "type": "group_config_updated",
-            "data": {
-                "group_id": group_id.to_string(),
-                "group_name": new_config.name,
-                "description": new_config.description,
-                "avatar": avatar,
-                "owner_id": new_config.creator_id,
-                "admins": new_config.admins,
-                "members": new_config.members,
-                "created_at": new_config.created_at.timestamp,
-                "user_permissions": user_permissions,
-                "users_permisions": users_permisions,
-                "default_permissions": default_permissions,
-            }
-        });
-        app_handle
-            .emit("server-event", event_payload)
-            .map_err(|e| e.to_string())?;
-
+        emit_new_group_config(&app_handle, &group_id, &new_config).await?;
         Ok(GroupActionResponse {
             success: true,
             message: "Group configuration updated successfully".to_string(),

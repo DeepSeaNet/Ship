@@ -1,4 +1,7 @@
-use crate::api::account::{AccountError, AccountResult};
+use crate::api::{
+    account::{AccountError, AccountResult, types::UserId},
+    device::types::custom_mls::credentials::AccountId,
+};
 use std::str::FromStr;
 use tauri::http::Uri;
 use tonic_h3::H3Channel;
@@ -27,19 +30,19 @@ impl Account {
         avatar_url: Option<String>,
         server_address: String,
     ) -> AccountResult<Account> {
-        use crate::api::device::types::custom_mls::credentials::{AccountCredential, AccountId};
+        use crate::api::device::types::custom_mls::credentials::AccountCredential;
 
-        // Генерируем новую пару MLS ключей
         let (signer, public_key) = Account::create_keys()
             .await
             .map_err(|e| AccountError::Internal(format!("Failed to generate MLS keys: {:?}", e)))?;
         log::debug!("Generated MLS keypair:");
         log::debug!("Public key length: {} bytes", public_key.as_bytes().len());
         log::debug!("Private key length: {} bytes", signer.as_bytes().len());
+        let user_id = UserId::from_pubkey(public_key.clone());
 
-        // Создаем запрос на регистрацию с MLS public key и credential
         let request = RegisterRequest {
             username: username.clone(),
+            user_id: user_id.to_bytes(),
             public_key: public_key.as_bytes().to_vec(),
             avatar_url: avatar_url.clone(),
             nonce: generate_nonce(),
@@ -66,7 +69,6 @@ impl Account {
         if register_response.success {
             log::debug!("Registration successful!");
             log::debug!("User ID: {:?}", register_response.user_id);
-            log::debug!("Public Address: {:?}", register_response.public_address);
             log::debug!(
                 "Certificate length: {:?} bytes",
                 register_response.certificate.len()
@@ -75,11 +77,7 @@ impl Account {
             log::error!("Registration failed: {}", register_response.message);
         }
 
-        // Создаем MLS credential
-        let account_id = AccountId {
-            user_id: register_response.user_id as u64,
-            public_address: register_response.public_address.clone(),
-        };
+        let account_id = AccountId { user_id };
 
         let credential = AccountCredential {
             account_id,
@@ -88,9 +86,8 @@ impl Account {
         };
 
         let account = Account {
-            user_id: register_response.user_id,
+            user_id,
             username: register_response.username,
-            public_address: register_response.public_address,
             server_address,
             server_public_key: Some(register_response.server_public_key),
             avatar_url,

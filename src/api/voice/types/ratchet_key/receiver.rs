@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use super::config::RatchetConfig;
 use super::constants::AES_KEY_SIZE;
+use crate::api::account::UserId;
+
 
 /// MLS receiver ratchet (RFC 9420 §9.1).
 ///
@@ -11,8 +13,9 @@ use super::constants::AES_KEY_SIZE;
 pub struct ReceiverRatchet {
     current_epoch: u32,
     sender_public_key: Vec<u8>,
-    sender_id: u64,
+    sender_id: UserId,
     config: RatchetConfig,
+
     /// Raw MLS-exported base secrets per epoch (16 bytes each).
     epoch_base_secrets: HashMap<u32, [u8; AES_KEY_SIZE]>,
 }
@@ -21,7 +24,7 @@ impl ReceiverRatchet {
     pub fn new(
         base_secret: &[u8; AES_KEY_SIZE],
         sender_public_key: Vec<u8>,
-        sender_id: u64,
+        sender_id: UserId,
         config: Option<RatchetConfig>,
         group_epoch: u64,
     ) -> Self {
@@ -58,7 +61,7 @@ impl ReceiverRatchet {
 
     // ── Accessors ─────────────────────────────────────────────────────────────
 
-    pub fn sender_id(&self) -> u64 {
+    pub fn sender_id(&self) -> UserId {
         self.sender_id
     }
     pub fn current_epoch(&self) -> u32 {

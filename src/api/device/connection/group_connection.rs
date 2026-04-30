@@ -3,6 +3,7 @@ pub mod group_microservice {
     tonic::include_proto!("group_microservice");
 }
 
+use crate::api::account::UserId;
 use crate::api::device::types::errors::GroupError;
 use group_microservice::group_delivery_service_client::GroupDeliveryServiceClient;
 use group_microservice::{
@@ -62,13 +63,13 @@ impl Backend {
 impl Backend {
     pub async fn register_device(
         &self,
-        user_id: u64,
+        user_id: UserId,
         device_id: String,
         key_package: Option<Vec<u8>>,
         signature: Vec<u8>,
     ) -> Result<(), Status> {
         let request = RegisterGroupDeviceRequest {
-            user_id,
+            user_id: user_id.to_bytes(),
             device_id,
             key_package,
             signature,
@@ -90,13 +91,13 @@ impl Backend {
 
     pub async fn upload_key_packages(
         &self,
-        user_id: u64,
+        user_id: UserId,
         device_id: String,
         key_packages: Vec<Vec<u8>>,
         signature: Vec<u8>,
     ) -> Result<(), Status> {
         let request = UploadKeyPackagesRequest {
-            user_id,
+            user_id: user_id.to_bytes(),
             device_id,
             key_packages,
             signature,
@@ -116,8 +117,10 @@ impl Backend {
         Ok(())
     }
 
-    pub async fn get_user_credential(&self, user_id: u64) -> Result<Vec<u8>, Status> {
-        let request = GetUserCredentialRequest { user_id };
+    pub async fn get_user_credential(&self, user_id: UserId) -> Result<Vec<u8>, Status> {
+        let request = GetUserCredentialRequest {
+            user_id: user_id.to_bytes(),
+        };
         let response = self
             .client
             .lock()
@@ -135,9 +138,11 @@ impl Backend {
 
     pub async fn get_user_key_packages(
         &self,
-        user_id: u64,
+        user_id: UserId,
     ) -> Result<HashMap<String, Vec<u8>>, Status> {
-        let request = GetUserKeyPackagesRequest { user_id };
+        let request = GetUserKeyPackagesRequest {
+            user_id: user_id.to_bytes(),
+        };
         let response = self
             .client
             .lock()
@@ -153,8 +158,10 @@ impl Backend {
         Ok(response.key_packages)
     }
 
-    pub async fn get_users_devices(&self, user_id: u64) -> Result<Vec<Device>, Status> {
-        let request = GetUsersDevicesRequest { user_id };
+    pub async fn get_users_devices(&self, user_id: UserId) -> Result<Vec<Device>, Status> {
+        let request = GetUsersDevicesRequest {
+            user_id: user_id.to_bytes(),
+        };
         let response = self.client.lock().await.get_users_devices(request).await?;
         let response = response.into_inner();
         if !response.success {
@@ -167,10 +174,13 @@ impl Backend {
 
     pub async fn get_device_key_package(
         &self,
-        user_id: u64,
+        user_id: UserId,
         device_id: String,
     ) -> Result<Vec<u8>, Status> {
-        let request = GetDeviceKeyPackageRequest { user_id, device_id };
+        let request = GetDeviceKeyPackageRequest {
+            user_id: user_id.to_bytes(),
+            device_id,
+        };
         let response = self
             .client
             .lock()
@@ -188,7 +198,7 @@ impl Backend {
 
     pub async fn init_stream(
         &self,
-        user_id: u64,
+        user_id: UserId,
         device_id: String,
         signature: Vec<u8>,
         date: u64,
@@ -200,7 +210,7 @@ impl Backend {
 
         let (stream_tx, stream_rx) = mpsc::channel::<StreamMessage>(100);
         let init_request = InitGroupStreamRequest {
-            user_id,
+            user_id: user_id.to_bytes(),
             device_id: device_id.clone(),
             date,
             signature,
@@ -244,7 +254,7 @@ impl Backend {
         &self,
         message_id: u64,
         group_id: Vec<u8>,
-        members: Vec<u64>,
+        members: Vec<Vec<u8>>,
         message: Vec<u8>,
     ) -> Result<(), Status> {
         let group_message = StreamMessageGroupMessage {
@@ -276,12 +286,12 @@ impl Backend {
     pub async fn send_welcome_message(
         &self,
         message_id: u64,
-        user_id: u64,
+        user_id: UserId,
         welcome_message: Vec<u8>,
     ) -> Result<(), Status> {
         let request = StreamSendWelcomeMessageRequest {
             message_id,
-            user_id,
+            user_id: user_id.to_bytes(),
             welcome_message,
         };
         let stream_message = StreamMessage {
@@ -304,13 +314,13 @@ impl Backend {
     pub async fn ack_delivery(
         &self,
         message_id: u64,
-        user_id: u64,
+        user_id: UserId,
         device_id: String,
         group_id: Vec<u8>,
     ) -> Result<(), Status> {
         let request = StreamAckDeliveryRequest {
             message_id,
-            user_id,
+            user_id: user_id.to_bytes(),
             device_id,
             group_id,
         };

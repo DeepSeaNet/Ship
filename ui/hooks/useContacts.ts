@@ -86,9 +86,9 @@ export function useContacts() {
 		}
 	}, []);
 
-	const getUserInfo = useCallback(async (userId: string | number) => {
+	const getUserInfo = useCallback(async (userId: string) => {
 		try {
-			const result = await getUserInfoCommand({ userId: Number(userId) });
+			const result = await getUserInfoCommand({ userId });
 			if (!result) {
 				console.error(`Failed to fetch user info for ${userId}`);
 				return null;
@@ -107,7 +107,7 @@ export function useContacts() {
 	}, []);
 
 	const addContact = useCallback(
-		async (userId: string | number) => {
+		async (userId: string) => {
 			try {
 				const info = await getUserInfo(userId);
 				if (info) {

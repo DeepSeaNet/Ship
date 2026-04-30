@@ -5,6 +5,8 @@ use mls_rs_codec::{MlsDecode, MlsEncode, MlsSize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use crate::api::account::UserId;
+
 // DateTime структура
 #[derive(Debug, Clone, Serialize, Deserialize, MlsSize, MlsDecode, MlsEncode, Copy)]
 pub struct DateTime {
@@ -168,13 +170,13 @@ pub struct GroupConfig {
     pub max_members: Option<u32>,
 
     // Member management
-    pub creator_id: u64, // Например, идентификатор владельца группы
-    pub members: Vec<u64>,
-    pub admins: Vec<u64>,
-    pub permissions: HashMap<u64, Permissions>, // member_id -> Permissions
+    pub creator_id: UserId, // Например, идентификатор владельца группы
+    pub members: Vec<UserId>,
+    pub admins: Vec<UserId>,
+    pub permissions: HashMap<UserId, Permissions>, // member_id -> Permissions
     pub default_permissions: Permissions,
-    pub banned: Vec<u64>,              // Список ID забаненных пользователей
-    pub muted: HashMap<u64, DateTime>, // member_id -> mute_until
+    pub banned: Vec<UserId>, // Список ID забаненных пользователей
+    pub muted: HashMap<UserId, DateTime>, // member_id -> mute_until
 
     // Content and media
     pub description: Option<String>, // Опциональное описание
@@ -196,7 +198,7 @@ pub struct GroupConfig {
 }
 
 impl GroupConfig {
-    pub fn new(group_id: u64, group_name: String, creator_id: u64) -> Self {
+    pub fn new(group_id: u64, group_name: String, creator_id: UserId) -> Self {
         let permissions = Permissions::admin();
         let mut permissions_map = HashMap::new();
         permissions_map.insert(creator_id, permissions);
@@ -236,38 +238,38 @@ impl GroupConfig {
         }
     }
 
-    pub fn add_member(&mut self, member_id: u64) {
+    pub fn add_member(&mut self, member_id: UserId) {
         self.members.push(member_id);
         self.permissions
             .insert(member_id, self.default_permissions.clone());
         self.update_timestamp();
     }
 
-    pub fn remove_member(&mut self, member_id: u64) {
+    pub fn remove_member(&mut self, member_id: UserId) {
         self.members
             .remove(self.members.iter().position(|id| *id == member_id).unwrap());
         self.permissions.remove(&member_id);
         self.update_timestamp();
     }
 
-    pub fn add_admin(&mut self, admin_id: u64) {
+    pub fn add_admin(&mut self, admin_id: UserId) {
         self.admins.push(admin_id);
         self.permissions.insert(admin_id, Permissions::admin());
         self.update_timestamp();
     }
 
-    pub fn remove_admin(&mut self, admin_id: u64) {
+    pub fn remove_admin(&mut self, admin_id: UserId) {
         self.admins
             .remove(self.admins.iter().position(|id| *id == admin_id).unwrap());
         self.update_timestamp();
     }
 
-    pub fn add_banned(&mut self, banned_id: u64) {
+    pub fn add_banned(&mut self, banned_id: UserId) {
         self.banned.push(banned_id);
         self.update_timestamp();
     }
 
-    pub fn add_muted(&mut self, muted_id: u64, muted_until: DateTime) {
+    pub fn add_muted(&mut self, muted_id: UserId, muted_until: DateTime) {
         self.muted.insert(muted_id, muted_until);
         self.update_timestamp();
     }
@@ -327,16 +329,16 @@ impl GroupConfig {
         self.update_timestamp();
     }
 
-    pub fn set_permissions(&mut self, member_id: u64, permissions: Permissions) {
+    pub fn set_permissions(&mut self, member_id: UserId, permissions: Permissions) {
         self.permissions.insert(member_id, permissions);
         self.update_timestamp();
     }
 
-    pub fn is_admin(&self, user_id: u64) -> bool {
+    pub fn is_admin(&self, user_id: UserId) -> bool {
         self.admins.contains(&user_id)
     }
 
-    pub fn get_regular_members(&self) -> Vec<u64> {
+    pub fn get_regular_members(&self) -> Vec<UserId> {
         self.permissions
             .iter()
             .filter(|(_, permissions)| *permissions == &self.default_permissions)
@@ -355,23 +357,23 @@ impl GroupConfig {
         self.update_timestamp();
     }
 
-    pub fn is_member(&self, user_id: u64) -> bool {
+    pub fn is_member(&self, user_id: UserId) -> bool {
         self.members.contains(&user_id)
     }
 
-    pub fn is_banned(&self, user_id: u64) -> bool {
+    pub fn is_banned(&self, user_id: UserId) -> bool {
         self.banned.contains(&user_id)
     }
 
-    pub fn is_muted(&self, user_id: u64) -> bool {
+    pub fn is_muted(&self, user_id: UserId) -> bool {
         self.muted.contains_key(&user_id)
     }
 
-    pub fn get_member_permissions(&self, user_id: u64) -> Option<&Permissions> {
+    pub fn get_member_permissions(&self, user_id: UserId) -> Option<&Permissions> {
         self.permissions.get(&user_id)
     }
 
-    pub fn has_permission(&self, user_id: u64, permission: &str) -> bool {
+    pub fn has_permission(&self, user_id: UserId, permission: &str) -> bool {
         if self.is_admin(user_id) {
             return true;
         }
@@ -383,7 +385,7 @@ impl GroupConfig {
         }
     }
 
-    pub fn set_member_role(&mut self, user_id: u64, role: &str) {
+    pub fn set_member_role(&mut self, user_id: UserId, role: &str) {
         let permissions = match role {
             "admin" => Permissions::admin(),
             "moderator" => Permissions::moderator(),
@@ -411,9 +413,9 @@ impl GroupConfig {
         self.update_timestamp();
     }
 
-    pub fn update_permissions(&mut self, user_id: u64, f: impl FnOnce(&mut Permissions)) {
+    pub fn update_permissions(&mut self, user_id: UserId, f: impl FnOnce(&mut Permissions)) {
         if let Some(perms) = self.permissions.get_mut(&user_id) {
-            log::info!("Updating permissions for user: {}", user_id);
+            log::info!("Updating permissions for user: {:#?}", user_id);
             f(perms);
         }
         log::info!("Permissions after update: {:#?}", self.permissions);
@@ -451,7 +453,7 @@ impl GroupConfig {
     pub fn validate_changes(
         &self,
         new_config: &GroupConfig,
-        user_id: u64,
+        user_id: UserId,
     ) -> ConfigValidationResult {
         let mut changes = Vec::new();
         let mut valid = true;

@@ -28,12 +28,12 @@ use tokio::{
     sync::RwLock,
 };
 
-use crate::api::voice::connection::voice_connection::Backend;
 use crate::api::voice::types::VoiceUserData;
 use crate::api::voice::types::ratchet_key::GroupRatchetManager;
 use crate::api::voice::types::ratchet_key::RatchetConfig;
 use crate::api::voice::types::{EXPORT_SECRET_LABEL, EXPORT_SECRET_LENGTH, VoiceChannel, VoiceId};
 use crate::api::voice::voice_handler::VoiceHandler;
+use crate::api::{account::UserId, voice::connection::voice_connection::Backend};
 use mls_rs_crypto_awslc::AwsLcCryptoProvider;
 use std::path::PathBuf;
 use tauri::AppHandle;
@@ -59,18 +59,18 @@ pub struct Voice {
     signer: SignatureSecretKey,
     backend: Backend,
     client: MlsClient,
-    user_id: u64,
+    user_id: UserId,
     app_handle: Option<AppHandle>,
 }
 
 impl Voice {
-    pub async fn new(user_id: u64, app_handle: Option<AppHandle>) -> VoiceResult<Self> {
+    pub async fn new(user_id: UserId, app_handle: Option<AppHandle>) -> VoiceResult<Self> {
         let crypto_provider = AwsLcCryptoProvider::default();
         let cipher_suite = crypto_provider
             .cipher_suite_provider(CIPHERSUITE)
             .ok_or_else(|| VoiceError::CipherSuiteNotSupported)?;
         let (secret, public) = cipher_suite.signature_key_generate()?;
-        let basic_identity = BasicCredential::new(user_id.to_le_bytes().to_vec());
+        let basic_identity = BasicCredential::new(user_id.to_bytes());
         let signing_identity = SigningIdentity::new(basic_identity.into_credential(), public);
 
         let client = ClientBuilder::new()
@@ -95,7 +95,7 @@ impl Voice {
     }
 
     pub async fn save(&self) {
-        let output_path = Voice::get_file_path(self.user_id);
+        let output_path = Voice::get_file_path(&self.user_id);
 
         let data = VoiceUserData {
             identity: self.identity.clone(),
@@ -122,8 +122,8 @@ impl Voice {
         }
     }
 
-    pub async fn load(user_id: u64, app_handle: Option<AppHandle>) -> VoiceResult<Self> {
-        let input_path = Voice::get_file_path(user_id);
+    pub async fn load(user_id: UserId, app_handle: Option<AppHandle>) -> VoiceResult<Self> {
+        let input_path = Voice::get_file_path(&user_id);
         let mut file = File::open(input_path).await.map_err(VoiceError::Io)?;
         let mut file_bytes = Vec::new();
         file.read_to_end(&mut file_bytes)
@@ -153,7 +153,7 @@ impl Voice {
         Ok(voice_user)
     }
 
-    fn get_file_path(user_id: u64) -> PathBuf {
+    fn get_file_path(user_id: &UserId) -> PathBuf {
         #[cfg(not(target_os = "ios"))]
         {
             let mut path = dirs::home_dir().expect("Could not find home directory");
@@ -192,7 +192,7 @@ impl Voice {
 
         let secret = group.export_secret(
             EXPORT_SECRET_LABEL.as_bytes(),
-            self.user_id.to_le_bytes().as_slice(),
+            self.user_id.to_bytes().as_slice(),
             EXPORT_SECRET_LENGTH,
         )?;
         let secret_array: [u8; EXPORT_SECRET_LENGTH] = secret.as_bytes().try_into()?;
@@ -251,7 +251,7 @@ impl Voice {
         let secret = group
             .export_secret(
                 EXPORT_SECRET_LABEL.as_bytes(),
-                self.user_id.to_le_bytes().as_slice(),
+                self.user_id.to_bytes().as_slice(),
                 EXPORT_SECRET_LENGTH,
             )
             .map_err(VoiceError::Mls)?;

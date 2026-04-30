@@ -6,12 +6,12 @@ use mls_rs_core::{
     identity::{Credential, CredentialType, CustomCredential, MlsCredential},
 };
 
+use crate::api::account::UserId;
 use crate::api::device::types::{config::CREDENTIAL_V1, errors::GroupError};
 
 #[derive(Debug, Clone, MlsSize, MlsDecode, MlsEncode)]
 pub struct AccountId {
-    pub user_id: u64,
-    pub public_address: String,
+    pub user_id: UserId,
 }
 
 /// Credential for a user (contains user-level information)
@@ -26,7 +26,7 @@ pub struct AccountCredential {
 
 #[derive(Debug, Clone, MlsSize, MlsDecode, MlsEncode)]
 pub struct DeviceId {
-    pub user_id: u64,
+    pub user_id: UserId,
     pub device_id: String,
 }
 
@@ -40,7 +40,7 @@ pub struct DeviceCredential {
 /// Structure used for signing member credentials
 #[derive(MlsSize, MlsEncode)]
 pub struct DeviceCredentialTBS<'a> {
-    pub user_id: u64,
+    pub user_id: UserId,
     pub user_public_key: &'a SignaturePublicKey,
     pub public_key: &'a SignaturePublicKey,
 }

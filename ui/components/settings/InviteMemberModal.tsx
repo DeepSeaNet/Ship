@@ -1,6 +1,6 @@
 "use client";
 
-import { Magnifier, PersonPlus } from "@gravity-ui/icons";
+import { Check, Copy, Magnifier, PersonPlus, Xmark } from "@gravity-ui/icons";
 import {
 	Avatar,
 	Button,
@@ -21,6 +21,17 @@ interface InviteMemberModalProps {
 	group: Chat;
 }
 
+const formatUserId = (id: string): string => {
+	if (id.length === 64) {
+		return `${id.slice(0, 6)}...${id.slice(-6)}`;
+	}
+	return id;
+};
+
+const isValidUserId = (id: string): boolean => {
+	return /^[a-f0-9]{64}$/i.test(id);
+};
+
 export function InviteMemberModal({
 	isOpen,
 	onOpenChange,
@@ -35,55 +46,75 @@ export function InviteMemberModal({
 	const [invitingUserId, setInvitingUserId] = useState("");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [isInviting, setIsInviting] = useState(false);
+	const [copiedId, setCopiedId] = useState<string | null>(null);
 
-	const handleInvite = async (userId?: number) => {
-		const idToInvite = userId || parseInt(invitingUserId, 10);
-		if (!idToInvite || Number.isNaN(idToInvite)) return;
+	const handleInvite = async (userId?: string) => {
+		const idToInvite = userId || invitingUserId;
+		if (!idToInvite) return;
+
+		if (inviteMethod === "id" && !isValidUserId(idToInvite)) {
+			toast("Invalid User ID format", { variant: "danger" });
+			return;
+		}
 
 		setIsInviting(true);
 		const success = await inviteUserToGroup(group.id, idToInvite);
 		setIsInviting(false);
 		if (success) {
 			setInvitingUserId("");
-			toast(`User ${idToInvite} invited`, { variant: "success" });
+			toast("User invited successfully", { variant: "success" });
 			if (inviteMethod === "id") {
 				onOpenChange(false);
 			}
 		}
 	};
 
+	const handleCopyId = async (id: string) => {
+		await navigator.clipboard.writeText(id);
+		setCopiedId(id);
+		setTimeout(() => setCopiedId(null), 2000);
+	};
+
+	const handlePaste = async () => {
+		const text = await navigator.clipboard.readText();
+		setInvitingUserId(text.trim());
+	};
+
 	const filteredContacts = useMemo(() => {
 		return Object.values(contacts).filter(
 			(c) =>
 				c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				c.id.toString().includes(searchQuery),
+				c.id.toLowerCase().includes(searchQuery.toLowerCase()),
 		);
 	}, [contacts, searchQuery]);
+
+	const isIdValid = isValidUserId(invitingUserId);
 
 	return (
 		<Modal isOpen={isOpen} onOpenChange={onOpenChange}>
 			<Modal.Backdrop>
 				<Modal.Container>
-					<Modal.Dialog className="w-[450px] h-[600px] flex flex-col bg-overlay rounded-3xl overflow-hidden border border-border shadow-2xl">
-						<Modal.CloseTrigger className="right-4 top-4" />
-						<Modal.Header className="pt-8 px-8 pb-4 border-none">
-							<Modal.Heading className="flex items-center gap-3 text-2xl font-bold">
-								<div className="w-10 h-10 rounded-2xl bg-accent/10 flex items-center justify-center">
-									<PersonPlus className="w-6 h-6 text-accent" />
-								</div>
-								Invite Members
-							</Modal.Heading>
-							<p className="text-sm text-muted mt-2">
-								Add people to {group.name}
-							</p>
+					<Modal.Dialog className="sm:max-w-[420px]">
+						<Modal.CloseTrigger />
+						<Modal.Header className="px-1 pt-2">
+							<Modal.Icon className="bg-accent/10 text-accent">
+								<PersonPlus className="size-5" />
+							</Modal.Icon>
+							<Modal.Heading>Invite Members</Modal.Heading>
 						</Modal.Header>
-						<Modal.Body className="flex-1 px-8 py-4 space-y-6 overflow-hidden flex flex-col">
-							<div className="flex bg-surface/40 p-1 rounded-xl w-full border border-border/10 shrink-0">
+
+						<Modal.Body className="space-y-3 px-1">
+							{/* Tab switcher */}
+							<div className="flex bg-surface/40 p-0.5 rounded-lg w-full border border-border/10">
 								<Button
 									size="sm"
 									variant={inviteMethod === "contacts" ? "secondary" : "ghost"}
 									onPress={() => setInviteMethod("contacts")}
-									className={`flex-1 h-10 rounded-lg transition-all ${inviteMethod === "contacts" ? "shadow-sm font-semibold" : "text-muted hover:text-foreground"}`}
+									className={`flex-1 h-8 rounded-md text-xs transition-all ${
+										inviteMethod === "contacts"
+											? "shadow-sm font-semibold"
+											: "text-muted hover:text-foreground"
+									}`}
 								>
 									My Contacts
 								</Button>
@@ -91,105 +122,151 @@ export function InviteMemberModal({
 									size="sm"
 									variant={inviteMethod === "id" ? "secondary" : "ghost"}
 									onPress={() => setInviteMethod("id")}
-									className={`flex-1 h-10 rounded-lg transition-all ${inviteMethod === "id" ? "shadow-sm font-semibold" : "text-muted hover:text-foreground"}`}
+									className={`flex-1 h-8 rounded-md text-xs transition-all ${
+										inviteMethod === "id"
+											? "shadow-sm font-semibold"
+											: "text-muted hover:text-foreground"
+									}`}
 								>
-									Invite by ID
+									By ID
 								</Button>
 							</div>
 
-							{inviteMethod === "id" ? (
-								<div className="space-y-4 pt-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-									<TextField className="w-full">
-										<Label className="text-sm font-medium mb-1.5 ml-1">
-											Member ID
-										</Label>
-										<Input
-											placeholder="Enter 12-digit user ID"
-											value={invitingUserId}
-											onChange={(e) => setInvitingUserId(e.target.value)}
-											className="h-12 bg-surface/30 border-border/50 focus:border-accent text-lg"
-										/>
-									</TextField>
-									<div className="pt-4">
-										<Button
-											variant="primary"
-											className="w-full h-12 text-base font-semibold rounded-xl shadow-lg shadow-accent/20"
-											onPress={() => handleInvite()}
-											isPending={isInviting}
-											isDisabled={!invitingUserId}
-										>
-											Send Invite
-										</Button>
-									</div>
-								</div>
-							) : (
-								<div className="flex flex-col flex-1 min-h-0 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-									<TextField className="w-full shrink-0">
-										<div className="relative">
-											<Magnifier className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
-											<Input
-												placeholder="Name or ID..."
-												value={searchQuery}
-												onChange={(e) => setSearchQuery(e.target.value)}
-												size={32.5}
-												className="h-11 pl-10 bg-surface/30 border-border/50 rounded-xl"
-											/>
-										</div>
-									</TextField>
+							{/* Invite by ID */}
+						{/* Invite by ID */}
+              {inviteMethod === "id" ? (
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-200 w-full">
+                  <TextField className="w-full">
+                    <Label className="mb-1.5 text-sm font-medium">Member ID</Label>
+                    <div className="relative w-full">
+                      <Input
+                        placeholder="64-character hex string"
+                        value={invitingUserId}
+                        onChange={(e) =>
+                          setInvitingUserId(e.target.value.trim())
+                        }
+                        variant="secondary"
+                        // h-12 увеличивает высоту, w-full растягивает
+                        className={`w-full h-12 font-mono text-sm pr-20 ${
+                          invitingUserId
+                            ? isIdValid
+                              ? "border-success/50"
+                              : "border-danger/50"
+                            : ""
+                        }`}
+                      />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onPress={handlePaste}
+                        // Центрируем кнопку Paste в более высоком поле
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 px-3 text-xs text-accent bg-background/50 hover:bg-background shadow-sm"
+                      >
+                        Paste
+                      </Button>
+                    </div>
+                    {invitingUserId && !isIdValid && (
+                      <p className="text-xs text-danger mt-1.5 ml-1">
+                        Must be 64 hexadecimal characters
+                      </p>
+                    )}
+                  </TextField>
+                </div>
+              ) : (
+                /* Contact list */
+                <div className="flex flex-col min-h-0 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200 w-full">
+                  <TextField className="w-full">
+                    <div className="relative w-full">
+                      <Magnifier className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
+                      <Input
+                        placeholder="Search contacts..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        variant="secondary"
+                        // Увеличенная высота h-12 и отступ под иконку
+                        className="w-full h-12 pl-10 pr-10 text-sm"
+                      />
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchQuery("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center hover:bg-surface rounded-full transition-colors"
+                        >
+                          <Xmark className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </TextField>
 
-									<div className="flex-1 overflow-y-auto space-y-1 -mx-2 px-2 custom-scrollbar scrollbar-hide">
+									<div className="max-h-[260px] overflow-y-auto space-y-0.5 -mx-1 px-1">
 										{filteredContacts.length === 0 ? (
-											<div className="h-full flex flex-col items-center justify-center py-10 text-center px-6">
-												<div className="w-16 h-16 rounded-full bg-surface/50 mb-4 flex items-center justify-center">
-													<Magnifier className="w-8 h-8 text-muted/30" />
-												</div>
-												<p className="font-semibold text-muted">No one found</p>
-												<p className="text-xs text-muted/60 mt-1">
-													Try a different name or invite by their full ID
-													directly
+											<div className="flex flex-col items-center justify-center py-8 text-center">
+												<Magnifier className="w-7 h-7 text-muted/30 mb-2" />
+												<p className="text-sm font-medium text-muted">
+													{searchQuery ? "No matches found" : "No contacts"}
+												</p>
+												<p className="text-xs text-muted/60 mt-0.5">
+													{searchQuery
+														? "Try a different search"
+														: "Add contacts to invite them"}
 												</p>
 											</div>
 										) : (
 											filteredContacts.map((contact) => {
-												const isMember = group.group_config?.members?.includes(
-													contact.id,
-												);
+												const isMember =
+													group.group_config?.members?.includes(contact.id);
+												const isCurrentlyCopied = copiedId === contact.id;
+
 												return (
 													<div
 														key={contact.id}
-														className="flex items-center justify-between p-2.5 rounded-2xl hover:bg-surface/50 transition-all group/item"
+														className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-surface/50 transition-colors group/item"
 													>
-														<div className="flex items-center gap-3">
-															<Avatar
-																size="md"
-																className="ring-2 ring-transparent group-hover/item:ring-accent/20 transition-all"
-															>
+														<div className="flex items-center gap-2.5 flex-1 min-w-0">
+															<Avatar size="sm">
 																{contact.avatar && (
 																	<Avatar.Image src={contact.avatar} />
 																)}
-																<Avatar.Fallback className="bg-gradient-to-br from-accent/20 to-accent/5 text-accent font-bold">
+																<Avatar.Fallback className="bg-accent/20 text-accent font-bold text-xs">
 																	{contact.name.slice(0, 1).toUpperCase()}
 																</Avatar.Fallback>
 															</Avatar>
-															<div>
-																<p className="text-sm font-bold leading-tight">
+															<div className="flex-1 min-w-0">
+																<p className="text-sm font-medium leading-tight truncate">
 																	{contact.name}
 																</p>
-																<p className="text-[11px] text-muted font-mono mt-0.5 opacity-60 group-hover/item:opacity-100 transition-opacity">
-																	#{contact.id}
-																</p>
+																<div className="flex items-center gap-1 mt-0.5">
+																	<p className="text-[10px] text-muted font-mono truncate">
+																		{formatUserId(contact.id)}
+																	</p>
+																	<button
+																		type="button"
+																		onClick={() => handleCopyId(contact.id)}
+																		className="opacity-0 group-hover/item:opacity-100 transition-opacity"
+																	>
+																		{isCurrentlyCopied ? (
+																			<Check className="w-2.5 h-2.5 text-success" />
+																		) : (
+																			<Copy className="w-2.5 h-2.5 text-muted hover:text-accent" />
+																		)}
+																	</button>
+																</div>
 															</div>
 														</div>
 														<Button
 															size="sm"
-															variant={isMember ? "ghost" : "ghost"}
-															className={`h-9 px-4 text-xs font-bold rounded-xl transition-all ${isMember ? "text-muted opacity-50 cursor-default" : "text-accent hover:bg-accent/10 hover:scale-105 active:scale-95"}`}
+															variant="ghost"
+															className={`h-7 px-2.5 text-xs font-medium shrink-0 ${
+																isMember
+																	? "text-muted/50 cursor-default"
+																	: "text-accent hover:bg-accent/10"
+															}`}
 															onPress={() =>
-																!isMember && handleInvite(Number(contact.id))
+																!isMember && handleInvite(contact.id)
 															}
 															isDisabled={isMember}
 														>
-															{isMember ? "Already in" : "Invite"}
+															{isMember ? "Member" : "Invite"}
 														</Button>
 													</div>
 												);
@@ -199,14 +276,28 @@ export function InviteMemberModal({
 								</div>
 							)}
 						</Modal.Body>
-						<Modal.Footer className="px-8 pb-8 pt-2 border-none">
-							<Button
-								variant="ghost"
-								className="w-full h-11 text-muted hover:text-foreground hover:bg-surface/50 rounded-xl font-medium"
-								onPress={() => onOpenChange(false)}
-							>
-								Done
-							</Button>
+
+						<Modal.Footer className="px-8 pb-8">
+							<div className="flex w-full gap-2">
+								<Button
+									variant="secondary"
+									onPress={() => onOpenChange(false)}
+									className="flex-1"
+								>
+									Cancel
+								</Button>
+								{inviteMethod === "id" && (
+									<Button
+										variant="primary"
+										onPress={() => handleInvite()}
+										isPending={isInviting}
+										isDisabled={!isIdValid}
+										className="flex-1"
+									>
+										Send Invite
+									</Button>
+								)}
+							</div>
 						</Modal.Footer>
 					</Modal.Dialog>
 				</Modal.Container>

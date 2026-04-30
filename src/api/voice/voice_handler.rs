@@ -8,6 +8,7 @@ use tauri::AppHandle;
 use tokio::sync::RwLock;
 use tokio::sync::mpsc;
 
+use crate::api::account::UserId;
 use crate::api::voice::connection::echolocator;
 use crate::api::voice::connection::voice_connection::Backend;
 use crate::api::voice::types::VoiceChannel;
@@ -35,7 +36,7 @@ enum Event {
 /// 3. `Backend` is used only for outbound sends (`send_client_commit`, `send_commit_ack`, …).
 pub struct VoiceHandler {
     voice: Arc<RwLock<Option<VoiceChannel>>>,
-    user_id: u64,
+    user_id: UserId,
     identity: SigningIdentity,
     backend: Backend,
     app_handle: Option<AppHandle>,
@@ -44,7 +45,7 @@ pub struct VoiceHandler {
 impl VoiceHandler {
     pub fn new(
         voice: Arc<RwLock<Option<VoiceChannel>>>,
-        user_id: u64,
+        user_id: UserId,
         identity: SigningIdentity,
         backend: Backend,
         app_handle: Option<AppHandle>,
@@ -87,12 +88,12 @@ impl VoiceHandler {
             match response {
                 VoiceResponse::VoiceData(d) => {
                     log::debug!(
-                        "Received voice data: user_id={}, voice_id={}, size={} bytes",
+                        "Received voice data: user_id={:?}, voice_id={}, size={} bytes",
                         d.user_id,
                         d.voice_id,
                         d.data.len()
                     );
-                    self.process_voice_data(d.user_id, d.voice_id.clone(), d.data.clone())
+                    self.process_voice_data(UserId::from_bytes(&d.user_id), d.voice_id.clone(), d.data.clone())
                         .await;
                     return; // voice data is not re-emitted as a signaling message
                 }
@@ -173,7 +174,7 @@ impl VoiceHandler {
 
     // ── Voice data ────────────────────────────────────────────────────────────
 
-    async fn process_voice_data(&self, user_id: u64, voice_id: String, data: Vec<u8>) {
+    async fn process_voice_data(&self, user_id: UserId, voice_id: String, data: Vec<u8>) {
         if data.is_empty() {
             return;
         }
@@ -446,9 +447,9 @@ impl VoiceHandler {
         self.backend.send_voice_message(voice_id, message).await
     }
 
-    async fn find_member_index(&self, name: u64, group: &VoiceChannel) -> VoiceResult<Member> {
+    async fn find_member_index(&self, name: UserId, group: &VoiceChannel) -> VoiceResult<Member> {
         let mls_group = group.mls_group.read().await;
-        let member_identity = BasicCredential::new(name.to_le_bytes().to_vec());
+        let member_identity = BasicCredential::new(name.to_bytes());
         mls_group
             .member_with_identity(&member_identity.identifier)
             .map_err(VoiceError::Mls)

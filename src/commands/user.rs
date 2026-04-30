@@ -1,5 +1,5 @@
 use crate::api::{
-    account::Account,
+    account::{Account, UserId},
     status::{
         Avatar, DisplayUserInfo, DisplayUserStatus, Status, UpdateUserAvatarResponse, UserManager,
         get_default_db_path,
@@ -14,7 +14,7 @@ type SafeAccount = Arc<Account>;
 #[tauri::command]
 pub async fn get_user_status(
     user_status: tauri::State<'_, SafeUserStatus>,
-    user_id: i64,
+    user_id: UserId,
 ) -> Result<DisplayUserStatus, String> {
     log::debug!("Get user status called");
 
@@ -35,10 +35,10 @@ pub async fn get_user_status(
 #[tauri::command]
 pub async fn get_user_info(
     user_status: tauri::State<'_, SafeUserStatus>,
-    user_id: i64,
+    user_id: String,
 ) -> Result<DisplayUserInfo, String> {
     log::debug!("Get user info called");
-
+    let user_id: UserId = user_id.parse()?;
     let mut user_status = user_status.write().await;
 
     if let Some(user_status) = user_status.as_mut() {
@@ -135,9 +135,14 @@ pub async fn send_typing_status(
     user_status: tauri::State<'_, SafeUserStatus>,
     chat_id: String,
     status: String,
-    subscribers: Vec<i64>,
+    subscribers: Vec<String>,
 ) -> Result<(), String> {
     log::debug!("Subscribe to users called");
+
+    let subscribers = subscribers
+        .into_iter()
+        .map(|id| id.parse().unwrap())
+        .collect();
 
     let mut user_status = user_status.write().await;
 
@@ -157,12 +162,13 @@ pub async fn send_typing_status(
 pub async fn subscribe_to_users(
     user_status: tauri::State<'_, SafeUserStatus>,
     account: tauri::State<'_, SafeAccount>,
-    user_ids: Vec<i64>,
+    user_ids: Vec<String>,
 ) -> Result<(), String> {
     log::debug!("Subscribe to users called");
     let user_ids = user_ids
         .into_iter()
-        .filter(|&id| id != account.user_id as i64)
+        .map(|id| id.parse().unwrap())
+        .filter(|&id| id != account.user_id)
         .collect();
     let mut user_status = user_status.write().await;
 
@@ -181,8 +187,9 @@ pub async fn subscribe_to_users(
 #[tauri::command]
 pub async fn unsubscribe_from_users(
     user_status: tauri::State<'_, SafeUserStatus>,
-    user_ids: Vec<i64>,
+    user_ids: Vec<String>,
 ) -> Result<(), String> {
+    let user_ids = user_ids.into_iter().map(|id| id.parse().unwrap()).collect();
     let mut user_status = user_status.write().await;
 
     if let Some(user_status) = user_status.as_mut() {
@@ -212,7 +219,7 @@ pub async fn get_contacts(
 
         Ok(contacts)
     } else {
-        let user_manager = UserManager::new(get_default_db_path(account.user_id))
+        let user_manager = UserManager::new(get_default_db_path(&account.user_id))
             .await
             .map_err(|e| e.to_string())?;
         let contacts = user_manager

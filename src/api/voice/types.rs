@@ -4,7 +4,10 @@ use mls_rs_codec::{MlsDecode, MlsEncode, MlsSize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::api::voice::{MlsGroup, types::ratchet_key::GroupRatchetManager};
+use crate::api::{
+    account::UserId,
+    voice::{MlsGroup, types::ratchet_key::GroupRatchetManager},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct VoiceId(Vec<u8>);
@@ -35,5 +38,5 @@ pub const EXPORT_SECRET_LENGTH: usize = 16;
 pub struct VoiceUserData {
     pub identity: SigningIdentity,
     pub signer: SignatureSecretKey,
-    pub user_id: u64,
+    pub user_id: UserId,
 }

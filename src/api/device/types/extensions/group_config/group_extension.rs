@@ -33,15 +33,17 @@ impl MlsCustomProposal for UpdateGroupConfigProposal {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::account::UserId;
     use crate::api::device::types::extensions::group_config::GroupConfig;
     use mls_rs_core::extension::ExtensionList;
 
     #[test]
     fn test_group_config_extension() {
-        let mut config = GroupConfig::new(1, "Test Group".to_string(), 123);
-        let member_id = 1_u64;
+        let creator_id = UserId::from_bytes(&[0u8; 32]);
+        let mut config = GroupConfig::new(1, "Test Group".to_string(), creator_id);
+        let member_id = UserId::from_bytes(&[1u8; 32]);
         config.add_member(member_id);
-        let member_id_2 = 2_u64;
+        let member_id_2 = UserId::from_bytes(&[2u8; 32]);
         config.add_member(member_id_2);
         let extension = GroupConfigExtension { config };
         let mut extensions = ExtensionList::new();
@@ -52,7 +54,7 @@ mod tests {
 
         let retrieved_config = retrieved.unwrap().config;
         assert_eq!(retrieved_config.name, "Test Group");
-        assert_eq!(retrieved_config.creator_id, 123);
+        assert_eq!(retrieved_config.creator_id, creator_id);
         let member_config = retrieved_config.permissions.get(&member_id);
         println!("{:?}", retrieved_config);
         assert!(member_config.is_some());

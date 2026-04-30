@@ -3,10 +3,10 @@ mod account_service;
 mod error;
 mod types;
 
-pub use error::{AccountError, AccountResult};
-
 pub use account_db::{AccountManager, get_default_db_path};
+pub use error::{AccountError, AccountResult};
 pub use types::ExportedAccount;
+pub use types::UserId;
 
 use mls_rs::CipherSuiteProvider;
 use mls_rs_codec::{MlsDecode, MlsEncode, MlsSize};
@@ -18,9 +18,8 @@ use crate::api::device::types::{
 
 #[derive(Clone, MlsSize, MlsEncode, MlsDecode)]
 pub struct Account {
-    pub user_id: u64,
+    pub user_id: UserId,
     pub username: String,
-    pub public_address: String,
     pub server_address: String,
     pub server_public_key: Option<Vec<u8>>,
     pub avatar_url: Option<String>,

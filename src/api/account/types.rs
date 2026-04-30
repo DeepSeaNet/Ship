@@ -4,8 +4,75 @@ use aes_gcm::{
     aead::{Aead, AeadCore, KeyInit},
 };
 use base64::{Engine as _, engine::general_purpose};
+use mls_rs::crypto::SignaturePublicKey;
 use mls_rs_codec::{MlsDecode, MlsEncode, MlsSize};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::str::FromStr;
+
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, Hash, MlsSize, MlsEncode, MlsDecode, PartialOrd, Ord,
+)]
+pub struct UserId([u8; 32]);
+impl UserId {
+    pub fn from_pubkey(pk: SignaturePublicKey) -> Self {
+        let hash = blake3::hash(pk.as_bytes());
+        UserId(*hash.as_bytes())
+    }
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        let inner: [u8; 32] = bytes.try_into().expect("UserId must be 32 bytes");
+        UserId(inner)
+    }
+    pub fn to_bytes(self) -> Vec<u8> {
+        self.0.to_vec()
+    }
+    pub fn as_array(&self) -> [u8; 32] {
+        self.0
+    }
+}
+
+impl FromStr for UserId {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let bytes = hex::decode(s).map_err(|e| e.to_string())?;
+        let inner: [u8; 32] = bytes
+            .try_into()
+            .map_err(|_| "Invalid UserId length: expected 32 bytes".to_string())?;
+        Ok(UserId(inner))
+    }
+}
+
+impl Display for UserId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}", hex::encode(self.0))
+    }
+}
+impl Serialize for UserId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&hex::encode(self.0))
+    }
+}
+
+impl<'de> Deserialize<'de> for UserId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let vec = hex::decode(s).map_err(serde::de::Error::custom)?;
+
+        let mut inner = [0u8; 32];
+        if vec.len() != 32 {
+            return Err(serde::de::Error::custom("Invalid UserId length"));
+        }
+        inner.copy_from_slice(&vec);
+        Ok(UserId(inner))
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct ExportedAccount {

@@ -1,3 +1,4 @@
+use crate::api::account::UserId;
 use crate::api::device::types::errors::GroupError;
 use crate::api::device::types::group::GroupId;
 use crate::api::device::types::message::{GroupTextMessage, UserGroupMessage};
@@ -15,7 +16,7 @@ type Result<T> = std::result::Result<T, GroupError>;
 #[derive(Clone)]
 pub struct GroupManager {
     pool: SqlitePool,
-    contacts_cache: Cache<i64, Option<Vec<u8>>>,
+    contacts_cache: Cache<UserId, Option<Vec<u8>>>,
     media_exists_cache: Cache<String, bool>,
     media_data_cache: Cache<String, Option<(Vec<u8>, String, i64)>>,
     group_messages_cache: Cache<Vec<u8>, Vec<UserGroupMessage>>,
@@ -70,7 +71,7 @@ impl GroupManager {
             "CREATE TABLE IF NOT EXISTS group_messages (
                 message_id INTEGER PRIMARY KEY,
                 group_id BLOB NOT NULL,
-                sender_id INTEGER NOT NULL,
+                sender_id BLOB NOT NULL,
                 encrypted_content BLOB NOT NULL,
                 media_id TEXT,
                 media_name TEXT,
@@ -86,7 +87,7 @@ impl GroupManager {
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS pending_invitations (
                 id INTEGER PRIMARY KEY,
-                user_id INTEGER NOT NULL,
+                user_id BLOB NOT NULL,
                 group_id BLOB NOT NULL,
                 welcome_data BLOB NOT NULL,
                 invite_time INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
@@ -113,7 +114,7 @@ impl GroupManager {
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS users (
-                user_id INTEGER PRIMARY KEY,
+                user_id BLOB PRIMARY KEY,
                 device_id STRING NOT NULL,
                 device_bytes BLOB NOT NULL,
                 created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
@@ -125,7 +126,7 @@ impl GroupManager {
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS contacts (
-                user_id INTEGER PRIMARY KEY,
+                user_id BLOB PRIMARY KEY,
                 user_credential BLOB NOT NULL,
                 created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
             )",
@@ -192,7 +193,7 @@ impl GroupManager {
     // Save user to database
     pub async fn save_user(
         &self,
-        user_id: i64,
+        user_id: &UserId,
         device_id: &str,
         device_bytes: &[u8],
     ) -> Result<()> {
@@ -201,7 +202,7 @@ impl GroupManager {
                 user_id, device_id, device_bytes, updated_at
             ) VALUES (?1, ?2, ?3, strftime('%s', 'now'))",
         )
-        .bind(user_id)
+        .bind(user_id.to_bytes())
         .bind(device_id)
         .bind(device_bytes)
         .execute(&self.pool)
@@ -210,10 +211,10 @@ impl GroupManager {
         Ok(())
     }
 
-    pub async fn load_user(&self, user_id: i64) -> Result<(String, Vec<u8>)> {
+    pub async fn load_user(&self, user_id: &UserId) -> Result<(String, Vec<u8>)> {
         // Load user from database
         let row = sqlx::query("SELECT device_id, device_bytes FROM users WHERE user_id = ?1")
-            .bind(user_id)
+            .bind(user_id.to_bytes())
             .fetch_optional(&self.pool)
             .await?;
 
@@ -230,13 +231,13 @@ impl GroupManager {
         }
     }
 
-    pub async fn save_contact(&self, user_id: i64, user_credential: &[u8]) -> Result<()> {
+    pub async fn save_contact(&self, user_id: &UserId, user_credential: &[u8]) -> Result<()> {
         sqlx::query(
             "INSERT INTO contacts (
                 user_id, user_credential
             ) VALUES (?1, ?2)",
         )
-        .bind(user_id)
+        .bind(user_id.to_bytes())
         .bind(user_credential)
         .execute(&self.pool)
         .await?;
@@ -244,19 +245,20 @@ impl GroupManager {
         Ok(())
     }
 
-    pub async fn get_contact(&self, user_id: i64) -> Result<Option<Vec<u8>>> {
+    pub async fn get_contact(&self, user_id: &UserId) -> Result<Option<Vec<u8>>> {
+        let uid = *user_id;
         let result = self
             .contacts_cache
-            .get_with(user_id, async move {
+            .get_with(uid, async move {
                 let row = sqlx::query("SELECT user_credential FROM contacts WHERE user_id = ?")
-                    .bind(user_id)
+                    .bind(uid.to_bytes())
                     .fetch_optional(&self.pool)
                     .await
                     .ok()?;
                 row.map(|r| r.get::<Vec<u8>, _>("user_credential"))
             })
             .await;
-        Ok(result.as_ref().cloned())
+        Ok(result)
     }
 
     // Find existing media with timing metrics
@@ -356,7 +358,7 @@ impl GroupManager {
                 )
                 .bind(message.message_id)
                 .bind(group_id)
-                .bind(message.sender_id)
+                .bind(message.sender_id.to_bytes())
                 .bind(message.text.as_bytes())
                 .bind(&media_id)
                 .bind(&message.media_name)
@@ -439,7 +441,8 @@ impl GroupManager {
 
                 for row in rows {
                     let message_id: i64 = row.get("message_id");
-                    let sender_id: i64 = row.get("sender_id");
+                    let sender_id_bytes: Vec<u8> = row.get("sender_id");
+                    let sender_id = UserId::from_bytes(&sender_id_bytes);
                     let encrypted_content: Vec<u8> = row.get("encrypted_content");
                     let timestamp: i64 = row.get("timestamp");
                     let media_name: Option<String> = row.get("media_name");
@@ -602,7 +605,8 @@ impl GroupManager {
                 let row = row?;
 
                 let message_id: i64 = row.get("message_id");
-                let sender_id: i64 = row.get("sender_id");
+                let sender_id_bytes: Vec<u8> = row.get("sender_id");
+                let sender_id = UserId::from_bytes(&sender_id_bytes);
                 let encrypted_content: Vec<u8> = row.get("encrypted_content");
                 let timestamp: i64 = row.get("timestamp");
                 let media_name: Option<String> = row.get("media_name");
@@ -687,14 +691,14 @@ impl GroupManager {
 
     // Get all groups for a user
     #[allow(dead_code)]
-    pub async fn get_user_groups(&self, user_id: i64) -> Result<Vec<Vec<u8>>> {
+    pub async fn get_user_groups(&self, user_id: UserId) -> Result<Vec<Vec<u8>>> {
         let rows = sqlx::query(
             "SELECT DISTINCT group_id
              FROM group_messages
              WHERE sender_id = ?
              ORDER BY MAX(timestamp) DESC",
         )
-        .bind(user_id)
+        .bind(user_id.to_bytes())
         .fetch_all(&self.pool)
         .await?;
 
@@ -740,13 +744,13 @@ impl GroupManager {
 }
 
 // Utility function to get default database path
-pub fn get_default_db_path(account_id: u64) -> std::path::PathBuf {
+pub fn get_default_db_path(user_id: UserId) -> std::path::PathBuf {
     #[cfg(not(target_os = "ios"))]
     {
         let mut path = dirs::home_dir().expect("Could not find home directory");
         path.push(".ship");
         std::fs::create_dir_all(&path).expect("Could not create .ship directory");
-        path.push(format!("group_{}.db", account_id));
+        path.push(format!("group_{}.db", user_id.to_string()));
         path
     }
     #[cfg(target_os = "ios")]
@@ -754,7 +758,7 @@ pub fn get_default_db_path(account_id: u64) -> std::path::PathBuf {
         let mut path = dirs::document_dir().expect("Could not find home directory");
         path.push("ship");
         std::fs::create_dir_all(&path).expect("Could not create .ship directory");
-        path.push(format!("group_{}.db", account_id));
+        path.push(format!("group_{}.db", user_id));
         path
     }
 }

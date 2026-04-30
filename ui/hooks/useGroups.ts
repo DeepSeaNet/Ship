@@ -104,9 +104,10 @@ export function useGroups(currentUser?: User | null) {
 	// --- Actions (Keep these as they are performative, but they should trigger state updates via events or context refresh)
 
 	const inviteUserToGroup = useCallback(
-		async (groupId: string, userId: number) => {
+		async (groupId: string, userId: string) => {
 			try {
-				await invokeInviteUserToGroup({ userId, groupId });
+				const invite_result = await invokeInviteUserToGroup({ userId, groupId });
+				console.log("Invite result:", invite_result);
 				return true;
 			} catch (err) {
 				console.error("Error inviting user:", err);
@@ -118,7 +119,7 @@ export function useGroups(currentUser?: User | null) {
 	);
 
 	const removeUserFromGroup = useCallback(
-		async (groupId: string, userId: number) => {
+		async (groupId: string, userId: string) => {
 			try {
 				await invokeRemoveFromGroup({
 					userId,
@@ -271,7 +272,7 @@ export function useGroups(currentUser?: User | null) {
 	const updateMemberPermissions = useCallback(
 		async (
 			groupId: string,
-			memberId: number,
+			memberId: string,
 			permissions: Partial<Permissions>,
 			role?: string,
 		) => {

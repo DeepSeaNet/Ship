@@ -6,23 +6,26 @@ use mls_rs::{
 };
 use mls_rs_codec::{MlsDecode, MlsEncode};
 
-use crate::api::device::{
-    Device,
-    types::{
-        config::CREDENTIAL_V1,
-        custom_mls::credentials::{AccountCredential, DeviceCredential},
-        errors::GroupError,
-        extensions::{
-            group_config::{
-                GroupConfig,
-                group_extension::{GroupConfigExtension, UpdateGroupConfigProposal},
+use crate::api::{
+    account::UserId,
+    device::{
+        Device,
+        types::{
+            config::CREDENTIAL_V1,
+            custom_mls::credentials::{AccountCredential, DeviceCredential},
+            errors::GroupError,
+            extensions::{
+                group_config::{
+                    GroupConfig,
+                    group_extension::{GroupConfigExtension, UpdateGroupConfigProposal},
+                },
+                roster::{
+                    RosterExtension,
+                    proposals::{AddUserProposal, RemoveUserProposal},
+                },
             },
-            roster::{
-                RosterExtension,
-                proposals::{AddUserProposal, RemoveUserProposal},
-            },
+            group::{GroupId, MlsGroup},
         },
-        group::{GroupId, MlsGroup},
     },
 };
 
@@ -32,7 +35,10 @@ impl Device {
     /// - group: The `MlsGroup` whose roster will be inspected
     /// - Returns: A list of user IDs for all accounts in the roster
     /// - Errors: If the roster extension is missing or cannot be decoded
-    pub(super) fn extract_group_members(&self, group: &MlsGroup) -> Result<Vec<u64>, GroupError> {
+    pub(super) fn extract_group_members(
+        &self,
+        group: &MlsGroup,
+    ) -> Result<Vec<Vec<u8>>, GroupError> {
         let roster = group
             .context()
             .extensions
@@ -42,7 +48,11 @@ impl Device {
             })?
             .ok_or(GroupError::RosterNotFound)?;
 
-        Ok(roster.roster.iter().map(|m| m.account_id.user_id).collect())
+        Ok(roster
+            .roster
+            .iter()
+            .map(|m| m.account_id.user_id.to_bytes())
+            .collect())
     }
 }
 
@@ -186,7 +196,7 @@ impl Device {
     pub(super) async fn build_remove_commit(
         &self,
         group: &mut MlsGroup,
-        user_id: u64,
+        user_id: UserId,
     ) -> Result<CommitOutput, GroupError> {
         let mut config = self.extract_group_config(group)?;
         config.remove_member(user_id);
@@ -255,7 +265,7 @@ impl Device {
     /// to the newly invited user so they can join the group.
     pub(super) async fn send_welcome_message(
         &self,
-        user_id: u64,
+        user_id: UserId,
         commit: &CommitOutput,
     ) -> Result<(), GroupError> {
         log::info!("Sending welcome message to user {:?}", user_id);
