@@ -16,7 +16,7 @@ prost-types = "0.14.3"
 tonic-h3 = { version="0.0.5" , default-features = false, features = ["quinn"] }
 aws-lc-rs = { version = "1.16.2", default-features = false, features = ["prebuilt-nasm", "aws-lc-sys"] } 
 quinn = {version = "0.11.9",  default-features = false, features = ["runtime-tokio", "aws-lc-rs", "rustls-aws-lc-rs"] }
-rustls = { version =  "=0.23.31", features = ["aws_lc_rs"] }
+rustls = { version =  "=0.23.40", features = ["aws_lc_rs"] }
 
 # Serialization / Deserialization
 serde = { version = "1.0.228", features = ["derive"] }
